@@ -10,57 +10,49 @@ This branch has a self-contained case: all the necessary code, binaries, and fil
 ## Code structure:
 
     .
-    ├── code                          # Contains source code, compiled code, binariy files, and geometry file
-    │   ├── bin                       # Contains all binary files
-    │   │   ├── dns                   # Main executable - runs DNS
-    │   │   ├── geometry              # Contains geometry generator and geometry file
-    │   │   │   ├── Geom              # Compiled geometry generator
-    │   │   │   └── geometry          # Geometry file
-    │   │   ├── grid_size.mod         # Binary module for grid size data
-    │   │   ├── jet_data.mod          # Binary module for jet data
-    │   │   ├── snap_data.mod         # Binary module for snapshot data
-    │   │   └── tecplot               # Contains preplot tool
-    │   │       ├── preplot           # Preplot tool: converts ascii data to tecplot-readable binaries
-    │   │       ├── preplot-all       # Obsolete
-    │   │       └── preplot-bin       # Called from preplot
-    │   └── src                       # Contains all the source files
-    │       ├── dns                   # Contains DNS source files
-    │       │   ├── dns.f90           # Main DNS source file
-    │       │   ├── ffts.f90          # Useful fft functions for dns.f90
-    │       │   └── grid_size.f90     # Module with all grid size data
-    │       ├── geometry              # Contains geometry generator source code
-    │       │   └── Geom.f90          # Geometry generator source code
-    │       └── preconfigure.py       # preconfigure tool: compiles all the necessary files. Run with Python >=2.7.13 
-    ├── jobcode                       # File for submitting a job to TACC. Usage: `sbatch jobcode`
-    ├── omprun                        # File for running the code locally, but in parallel (OMP)
-    ├── outputs                       # Contails all the outputs produced by the DNS
-    │   ├── err                       # Runtime errors will appear here
-    │   ├── flowfield                 # Contains tecplot-readable binary data files of the flow field
-    │   │   ├── grid.plt              # Grid file
-    │   │   ├── time-00000.plt        # Flow field at time step 0 (in Tecplot binary format)
-    │   │   └── ...                   # etc.
-    │   ├── last-restart              # Latest restart file. Do `mv outputs/last-restart setup/restart` if you want to restart latest simulation.
-    │   ├── log                       # Runtime outputs
-    │   ├── particles                 # Contains particle data
-    │   │   ├── particles-t-00000.dat # Particles at time step 0 (in Tecplot ASCII format)
-    │   │   └── ...                   # etc.
-    │   ├── snapshots                 # Contains snapshot data
-    │   │   ├── gird.dat              # Grid of snapshot data
-    │   │   ├── input.dat             # Control inputs at each snapshot time step
-    │   │   ├── u.dat                 # u-velocity shapshots
-    │   │   ├── v.dat                 # v-velocity shapshots
-    │   │   ├── w.dat                 # w-velocity shapshots
-    │   │   └── wy.dat                # wy-vorticity shapshots
-    │   └── statistics                # Contains statistics data (currently not used)
-    ├── README.md                     # Readme file
-    ├── run                           # File 
-    └── setup                         # Contains all the setup files that are inputs to the DNS. 
-        ├── dns.config                # Main DNS input file
-        ├── jet.config                # Jet setup file
-        ├── jet_input_signal.dat      # Jet input signal controlling the magnitude of the jet
-        ├── restart                   # Restart file (outputs/last-restart file of previous simulation)
-        ├── snapshots.config          # Snapshots setup file
-        └── tracer_particles.config   # Tracer particles configuration file
+    ├── code                             # Contains source code, compiled code, binariy files, and geometry file
+    │   ├── bin                          # Contains all binary files
+    │   │   ├── dns                      # Main executable - runs DNS
+    │   │   ├── geometry                 # Contains geometry generator and geometry file
+    │   │   │   ├── Geom                 # Compiled geometry generator
+    │   │   │   └── geometry             # Geometry file
+    │   │   ├── grid_size.mod            # Binary module for grid size data
+    │   └── src                          # Contains all the source files
+    │       ├── dns                      # Contains DNS source files
+    │       │   ├── dns.f90              # Main DNS source file
+    │       │   ├── ffts.f90             # Useful fft functions for dns.f90
+    │       │   ├── grid_size.f90        # Module with all grid size data
+    │       │   ├── init_flow.f90        # Defines flow type (Channel, Couette, BL, etc.)
+    │       │   ├── part_track.f90       # Particle tracking integrator
+    │       │   └── polymer_routines.f90 # Additional subroutines for polymer effects
+    │       ├── geometry                 # Contains geometry generator source code
+    │       │   └── Geom.f90             # Geometry generator source code
+    │       └── preconfigure.py          # preconfigure tool: compiles all the necessary files. Run with Python >=2.7.13 
+    ├── jobcode                          # File for submitting a job to TACC. Usage: `sbatch jobcode`
+    ├── run                              # File for running the code locally
+    ├── err_comp.txt                     # Output file for any compilation errors (empty if no errors)
+    ├── outputs                          # Contails all the outputs produced by the DNS
+    │   ├── err                          # Runtime errors will appear here
+    │   ├── flowfield                    # Contains tecplot-readable binary data files of the flow field
+    │   │   ├── grid.plt                 # Grid file
+    │   │   ├── time-00000.plt           # Flow field at time step 0 (in Tecplot binary format)
+    │   │   └── ...                      # etc.
+    │   ├── last-restart                 # Latest restart file. Do `mv outputs/last-restart setup/restart` if you want to restart latest simulation.
+    │   ├── c-last-restart               # Latest polymer restart file. `mv outputs/c-last-restart setup/c-restart` if you want to restart latest simulation.
+    │   ├── log                          # Runtime outputs
+    │   └── particles                    # Contains particle data
+    │       ├── part-t-00000.dat         # Particles at time step 0 (in Tecplot ASCII format)
+    │       └── ...                      # etc.
+    └── setup                            # Contains all the setup files that are inputs to the DNS. 
+        ├── dns.config                   # Main DNS input file
+        ├── vort.config                  # Contains input information for generating vortices (soon to be vortex ring as well, but as of now, that's in dns.config)
+        ├── restart                      # Restart file (outputs/last-restart file of previous simulation)
+        ├── c-restart                    # Scalar/polymer restart file 
+        └── particles			         # Particle setup files
+            ├── generator.f90            # Generates random particles in flow domain 
+            ├── particles.dat            # Contains particle trajectory info (ASCII)
+            └── pgen					 # Binary particle generator file   
+
 
 ## Prerequisites (OPTIONAL)
 The code can export the data in three different formats:
