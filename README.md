@@ -1,5 +1,5 @@
 # dns-code
-In-house direct numerical simulation code for channel/boundary layer flows with an external force field.
+In-house direct numerical simulation code for channel/boundary layer flows with an external force field, and optional passive scalar and polymer additives.
 
 The solver is based on [*Kim, J., Moin, P., & Moser, R. (1987). Turbulence statistics in fully developed channel flow at low Reynolds number. Journal of Fluid Mechanics, 177, 133-166.*](https://doi.org/10.1017/S0022112087000892)
 
@@ -141,3 +141,7 @@ git pull
 ```
 from within this repo, and enter your username and **access token instead of your password**.
 
+## Known issues with current version of code:
+- Polymer targeting unexpectedly causes CFL failure
+- Blasius BL flow initialization is extremely slow
+- Misc. unused variables, inappropriately allocated arrays
