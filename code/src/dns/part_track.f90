@@ -98,9 +98,9 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
     real,dimension(nyp,mz,mx) :: Lu,Lv,Lw,Lu_old,Lv_old,Lw_old
 
     ! Particle variables
-    real,save,dimension(npart) :: xpart,ypart,zpart,upart,vpart,wpart,swirl_part
+    real,dimension(npart) :: xpart,ypart,zpart,upart,vpart,wpart,swirl_part
     real :: xp,yp,zp,up,vp,wp
-    common/part_traj/ xp,yp,zp
+    common/part_traj/ xpart,ypart,zpart
 
     real :: p_cfl,umax1
     

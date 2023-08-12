@@ -11,7 +11,6 @@ compiler = ['ifort']
 print('\n')
 print('____________________________________________\n')
 print('         Preconfiguring DNS code')
-print('           (this is the new one)')
 print('    ____________________________________    \n')
 
 
@@ -87,8 +86,12 @@ if new_part > 0:
 		print('    3. Generating',npart,'random particles near the walls... ')
 	elif new_part == 6:	
 		print('    3. Generating',npart,'random particles in a cylinder... ') 
+	elif new_part == 7:	
+		print('    3. Generating',npart,'structured particles in a y-z plane... ') 
 	elif new_part == 10:	
 		print('    3. Generating',npart,'particles to be released regularly... ') 
+	elif new_part == 11:	
+		print('    3. Generating',npart,'structured particles throughout the domain... ') 
 	
 	os.chdir('setup/particles/')
 	comp_out, comp_err = subprocess.Popen(compiler + ['generator.f90', '-o', 'pgen'], stdout = subprocess.PIPE, stderr=subprocess.PIPE).communicate()
@@ -121,7 +124,6 @@ compiler_options = ['-mavx', '-r8', '-fr', '-132', '-w', '-O3', '-unroll', '-qop
 
 # DNS w/ Polymer
 source_files = ['../src/dns/grid_size.f90', '../src/dns/dns.f90', '../src/dns/ffts.f90', '../src/dns/init_flow.f90', '../src/dns/part_track.f90', '../src/dns/polymer_routines.f90']
-
 
 
 # No poly dns
@@ -173,7 +175,6 @@ elif 'warning' in err_str:
     print('         DNS code is ready to run!')
     print('____________________________________________\n')
 else:
-    print('    ____________________________________    \n')
-    print('         Check the errors above!')
-    print('____________________________________________\n')
+    print('    ************************************    \n')
+    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n')
 

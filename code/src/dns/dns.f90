@@ -880,7 +880,7 @@ program threed
         call norm(Lv)
         call norm(Lw)
 
-    if (ipolyflag .eq. 1 .and. it .ge. src_start) then
+    if (ipolyflag .eq. 1 .and. it .ge. src_start-1) then
 
 ! Need to normalize all arrays 
 
@@ -1116,13 +1116,13 @@ program threed
 ! New vcw3d (includes vcw3dp stuff) - Ryan 6/28/22
       call vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
                  c11,c12,c13,c21,c22,c23,c31,c32,c33,                   &
-                 u11,u12,u13,u21,u22,u23,u31,u32,u33,                   &
+                 u11,u12,u13,u21,u22,u23,u31,u32,u33,Lu,Lv,Lw,          &
                  dc111,dc112,dc113,dc211,dc212,dc213,dc311,dc312,dc313, &
                  dc121,dc122,dc123,dc221,dc222,dc223,dc321,dc322,dc323, &
                  dc131,dc132,dc133,dc231,dc232,dc233,dc331,dc332,dc333, &
                  c11n,c12n,c13n,c22n,c23n,c33n,                         &
                  str11n,str12n,str13n,str22n,str23n,str33n,             &
-                 qp11,qp12,qp13,qp22,qp23,qp33,Lu,Lv,Lw) 
+                 qp11,qp12,qp13,qp22,qp23,qp33) 
 
   
   write(*,*) '1'
@@ -1278,21 +1278,15 @@ program threed
 
 !  Add polymer forces to the momentum equation
 !  First calculate forces in polyforce then 
-!  add forces to momentum equation using subforce2
-       if (ipolyflag .eq. 1 .and. it .ge. (src_start-1)) then
-         if (itarget .eq. 0) then
-            call polyforce(str11n,str12n,str13n,str22n,str23n,str33n,t1,t2,t3)
-            call norm(t1)
-            call norm(t2)
-            call norm(t3)
-            call subforce2(gn,fn,omz,t1,t2,t3)
-         else
+!  add forces to momentum equation using subforce
+!  changed to only have one subforce routine - Ryan 8/11/23
+       if (ipolyflag .eq. 1 .and. it .ge. (src_start)) then
             call polyforce(qp11,qp12,qp13,qp22,qp23,qp33,t1,t2,t3)
             call norm(t1)
             call norm(t2)
             call norm(t3)
-            call subforce3(gn,fn,omz,t1,t2,t3) !note new name
-         end if
+            call subforce(gn,fn,omz,t1,t2,t3)
+
 
          if (it .eq. (src_start-1)) then
          ! Set (n-1) terms equal to current terms for explicit time integration - Ryan 9/27/22
@@ -1300,12 +1294,12 @@ program threed
          do k=1,nxh
             do j=1,nz
                  do i=1,nyp
-                    c11nm1(i,j,k) = c11n(i,j,k)
-                    c12nm1(i,j,k) = c12n(i,j,k)
-                    c13nm1(i,j,k) = c13n(i,j,k)
-                    c22nm1(i,j,k) = c22n(i,j,k)
-                    c23nm1(i,j,k) = c23n(i,j,k)
-                    c33nm1(i,j,k) = c33n(i,j,k)
+                    c11nm1(i,j,k)   = c11n(i,j,k)
+                    c12nm1(i,j,k)   = c12n(i,j,k)
+                    c13nm1(i,j,k)   = c13n(i,j,k)
+                    c22nm1(i,j,k)   = c22n(i,j,k)
+                    c23nm1(i,j,k)   = c23n(i,j,k)
+                    c33nm1(i,j,k)   = c33n(i,j,k)
                     str11nm1(i,j,k) = str11n(i,j,k)
                     str12nm1(i,j,k) = str12n(i,j,k)
                     str13nm1(i,j,k) = str13n(i,j,k)
@@ -2499,29 +2493,21 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
 ! Add polymer forces to the momentum equation
 ! First calculate forces in polyforce then 
 ! add forces to momentum equation using subforce2
-     if  (itarget .eq. 0) then
-        call polyforce(str11n,str12n,str13n,str22n,str23n,str33n,t1,t2,t3)
-        call norm(t1)
-        call norm(t2)
-        call norm(t3)
-        call subforce2(gn,fn,omz,t1,t2,t3)
-
-     else
-
-        call polyforce(qp11,qp12,qp13,qp22,qp23,qp33,t1,t2,t3)
-        call norm(t1)
-        call norm(t2)
-        call norm(t3)
-        call subforce3(gn,fn,omz,t1,t2,t3) !note new name
-
-     endif
+! changed to only have one subforce routine - Ryan 8/11/23
+    
+    if (ipolyflag .eq. 1 .and. it .ge. (src_start)) then
+         call polyforce(qp11,qp12,qp13,qp22,qp23,qp33,t1,t2,t3)
+         call norm(t1)
+         call norm(t2)
+         call norm(t3)
+         call subforce(gn,fn,omz,t1,t2,t3)
+    end if
 
 
+!   add coriolis forces and buoyancy forces
 
-!    add coriolis forces and buoyancy forces
-
-     call coriolis1(u,v,w,gn,fn,omz)
-     call thermal1(fn,gn,scalar,scn,csource)
+    call coriolis1(u,v,w,gn,fn,omz)
+    call thermal1(fn,gn,scalar,scn,csource)
 ! ===================================================== !
 
      do i=1,nyp
@@ -5746,10 +5732,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
     real qp11np(mzp,mxp2),qp12np(mzp,mxp2),qp13np(mzp,mxp2) ! new targeting arrays 1/16/2020
     real qp22np(mzp,mxp2),qp23np(mzp,mxp2),qp33np(mzp,mxp2)
 
-    real sp11np(mzp,mxp2),sp12np(mzp,mxp2),sp13np(mzp,mxp2) ! strain rate  arrays 1/17/2020
-    real sp22np(mzp,mxp2),sp23np(mzp,mxp2),sp33np(mzp,mxp2)
-
-    real zbeta(mzp,mxp2),zbeta1(mzp,mxp2) ! variable concentration
+    real zbeta1
 
     real scp(mzp,mxp2) ! added by rah 1/16/2020
     real beta_poly(mzp,mxp2) ! added by Ryan 9/23/22
@@ -5935,8 +5918,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
   !$omp    dc321p,dc322p,dc323p,dc131p,dc132p,dc133p,dc231p,dc232p,dc233p,         &
   !$omp    dc331p,dc332p,dc333p,trp,c11np,c12np,c13np,c22np,c23np,c33np,           &
   !$omp    str11np,str12np,str13np,str22np,str23np,str33np,                        &
-  !$omp    qp11np,qp12np,qp13np,qp22np,qp23np,qp33np,                              &
-  !$omp    sp11np,sp12np,sp13np,sp22np,sp23np,sp33np,zbeta,zbeta1) schedule(dynamic)
+  !$omp    qp11np,qp12np,qp13np,qp22np,qp23np,qp33np,zbeta1) schedule(dynamic)
 !-------------------------------------------------------------------------------!
   
   do k = 1, nyp
@@ -5985,7 +5967,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
              vc(j,i) = 0.0
              end if
              
-             if (ipolyflag .eq. 1 .and. it .ge. src_start) then
+             if (ipolyflag .eq. 1 .and. it .ge. src_start-1) then
              c11p(j,i) = 0.0
              c12p(j,i) = 0.0
              c13p(j,i) = 0.0
@@ -6048,16 +6030,6 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
              qp22np(j,i) = 0.0
              qp23np(j,i) = 0.0
              qp33np(j,i) = 0.0
-            
-             sp11np(j,i) = 0.0
-             sp12np(j,i) = 0.0
-             sp13np(j,i) = 0.0
-             sp22np(j,i) = 0.0
-             sp23np(j,i) = 0.0
-             sp33np(j,i) = 0.0
-            
-             zbeta(j,i) = 0.0
-             zbeta1(j,i) = 0.0
              end if
 ! --------------------------- !
   
@@ -6100,7 +6072,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
              cy(jj,i1) = real(scly(k,j,i))
              cz(jj,i1) = real(sclz(k,j,i))
              end if
-             if (ipolyflag .eq. 1 .and. it .ge. src_start) then
+             if (ipolyflag .eq. 1 .and. it .ge. src_start-1) then
              c11p(jj,i1) = real(c11(k,j,i))
              c12p(jj,i1) = real(c12(k,j,i))
              c13p(jj,i1) = real(c13(k,j,i))
@@ -6174,7 +6146,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
              cy(jj,i2) = aimag(scly(k,j,i))
              cz(jj,i2) = aimag(sclz(k,j,i))
              end if 
-             if (ipolyflag .eq. 1 .and. it .ge. src_start) then
+             if (ipolyflag .eq. 1 .and. it .ge. src_start-1) then
              c11p(jj,i2) = aimag(c11(k,j,i))
              c12p(jj,i2) = aimag(c12(k,j,i))
              c13p(jj,i2) = aimag(c13(k,j,i))
@@ -6255,7 +6227,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
        call cfftmlt(cy(1,1),cy(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isign)
        call cfftmlt(cz(1,1),cz(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isign)
        end if 
-       if (ipolyflag .eq. 1 .and. it .ge. src_start) then
+       if (ipolyflag .eq. 1 .and. it .ge. src_start-1) then
        call cfftmlt(c11p(1,1),c11p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isign)
        call cfftmlt(c12p(1,1),c12p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isign)
        call cfftmlt(c13p(1,1),c13p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isign)
@@ -6346,7 +6318,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
           cy(j,2) = 0.0
           cz(j,2) = 0.0
        end if 
-       if (ipolyflag .eq. 1 .and. it .ge. src_start) then
+       if (ipolyflag .eq. 1 .and. it .ge. src_start-1) then
           c11p(j,2) = 0.0
           c12p(j,2) = 0.0
           c13p(j,2) = 0.0
@@ -6421,7 +6393,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
        call rfftmlt(cy,wrk,trigx32,ixfax32,inc,jump,mx,lot,isign)
        call rfftmlt(cz,wrk,trigx32,ixfax32,inc,jump,mx,lot,isign)
        end if 
-       if (ipolyflag .eq. 1 .and. it .ge. src_start) then
+       if (ipolyflag .eq. 1 .and. it .ge. src_start-1) then
        call rfftmlt(c11p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isign)
        call rfftmlt(c12p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isign)
        call rfftmlt(c13p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isign)
@@ -6475,7 +6447,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
        if (scl_flag .ge. 1) then
              vc(j,i) = -(up(j,i) * cx(j,i) + vp(j,i) * cy(j,i) + wp(j,i) * cz(j,i))
        end if
-       if (ipolyflag .eq. 1 .and. it .ge. src_start) then
+       if (ipolyflag .eq. 1 .and. it .ge. src_start-1) then
              c11np(j,i)=c11p(j,i)*u11p(j,i)+c12p(j,i)*u12p(j,i)+c13p(j,i)*u13p(j,i)+  &
                          c11p(j,i)*u11p(j,i)+c21p(j,i)*u12p(j,i)+c31p(j,i)*u13p(j,i)-  &
                          (up(j,i)*dc111p(j,i)+vp(j,i)*dc112p(j,i)+wp(j,i)*dc113p(j,i))            
@@ -6526,25 +6498,33 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
              str22np(j,i)=str22np(j,i)-1.0
              str33np(j,i)=str33np(j,i)-1.0
 
-             ! New nonlinear polymer model 10/3/22 - Ryan
-             ! nu_0 - nu_s = nu_s (exp(alpha*gamma) - 1)
-             ! alpha --> alpha_poly = 2.6E-03 PPM (empirical constant)
-             ! gamma --> scp = scalar concentration (in PPM)
-             beta_poly(j,i) = exp(-alpha_poly*abs(scp(j,i))) ! Define the viscosity ratio based on model
+!             beta_poly(j,i) = 0.9
 
-             zbeta1(j,i) = 1./re*(1./beta_poly(j,i) - 1.0) ! zbeta1 = (nu_0 - nu_s)
+             if (it .lt. src_start) then
+                 beta_poly(j,i) = 1.0
+             else if (itarget .eq. 0) then ! polymer ocean
+                 beta_poly(j,i) = qbeta
+             else if (itarget .eq. 1) then
+                 ! New nonlinear polymer model 10/3/22 - Ryan
+                 ! nu_0 - nu_s = nu_s (exp(alpha*gamma) - 1)
+                 ! alpha --> alpha_poly = 2.6E-03 PPM (empirical constant)
+                 ! gamma --> scp = scalar concentration (in PPM)
 
-             qp11np(j,i)= zbeta1(j,i)*str11np(j,i)
-             qp12np(j,i)= zbeta1(j,i)*str12np(j,i)
-             qp13np(j,i)= zbeta1(j,i)*str13np(j,i)
-             qp22np(j,i)= zbeta1(j,i)*str22np(j,i)
-             qp23np(j,i)= zbeta1(j,i)*str23np(j,i)
-             qp33np(j,i)= zbeta1(j,i)*str33np(j,i)
+                 beta_poly(j,i) = exp(-alpha_poly*abs(scp(j,i))) ! Define the viscosity ratio based on model
+!                beta_poly(j,i) = qbeta ! test case only
+
+             end if
+
+             zbeta1 = (1.0-beta_poly(j,i))/(re*beta_poly(j,i)*tpoly) ! = (nu_0 - nu_s)
+
+             qp11np(j,i)= zbeta1*str11np(j,i)
+             qp12np(j,i)= zbeta1*str12np(j,i)
+             qp13np(j,i)= zbeta1*str13np(j,i)
+             qp22np(j,i)= zbeta1*str22np(j,i)
+             qp23np(j,i)= zbeta1*str23np(j,i)
+             qp33np(j,i)= zbeta1*str33np(j,i)
  
          end if 
-         if (it .lt. src_start) then
-             beta_poly(j,i) = 1.0
-         end if
 
              cflcheck = (abs(up(j,i))/delx + abs(vp(j,i))/seght(k) + abs(wp(j,i))/delz) * dt
              
@@ -6746,7 +6726,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
        if (scl_flag .ge. 1) then
        call rfftmlt(vc ,wrk,trigx32,ixfax32,inc,jump,mx,lot,isign) ! Ryan (sometime in March, idk)
        end if
-       if (ipolyflag .eq. 1 .and. it .ge. src_start) then
+       if (ipolyflag .eq. 1 .and. it .ge. src_start-1) then
        call rfftmlt(c11np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isign)
        call rfftmlt(c12np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isign)
        call rfftmlt(c13np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isign)
@@ -6776,7 +6756,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
        if (scl_flag .ge. 1) then
           vc(j,2)  = 0.0
        end if
-       if (ipolyflag .eq. 1 .and. it .ge. src_start) then
+       if (ipolyflag .eq. 1 .and. it .ge. src_start-1) then
           c11np(j,2) = 0.0  
           c12np(j,2) = 0.0  
           c13np(j,2) = 0.0  
@@ -6811,7 +6791,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
        if (scl_flag .ge. 1) then
        call cfftmlt(vc(1,1) ,vc(1,2) ,wrk,trigz32,izfax32,inc,jump,mz,lot,isign)
        end if
-       if (ipolyflag .eq. 1 .and. it .ge. src_start) then
+       if (ipolyflag .eq. 1 .and. it .ge. src_start-1) then
        call cfftmlt(c11np(1,1),c11np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isign)
        call cfftmlt(c12np(1,1),c12np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isign)
        call cfftmlt(c13np(1,1),c13np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isign)
@@ -6848,7 +6828,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
           if (scl_flag .ge. 1) then
              scn(k,j,i) = cmplx(vc(jj,i1) *rmz, vc(jj,i2) *rmz)
           end if
-          if (ipolyflag .eq. 1 .and. it .ge. src_start) then
+          if (ipolyflag .eq. 1 .and. it .ge. src_start-1) then
              c11n(k,j,i) = cmplx(c11np(jj,i1)*rmz,c11np(jj,i2)*rmz)
              c12n(k,j,i) = cmplx(c12np(jj,i1)*rmz,c12np(jj,i2)*rmz)
              c13n(k,j,i) = cmplx(c13np(jj,i1)*rmz,c13np(jj,i2)*rmz)

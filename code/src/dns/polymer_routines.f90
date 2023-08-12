@@ -46,7 +46,7 @@ subroutine thermal1(fn,gn,scalar,scn,csource)
       common/data2/ re,alpha,beta,xl,zl,yl,time,dyde,xstart,uinf
       common/data1/ pi,dt,theta,wavz(nz),wavx(nxh),c(nyp),yc(nyp)
       common/iocntrl/irstrt,nsteps,iprnfrq
-      common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,zgamma
+      common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z
       common/polymer2/ ampbdy1,ampbdy2,c11amp,tfrac,polyrate,src_start,src_stop
       common/pre5f/ it
 
@@ -131,9 +131,9 @@ subroutine derivscji(u,v,w,c11,c12,c13,c21,c22,c23,c31,c32,c33, &
 
 !        calculate the velocity gradient tensor
 
-        call cderiv(u,wrk1) !du/dy
-        call cderiv(v,wrk2) !dv/dy
-        call cderiv(w,wrk3) !dw/dy
+        call cderiv(u,u12) !du/dy
+        call cderiv(v,u22) !dv/dy
+        call cderiv(w,u32) !dw/dy
 
         ! Laplacian terms
         call cderiv(u12,wrk1) ! d^2 u / dy^2
@@ -144,15 +144,12 @@ subroutine derivscji(u,v,w,c11,c12,c13,c21,c22,c23,c31,c32,c33, &
           do j=1,nz
               do i=1,nyp
                   u11(i,j,k) = im*wavx(k)*u(i,j,k)
-                  u12(i,j,k) = wrk1(i,j,k)
                   u13(i,j,k) = im*wavz(j)*u(i,j,k)
                   u21(i,j,k) = im*wavx(k)*v(i,j,k)
-                  u22(i,j,k) = wrk2(i,j,k)
                   u23(i,j,k) = im*wavz(j)*v(i,j,k)
                   u31(i,j,k) = im*wavx(k)*w(i,j,k)
-                  u32(i,j,k) = wrk3(i,j,k)
                   u33(i,j,k) = im*wavz(j)*w(i,j,k)
-    
+
                 ! Laplacian terms
                 Lu(i,j,k) = im*wavx(k)*u11(i,j,k) + wrk1(i,j,k) + im*wavz(j)*u13(i,j,k)
                 Lv(i,j,k) = im*wavx(k)*u21(i,j,k) + wrk2(i,j,k) + im*wavz(j)*u23(i,j,k)
@@ -221,6 +218,7 @@ end
 
 
 subroutine polyforce(str11n,str12n,str13n,str22n,str23n,str33n,t1,t2,t3)
+      ! Calculates divergence of stress tensor
       use grid_size
       complex str11n(nyp,nz,nxh),str12n(nyp,nz,nxh),str13n(nyp,nz,nxh)
       complex str22n(nyp,nz,nxh),str23n(nyp,nz,nxh),str33n(nyp,nz,nxh) 
@@ -250,106 +248,23 @@ subroutine polyforce(str11n,str12n,str13n,str22n,str23n,str33n,t1,t2,t3)
 end
 
 
-subroutine subforce2(gn,fn,omz,t1,t2,t3)
-      use grid_size
-      complex gn(nyp,nz,nxh),fn(nyp,nz,nxh),omz(nyp,nz,nxh)
-      complex t1(nyp,nz,nxh),t2(nyp,nz,nxh),t3(nyp,nz,nxh)
-      common/data2/ re,alpha,beta,xl,zl,yl,time,dyde,xstart,uinf
-      common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,zgamma
-      common/polymer3/ ipolyflag,itarget,ipeter
-    
-         convisc = (1.-qbeta)/(re*qbeta*tpoly) ! note change on 5/26/2021 rah
+subroutine subforce(gn,fn,omz,t1,t2,t3)
 
-!         if (ipolyflag .eq. 0) then
-!
-!         do k=1,nxh
-!             do j=1,nz
-!                 do i=1,nyp
-!                     gn(i,j,k)  = gn(i,j,k)
-!                     fn(i,j,k)  = fn(i,j,k)
-!                     omz(i,j,k) = omz(i,j,k)
-!                 enddo
-!             enddo
-!         enddo
-!
-!
-!         else
-        if (ipolyflag .ne. 0) then ! Changing logic - Ryan 2/22/23
+    use grid_size
 
-         do k=1,nxh
-             do j=1,nz
-                 do i=1,nyp
-                     gn(i,j,k)  = gn(i,j,k)  + convisc*t1(i,j,k)
-                     fn(i,j,k)  = fn(i,j,k)  + convisc*t2(i,j,k)
-                     omz(i,j,k) = omz(i,j,k) + convisc*t3(i,j,k)
-                 enddo
-             enddo
-         enddo
+    complex gn(nyp,nz,nxh),fn(nyp,nz,nxh),omz(nyp,nz,nxh)
+    complex t1(nyp,nz,nxh),t2(nyp,nz,nxh),t3(nyp,nz,nxh)
 
-         endif
-
-
-end
-
-
-
-subroutine subforce3(gn,fn,omz,t1,t2,t3)
-      use grid_size
-      complex gn(nyp,nz,nxh),fn(nyp,nz,nxh),omz(nyp,nz,nxh)
-      complex t1(nyp,nz,nxh),t2(nyp,nz,nxh),t3(nyp,nz,nxh)
-      common/data2/ re,alpha,beta,xl,zl,yl,time,dyde,xstart,uinf
-
-      common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,zgamma
-      common/polymer2/ ampbdy1,ampbdy2,c11amp,tfrac
-      common/polymer3/ ipolyflag,itarget,ipeter
-      common/data1/ pi,dt,theta,wavz(nz),wavx(nxh),c(nyp),yc(nyp)
-      common/iocntrl/irstrt,nsteps,iprnfrq
-
-!       time parameters
-
-      tau =   tfrac*nsteps*dt       !radius from t0 to step function transition zones
-
-      if (time .gt. tau) then  !note change by rah 11/9/2021
-          tamp = 1.0   !targeting
-      else
-          tamp = 0.0   !no targeting
-      endif
-
-
-
-!      if (ipolyflag .eq. 0) then
-!
-!        do k=1,nxh
-!          do j=1,nz
-!            do i=1,nyp
-!              gn(i,j,k)  = gn(i,j,k)
-!              fn(i,j,k)  = fn(i,j,k)
-!              omz(i,j,k) = omz(i,j,k)
-!            enddo
-!          enddo
-!        enddo
-!
-!
-!      else
-    
-        if (ipolyflag .ne. 0) then
-
-        do k=1,nxh
-          do j=1,nz
+    do k=1,nxh
+        do j=1,nz
             do i=1,nyp
-              gn(i,j,k)  = gn(i,j,k)  + tamp*t1(i,j,k) !note that this is used for targeting so it is not same as subforce2
-              fn(i,j,k)  = fn(i,j,k)  + tamp*t2(i,j,k)
-              omz(i,j,k) = omz(i,j,k) + tamp*t3(i,j,k)
+                gn(i,j,k)  = gn(i,j,k)  + t1(i,j,k)
+                fn(i,j,k)  = fn(i,j,k)  + t2(i,j,k)
+                omz(i,j,k) = omz(i,j,k) + t3(i,j,k)
             enddo
-          enddo
         enddo
-
-        endif
-
-
-end subroutine
-
-
+    enddo
+end
 
 subroutine temperbc(bcscltop,bcsclbot,w1,w2,wfft1,wfft2,wfft3,wfft4)
       use grid_size
@@ -359,7 +274,7 @@ subroutine temperbc(bcscltop,bcsclbot,w1,w2,wfft1,wfft2,wfft3,wfft4)
       real wfft1(1),wfft2(1),wfft3(1),wfft4(1),w1(1),w2(1)
       common/data1/ pi,dt,theta,wavz(nz),wavx(nxh),c(nyp),yc(nyp)
       common/data2/ re,alpha,beta,xl,zl,yl,time,dyde,xstart,uinf
-      common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,zgamma
+      common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z
 
       common/sclgeom/ xshift,yshift,zshift,sigmax,sigmay,sigmaz
 
@@ -448,10 +363,10 @@ subroutine polyrhs(scalar,wrkc,wrk1,cnl,bcbot,bctop)
       ! Common variables
       real pi,dt,theta,wavz(nz),wavx(nxh),c(nyp),yc(nyp)
       real re,alpha,beta,xl,zl,yl,time,dyde,xstart,uinf
-      real zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,zgamma
+      real zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z
       common/data1/ pi,dt,theta,wavz,wavx,c,yc
       common/data2/ re,alpha,beta,xl,zl,yl,time,dyde,xstart,uinf
-      common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,zgamma
+      common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z
 !
 !**********************************************************************
 !                                                                     *
@@ -576,7 +491,7 @@ subroutine sclrhs(scalar,wrkc,wrk1,scn,scnm1,bcbot,bctop)
      complex bcbot(nz,nxh),bctop(nz,nxh)
      common/data1/ pi,dt,theta,wavz(nz),wavx(nxh),c(nyp),yc(nyp)
      common/data2/ re,alpha,beta,xl,zl,yl,time,dyde,xstart,uinf
-     common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,zgamma
+     common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z
 !
 !**********************************************************************
 !                                                                     *
@@ -670,7 +585,7 @@ subroutine bforce1(a,b)
     use grid_size
     real a(nyp,nz,nx), b(nyp,nz,nx)
     common/data2/ re,alpha,beta,xl,zl,yl,time,dyde,xstart,uinf
-    common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,zgamma
+    common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z
     common/polymer2/ ampbdy1,ampbdy2,c11amp,tfrac
     common/data22/ forbeta
     real bdyfx, radx, radius, xi, yi, zi
@@ -761,7 +676,7 @@ subroutine c11init(a)
     use grid_size
       real a(nyp,nz,nx)
       common/data2/ re,alpha,beta,xl,zl,yl,time,dyde,xstart,uinf
-      common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,zgamma
+      common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z
       common/polymer2/ ampbdy1,ampbdy2,c11amp,tfrac
 
 ! some stuff
