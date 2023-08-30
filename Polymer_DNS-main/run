@@ -5,7 +5,6 @@ export OMP_STACKSIZE=5G
 shopt -s extglob
 cd outputs
 rm -r !("log"|"err")
-shopt -u extglob
 cd ..
 mkdir outputs/flowfield
 mkdir outputs/particles
