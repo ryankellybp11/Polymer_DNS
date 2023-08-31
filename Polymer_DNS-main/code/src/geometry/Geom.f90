@@ -51,7 +51,7 @@ program geom
     read(110,*)
     read(110,*)
     read(110,*) flow_select
-    do skip = 1,43
+    do skip = 1,44
         read(110,*) 
     end do
     read(110,*) xcenter, ycenter, zcenter

@@ -149,7 +149,7 @@ program threed
 
     ! Adding input variables that are not declared in the original code
     real omearth,rotang,grav,virtual
-    real zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,alpha_poly
+    real zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,alpha_poly,mpoly
     real ampbdy1,ampbdy2,c11amp,tfrac
     real att,btt,abb,bbb ! BCs for scalar ?
     real polyrate
@@ -196,7 +196,7 @@ program threed
     common/data2/ re,alpha,beta,xl,zl,yl,time,dyde,xstart,uinf
 ! Adding in common blocks from polymer code - Ryan 2-18-22
     common/thermcor/ omearth,rotang,grav,virtual
-    common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,alpha_poly
+    common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,alpha_poly,mpoly
     common/polymer2/ ampbdy1,ampbdy2,c11amp,tfrac,polyrate,src_start,src_stop
     common/polymer3/ ipolyflag,itarget,ipeter,scl_flag
     common/fbdy/ forcebdy1, forcebdy2
@@ -1478,7 +1478,7 @@ subroutine setstuf
 
     ! Polymer inputs - Ryan 2-24-22
     real omearth,rotang,grav,virtual
-    real zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,alpha_poly
+    real zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,alpha_poly,mpoly
     real ampbdy1,ampbdy2,c11amp,tfrac
     real att,btt,abb,bbb ! BCs for scalar ?
     real xshift,yshift,zshift,sigmax,sigmay,sigmaz
@@ -1500,7 +1500,7 @@ subroutine setstuf
     common/data2/ re,alpha,beta,xl,zl,yl,time,dyde,xstart,uinf
 ! Adding common blocks - Ryan 2-24-22
     common/thermcor/ omearth,rotang,grav,virtual
-    common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,alpha_poly
+    common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,alpha_poly,mpoly
     common/polymer2/ ampbdy1,ampbdy2,c11amp,tfrac,polyrate,src_start,src_stop
     common/polymer3/ ipolyflag,itarget,ipeter,scl_flag
     common/sclgeom/ xshift,yshift,zshift,sigmax,sigmay,sigmaz
@@ -1667,6 +1667,7 @@ subroutine setstuf
     read(110,*) c22z
     read(110,*) c33z
     read(110,*) qbeta
+    read(110,*) mpoly
     read(110,*) xshift,yshift,zshift
     read(110,*) sigmax,sigmay,sigmaz
     read(110,*) polyrate
@@ -5794,13 +5795,13 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
 
 !   GMU printing
     real argy, sumens, enstrophy, zmax, locx, locz, sumcirc, dtheta, KE
-    real Lx, Ly, Lz, volume
+    real Lx, Ly, Lz, volume, mtotal
 
-    real zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,alpha_poly
+    real zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,alpha_poly,mpoly
     real ampbdy1,ampbdy2,c11amp,tfrac,polyrate
     integer ipolyflag,itarget,ipeter,scl_flag,src_start,src_stop
 
-    common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,alpha_poly
+    common/polymer1/ zlmax,tpoly,qbeta,diff,diffpoly,deltat,c11z,c22z,c33z,alpha_poly,mpoly
     common/polymer2/ ampbdy1,ampbdy2,c11amp,tfrac,polyrate,src_start,src_stop
     common/polymer3/ ipolyflag,itarget,ipeter,scl_flag
 
@@ -6697,7 +6698,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
        wx3d(k,1:mz,1:mx) = -wx(1:mz,1:mx)
        wy3d(k,1:mz,1:mx) = wy(1:mz,1:mx)
        wz3d(k,1:mz,1:mx) = -wz(1:mz,1:mx)
-!       scp3d(k,1:mz,1:mx) = (scp(1:mz,1:mx)) 
+       scp3d(k,1:mz,1:mx) = (scp(1:mz,1:mx)) 
        beta3d(k,1:mz,1:mx) = beta_poly(1:mz,1:mx) ! Added by Ryan 9/23/22
        u11p3d(k,1:mz,1:mx) = u11p(1:mz,1:mx) 
        u12p3d(k,1:mz,1:mx) = -u12p(1:mz,1:mx) 
@@ -7042,11 +7043,10 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
         massFlux = 0.0
         Ubulk = 0.0
         do i = 1,ny 
-            massFlux = massFlux + 0.5*(uzmean(i+1)**2 + uzmean(i)**2)*(ycoord(i+1) - ycoord(i)) ! trapezoidal integration
-
             Ubulk = Ubulk + 1.0/yl*0.5*(uzmean(i+1) + uzmean(i))*(ycoord(i+1) - ycoord(i)) ! bulk velocity
         end do
         C_f = dPdx/(0.5*Ubulk**2)
+        massFlux = Ubulk
 
         write(73,*) massFlux
         write(74,*) C_f
@@ -7116,6 +7116,49 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
     !-----------------------------------------------------------------------------------!
 
 
+    ! Integrating scalar to get total mass of polymer added -Ryan 8/23/23
+    ! Updating to stop the source once it reaches a given mass - Ryan 8/31/23
+
+    if (it .lt. src_stop) then
+        mtotal = 0.0
+        do i = 1,nyp
+            do j = 1,mz
+                do k = 1,mx
+                    ! Calculate cell volume
+                    ! Calc x length
+                    if (k .eq. 1 .or. k .eq. mx) then
+                        Lx = delxm/2.0
+                    else
+                        Lx = delxm
+                    end if
+
+                    ! Calc z length
+                    if (j .eq. 1 .or. j .eq. mz) then
+                        Lz = delzm/2.0
+                    else
+                        Lz = delzm
+                    end if
+
+                    ! Calc y length
+                    if (i .eq. 1) then
+                        Ly = ycoord(2) - ycoord(1)
+                    else if (i .eq. nyp) then
+                        Ly = ycoord(nyp) - ycoord(ny)
+                    else
+                        Ly = ycoord(i+1) - ycoord(i-1)
+                    end if
+                    mtotal = mtotal + scp3d(i,j,k)/1000.0*Lx*Ly*Lz
+                end do
+            end do
+        end do
+
+        if (mtotal .ge. mpoly) then
+            open(100,file="outputs/total_mass")
+            write(100,*) mtotal
+            close(100)
+            src_stop = it
+        end if
+    end if
     !-----------------------------------------------------------------------------------!
     !                       Adding GMU Printing Stuff (Ryan 7/15/22)                    !
     !-----------------------------------------------------------------------------------!
