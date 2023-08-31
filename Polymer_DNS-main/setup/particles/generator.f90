@@ -27,7 +27,7 @@ program generator
     end do
     read(110,*) npart
     read(110,*) new_part
-    do skip = 1,32
+    do skip = 1,33
         read(110,*)
     end do
     read(110,*) xc,yc,zc
@@ -78,7 +78,32 @@ program generator
           end do
         end do
                     
-                
+    else if (new_part .eq. 12) then
+        ! Uniform distrubtion on a given y-plane assumes npart is a 5th power,
+        ! e.g., 4^5 = 1024
+        npx = npart**(3./5.)
+        npz = npart**(2./5.)
+  
+        print *,'Please enter the y-coordinate of the particle plane: '
+        read *,yp 
+        do k = 1,npz
+            do i = 1,npx
+                xp = (i-1)*(xl/npx)
+                zp = (k-1)*(zl/npz)
+
+                ! Write these to init_particle.dat file
+                if (j .eq. 1 .and. i .eq. 1 .and. k .eq. 1) then
+                    call system('rm particles.dat')
+                    open(22, file = 'particles.dat')
+                    label = '!      x       |      y       |      z       |     vpx      |     vpy      |      vpz     |  t0 (timestep)'
+                    write(22,"(a126)") label 
+                else
+                    open(22, file = 'particles.dat', position = "append")
+                end if
+                write(22,"(e14.6,1x,e14.6,1x,e14.6,1x,e14.6,1x,e14.6,1x,e14.6,1x,i5)") xp,yp,zp,up,vp,wp,tp
+                close(22) 
+            end do
+        end do
     else
         call random_seed()
         do j = 1,npart
