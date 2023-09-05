@@ -1392,7 +1392,7 @@ program threed
   
 
 ! Adding a time loop subroutine call to update polymer source location
-     if (scl_flag .eq. 2) then
+     if (scl_flag .eq. 2 .and. it .le. src_stop) then
        call src_update(psource)
 
 !    Added 8/4/22
@@ -3449,6 +3449,7 @@ end subroutine readuv
 ! 8/4/22
 subroutine src_update(psource)
   use grid_size
+  use omp_lib
   implicit none
 
   real psource(nyp,nz,nx) ! added 8/3/22
@@ -3473,6 +3474,7 @@ subroutine src_update(psource)
   pi = 2.0 * acos(0.0)
 
   ! zero out psource first
+  !$omp parallel do
   do i = 1,nyp
     do j = 1,nz
       do k = 1,nx
@@ -3480,6 +3482,7 @@ subroutine src_update(psource)
       end do
     end do
   end do
+  !$omp end parallel do
 
   if (npart .ne. 0 .and. scl_flag .ne. 0) then
     ns = npart
@@ -3487,6 +3490,7 @@ subroutine src_update(psource)
     ns = 1
   end if 
 
+  !$omp parallel do default(shared) private(n,k,j,i,ysq,betay,zcor,zsq,betaz,xcor,xsq,betax)
   do n = 1,ns
     yc1 = ypart(n)
     zc1 = zpart(n)
@@ -3508,6 +3512,7 @@ subroutine src_update(psource)
      end do
   end do
   end do
+  !$omp end parallel do
 
 
 end subroutine src_update
@@ -7119,8 +7124,11 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
     ! Integrating scalar to get total mass of polymer added -Ryan 8/23/23
     ! Updating to stop the source once it reaches a given mass - Ryan 8/31/23
 
-    if (it .lt. src_stop) then
+    if (it .lt. src_stop .and. it .ge. src_start + 100) then
+        ! check
+        print *,'integrating mass... '
         mtotal = 0.0
+        !$omp parallel do reduction(+:mtotal) default(shared) private(i,j,k,Lx,Ly,Lz)
         do i = 1,nyp
             do j = 1,mz
                 do k = 1,mx
@@ -7151,6 +7159,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
                 end do
             end do
         end do
+        !$omp end parallel do
 
         if (mtotal .ge. mpoly) then
             open(100,file="outputs/total_mass")
