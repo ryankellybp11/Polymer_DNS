@@ -92,7 +92,7 @@ program generator
                 zp = (k-1)*(zl/npz)
 
                 ! Write these to init_particle.dat file
-                if (j .eq. 1 .and. i .eq. 1 .and. k .eq. 1) then
+                if (i .eq. 1 .and. k .eq. 1) then
                     call system('rm particles.dat')
                     open(22, file = 'particles.dat')
                     label = '!      x       |      y       |      z       |     vpx      |     vpy      |      vpz     |  t0 (timestep)'
