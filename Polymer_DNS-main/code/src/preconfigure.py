@@ -92,8 +92,8 @@ if new_part > 0:
 		print('    3. Generating',npart,'particles to be released regularly... ') 
 	elif new_part == 11:	
 		print('    3. Generating',npart,'structured particles throughout the domain... ') 
-    else:
-        print('    3. Generating',npart,'particles...')
+	else:
+		print('    3. Generating',npart,'particles... ') 
 	
 	os.chdir('setup/particles/')
 	comp_out, comp_err = subprocess.Popen(compiler + ['generator.f90', '-o', 'pgen'], stdout = subprocess.PIPE, stderr=subprocess.PIPE).communicate()
@@ -141,7 +141,7 @@ if output_format == 3:
 	link_tecio = ['-lirc', '-I', TECPLOT_360_INCLUDE, '-L', TECPLOT_360_LIB, '-ltecio', '-DOUTPUTFORM=3']
 	print('       (Using tecio)')
 else:
-	print('   (Not using tecio)')
+	print('       (Not using tecio)')
 	link_tecio = []
 
 
