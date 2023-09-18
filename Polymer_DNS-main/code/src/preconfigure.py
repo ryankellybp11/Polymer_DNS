@@ -30,6 +30,8 @@ bftail = int(setup_data[12][0])
 
 output_format = int(setup_data[33][0]) # For writing Tecplot files
 
+ipoly = int(setup_data[40][0])
+iscl = int(setup_data[41][0])
 npart = int(setup_data[47][0])
 new_part = int(setup_data[48][0])
 
@@ -115,21 +117,27 @@ if new_part > 0:
 	
 	# 4. Compile code from the source code in code_dir and save executable to setup/bin
 	
-	print('    4. Compiling DNS code... ')
+	if (ipoly != 0) and (iscl != 0):
+		print('    4. Compiling DNS code with polymer... ')
+	else:
+		print('    4. Compiling DNS code (no polymer)... ')
 else:
-	print('    3. Compiling DNS code... ')
+	if (ipoly != 0) and (iscl != 0):
+		print('    3. Compiling DNS code with polymer... ')
+	else:
+		print('    3. Compiling DNS code (no polymer)... ')
 
 
 #compiler_options = ['-mavx', '-r8', '-fr', '-132', '-w', '-O2', '-unroll', '-qopenmp', '-parallel', '-mcmodel', 'medium', '-fpp', '-shared-intel','-g','-traceback','-MD']
 # More debug options
 compiler_options = ['-mavx', '-r8', '-fr', '-132', '-w', '-O3', '-unroll', '-qopenmp', '-parallel', '-mcmodel', 'medium', '-fpp', '-shared-intel','-g','-traceback','-Wall','-check all']
 
-# DNS w/ Polymer
-source_files = ['../src/dns/grid_size.f90', '../src/dns/dns.f90', '../src/dns/ffts.f90', '../src/dns/init_flow.f90', '../src/dns/part_track.f90', '../src/dns/polymer_routines.f90']
-
-
-# No poly dns
-#source_files = ['../src/dns/grid_size.f90', '../src/dns/dns_no_poly.f90', '../src/dns/ffts.f90', '../src/dns/init_flow.f90', '../src/dns/part_track.f90']
+if (ipoly != 0) and (iscl != 0):
+    # DNS w/ Polymer
+    source_files = ['../src/dns/grid_size.f90', '../src/dns/dns.f90', '../src/dns/ffts.f90', '../src/dns/init_flow.f90', '../src/dns/part_track.f90', '../src/dns/polymer_routines.f90']
+else:    
+    # No poly dns
+    source_files = ['../src/dns/grid_size.f90', '../src/dns/dns_no_poly.f90', '../src/dns/ffts.f90', '../src/dns/init_flow.f90', '../src/dns/part_track.f90']
 
 other_options = ['-cref', '-wl', '-mkl', '-o']
 exec_name = ['dns']
