@@ -117,12 +117,12 @@ if new_part > 0:
 	
 	# 4. Compile code from the source code in code_dir and save executable to setup/bin
 	
-	if (ipoly != 0) and (iscl != 0):
+	if (ipoly != 0) or (iscl != 0):
 		print('    4. Compiling DNS code with polymer... ')
 	else:
 		print('    4. Compiling DNS code (no polymer)... ')
 else:
-	if (ipoly != 0) and (iscl != 0):
+	if (ipoly != 0) or (iscl != 0):
 		print('    3. Compiling DNS code with polymer... ')
 	else:
 		print('    3. Compiling DNS code (no polymer)... ')
