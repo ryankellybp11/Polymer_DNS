@@ -84,22 +84,42 @@ program generator
         npx = npart**(3./5.)
         npz = npart**(2./5.)
   
+        up = 0
+        vp = 0
+        wp = 0
+        tp = 1
+
         print *,'Please enter the y-coordinate of the particle plane: '
         read *,yp 
+
+        if (yp .ne. 1.0) then
+            npx = npx/2
+            do k = 1,npz
+                do i = 1,npx
+                    xp = (i-1)*(xl/npx)
+                    zp = (k-1)*(zl/npz)
+    
+                    ! Write these to init_particle.dat file
+                    if (i .eq. 1 .and. k .eq. 1) then
+                        call system('rm particles.dat')
+                        open(22, file = 'particles.dat')
+                        label = '!      x       |      y       |      z       |     vpx      |     vpy      |      vpz     |  t0 (timestep)'
+                        write(22,"(a126)") label 
+                    else
+                        open(22, file = 'particles.dat', position = "append")
+                    end if
+                    write(22,"(e14.6,1x,e14.6,1x,e14.6,1x,e14.6,1x,e14.6,1x,e14.6,1x,i5)") xp,yp,zp,up,vp,wp,tp
+                    close(22) 
+                end do
+            end do
+            yp = yl - yp
+        end if
         do k = 1,npz
             do i = 1,npx
                 xp = (i-1)*(xl/npx)
                 zp = (k-1)*(zl/npz)
-
-                ! Write these to init_particle.dat file
-                if (i .eq. 1 .and. k .eq. 1) then
-                    call system('rm particles.dat')
-                    open(22, file = 'particles.dat')
-                    label = '!      x       |      y       |      z       |     vpx      |     vpy      |      vpz     |  t0 (timestep)'
-                    write(22,"(a126)") label 
-                else
-                    open(22, file = 'particles.dat', position = "append")
-                end if
+    
+                open(22, file = 'particles.dat', position = "append")
                 write(22,"(e14.6,1x,e14.6,1x,e14.6,1x,e14.6,1x,e14.6,1x,e14.6,1x,i5)") xp,yp,zp,up,vp,wp,tp
                 close(22) 
             end do
