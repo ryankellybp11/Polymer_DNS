@@ -1392,7 +1392,7 @@ program threed
   
 
 ! Adding a time loop subroutine call to update polymer source location
-     if (scl_flag .eq. 2 .and. it .le. src_stop) then
+     if (scl_flag .eq. 2 .and. it .ge. src_start .and. it .le. src_stop) then
        call src_update(psource)
 
 !    Added 8/4/22
@@ -3449,7 +3449,7 @@ end subroutine readuv
 ! 8/4/22
 subroutine src_update(psource)
   use grid_size
-  use omp_lib
+
   implicit none
 
   real psource(nyp,nz,nx) ! added 8/3/22
@@ -3474,7 +3474,6 @@ subroutine src_update(psource)
   pi = 2.0 * acos(0.0)
 
   ! zero out psource first
-  !$omp parallel do
   do i = 1,nyp
     do j = 1,nz
       do k = 1,nx
@@ -3482,7 +3481,6 @@ subroutine src_update(psource)
       end do
     end do
   end do
-  !$omp end parallel do
 
   if (npart .ne. 0 .and. scl_flag .ne. 0) then
     ns = npart
@@ -3490,7 +3488,6 @@ subroutine src_update(psource)
     ns = 1
   end if 
 
-  !$omp parallel do default(shared) private(n,k,j,i,ysq,betay,zcor,zsq,betaz,xcor,xsq,betax)
   do n = 1,ns
     yc1 = ypart(n)
     zc1 = zpart(n)
@@ -3512,7 +3509,6 @@ subroutine src_update(psource)
      end do
   end do
   end do
-  !$omp end parallel do
 
 
 end subroutine src_update
