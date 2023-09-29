@@ -4312,8 +4312,8 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,           &
     real,dimension(nyp,mz,mx) :: u11p3d,u12p3d,u13p3d,u21p3d,u22p3d,u23p3d,u31p3d,u32p3d,u33p3d,Lup3d,Lvp3d,Lwp3d ! Laplacian terms - Ryan 7/24/23
     real, dimension(mz) :: uxmean
     real :: dudx, dvdx, dwdx, dudy, dvdy, dwdy, dudz, dvdz, dwdz
-    real :: uzmean
-    real dely
+    real,dimension(nyp) :: uzmean
+    real dely,massFlux
     real swirl
     real, dimension(nyp,mz,mx) :: lamb2_3d, swirl_3d
     integer num_threads 
@@ -4942,12 +4942,29 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,           &
             do j = 1,mz
                 uxmean(j) = sum(up3d(k,j,:))/mx
             end do
-            uzmean = sum(uxmean)/mz
+            uzmean(k) = sum(uxmean)/mz
             write(71,"(*(e14.6,1x))") uzmean ! up3d(k,floor(mz/2.0),floor(mx/2.0))
         end do
         close(71)
     print *,'Finished writing mean U data'
     end if
+
+    ! Computing Mass Flux: integrate <U> over y - Ryan 8/2/23
+    if (irstrt .eq. it) then
+        open(73,file="outputs/mass_flux")
+        open(74,file="outputs/C_f")
+    else
+        open(73,file="outputs/mass_flux",position="append")
+        open(74,file="outputs/C_f",position="append")
+    end if
+
+    massFlux = 0.0
+    do i = 1,ny 
+        massFlux = massFlux + 1.0/yl*0.5*(uzmean(i+1) + uzmean(i))*(ycoord(i+1) - ycoord(i)) ! bulk velocity
+    end do
+
+    write(73,*) massFlux
+    close(73)
 
     !-----------------------------------------------------------------------------------!
    
