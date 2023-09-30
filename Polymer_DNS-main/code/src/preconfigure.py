@@ -132,7 +132,7 @@ else:
 # More debug options
 compiler_options = ['-mavx', '-r8', '-fr', '-132', '-w', '-O3', '-unroll', '-qopenmp', '-parallel', '-mcmodel', 'medium', '-fpp', '-shared-intel','-g','-traceback','-Wall','-check all']
 
-if (ipoly != 0) and (iscl != 0):
+if (ipoly != 0) or (iscl != 0):
     # DNS w/ Polymer
     source_files = ['../src/dns/grid_size.f90', '../src/dns/dns.f90', '../src/dns/ffts.f90', '../src/dns/init_flow.f90', '../src/dns/part_track.f90', '../src/dns/polymer_routines.f90']
 else:    
