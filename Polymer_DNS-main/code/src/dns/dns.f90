@@ -3449,6 +3449,7 @@ end subroutine readuv
 ! 8/4/22
 subroutine src_update(psource)
   use grid_size
+  use omp_lib
 
   implicit none
 
@@ -3474,6 +3475,7 @@ subroutine src_update(psource)
   pi = 2.0 * acos(0.0)
 
   ! zero out psource first
+  !$omp parallel do
   do i = 1,nyp
     do j = 1,nz
       do k = 1,nx
@@ -3481,6 +3483,7 @@ subroutine src_update(psource)
       end do
     end do
   end do
+  !$omp end parallel do
 
   if (npart .ne. 0 .and. scl_flag .ne. 0) then
     ns = npart
@@ -3488,6 +3491,7 @@ subroutine src_update(psource)
     ns = 1
   end if 
 
+  !$omp parallel do default(shared) private(i,j,k,n,xc1,yc1,zc1,ysq,betay,zcor,zsq,betaz,xcor,xsq,betax)
   do n = 1,ns
     yc1 = ypart(n)
     zc1 = zpart(n)
@@ -3509,6 +3513,7 @@ subroutine src_update(psource)
      end do
   end do
   end do
+  !$omp end parallel do
 
 
 end subroutine src_update
@@ -7060,58 +7065,59 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
     !-----------------------------------------------------------------------------------!
 
     ! Computing Global KE and Enstrophy for all flow cases
-    if (print3d .ge. 0) then
-        sumens = 0.0
-        KE = 0.0
-
-        do i = 1,nyp
-          do j = 1,mz
-            do k = 1,mx
-
-              ! Calculate cell volume
-              ! Calc x length
-              if (k .eq. 1 .or. k .eq. mx) then
-                  Lx = delxm/2.0
-              else
-                  Lx = delxm
-              end if
-
-              ! Calc z length
-              if (j .eq. 1 .or. j .eq. mz) then
-                  Lz = delzm/2.0
-              else
-                  Lz = delzm
-              end if
-
-              ! Calc y length
-              if (i .eq. 1) then
-                  Ly = ycoord(2) - ycoord(1)
-              else if (i .eq. nyp) then
-                  Ly = ycoord(nyp) - ycoord(ny)
-              else
-                  Ly = ycoord(i+1) - ycoord(i-1)
-              end if
-
-              ! Calculate cell volume
-              volume = Lx*Ly*Lz
-           
-              ! Calculate global enstrophy (=volume integral of |omega|^2) 
-              sumens = sumens + (wx3d(i,j,k)**2 + wy3d(i,j,k)**2 + wz3d(i,j,k)**2)*volume
-
-              ! Calculate global kinetic energy (=1/2 volume integral of |v|^2)
-              KE = KE + 0.5*(up3d(i,j,k)**2 + vp3d(i,j,k)**2 + wp3d(i,j,i)**2)*volume
-            end do
-          end do
-        end do
-
-        open(45,file='outputs/enstrophy',position="append")
-        write(45,*) sumens
-        close(45)
-
-        open(46,file='outputs/KE',position="append")
-        write(46,*) KE
-        close(46)
-    end if
+!!!! If I ever want to use this again, I need to fix the Ly calculation (see integration below) !!!!
+!    if (print3d .ge. 0) then
+!        sumens = 0.0
+!        KE = 0.0
+!
+!        do i = 1,nyp
+!          do j = 1,mz
+!            do k = 1,mx
+!
+!              ! Calculate cell volume
+!              ! Calc x length
+!              if (k .eq. 1 .or. k .eq. mx) then
+!                  Lx = delxm/2.0
+!              else
+!                  Lx = delxm
+!              end if
+!
+!              ! Calc z length
+!              if (j .eq. 1 .or. j .eq. mz) then
+!                  Lz = delzm/2.0
+!              else
+!                  Lz = delzm
+!              end if
+!
+!              ! Calc y length
+!              if (i .eq. 1) then
+!                  Ly = ycoord(2) - ycoord(1)
+!              else if (i .eq. nyp) then
+!                  Ly = ycoord(nyp) - ycoord(ny)
+!              else
+!                  Ly = ycoord(i+1) - ycoord(i-1)
+!              end if
+!
+!              ! Calculate cell volume
+!              volume = Lx*Ly*Lz
+!           
+!              ! Calculate global enstrophy (=volume integral of |omega|^2) 
+!              sumens = sumens + (wx3d(i,j,k)**2 + wy3d(i,j,k)**2 + wz3d(i,j,k)**2)*volume
+!
+!              ! Calculate global kinetic energy (=1/2 volume integral of |v|^2)
+!              KE = KE + 0.5*(up3d(i,j,k)**2 + vp3d(i,j,k)**2 + wp3d(i,j,i)**2)*volume
+!            end do
+!          end do
+!        end do
+!
+!        open(45,file='outputs/enstrophy',position="append")
+!        write(45,*) sumens
+!        close(45)
+!
+!        open(46,file='outputs/KE',position="append")
+!        write(46,*) KE
+!        close(46)
+!    end if
                      
  
     !-----------------------------------------------------------------------------------!
@@ -7120,13 +7126,30 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
     ! Integrating scalar to get total mass of polymer added -Ryan 8/23/23
     ! Updating to stop the source once it reaches a given mass - Ryan 8/31/23
 
-    if (it .lt. src_stop .and. it .ge. src_start + 100) then
+!    if (it .lt. src_stop .and. it .ge. src_start + 100) then
+    if (it .lt. src_stop .and. it .ge. src_start) then
         ! check
         print *,'integrating mass... '
         mtotal = 0.0
-        !$omp parallel do reduction(+:mtotal) default(shared) private(i,j,k,Lx,Ly,Lz)
+		KE = 0.0
+		volume = xl*yl*zl
+        !$omp parallel do reduction(+:mtotal,KE) default(shared) private(i,j,k,Lx,Ly,Lz)
         do i = 1,nyp
+            ! Calc y length
+            if (i .eq. 1) then
+                Ly = (ycoord(2) - ycoord(1))/2.0
+            else if (i .eq. nyp) then
+                Ly = (ycoord(nyp) - ycoord(ny))/2.0
+            else
+                Ly = (ycoord(i+1) - ycoord(i))/2.0 + (ycoord(i) - ycoord(i-1))/2.0
+            end if
             do j = 1,mz
+                ! Calc z length
+                if (j .eq. 1 .or. j .eq. mz) then
+                    Lz = delzm/2.0
+                else
+                    Lz = delzm
+                end if
                 do k = 1,mx
                     ! Calculate cell volume
                     ! Calc x length
@@ -7136,27 +7159,14 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
                         Lx = delxm
                     end if
 
-                    ! Calc z length
-                    if (j .eq. 1 .or. j .eq. mz) then
-                        Lz = delzm/2.0
-                    else
-                        Lz = delzm
-                    end if
-
-                    ! Calc y length
-                    if (i .eq. 1) then
-                        Ly = ycoord(2) - ycoord(1)
-                    else if (i .eq. nyp) then
-                        Ly = ycoord(nyp) - ycoord(ny)
-                    else
-                        Ly = ycoord(i+1) - ycoord(i-1)
-                    end if
                     mtotal = mtotal + scp3d(i,j,k)/1000.0*Lx*Ly*Lz
+					KE = KE + beta3d(i,j,k)*Lx*Ly*Lz ! Actually avg beta, but using KE since it's already a variable
                 end do
             end do
         end do
         !$omp end parallel do
 
+		print *,'avg beta = ',KE/volume
         if (mtotal .ge. mpoly) then
             open(100,file="outputs/total_mass")
             write(100,*) mtotal
