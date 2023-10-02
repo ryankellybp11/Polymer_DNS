@@ -6,7 +6,7 @@
 #SBATCH -n 1 # total number of mpi tasks requested
 #SBATCH -p icx-normal # queue (partition) -- normal, development, etc.
 #SBATCH -t 1:00:00 # run time (hh:mm:ss)
-#SBATCH -A A-aoag # Project number
+#SBATCH -A OTH21032 # Project number
 
 #SBATCH --mail-user=rek@utexas.edu
 #SBATCH --mail-type=end     # email me when the job finishes
