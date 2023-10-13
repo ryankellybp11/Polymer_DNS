@@ -1,0 +1,16 @@
+slurmstepd: error: *** JOB 1186555 ON c314-032 CANCELLED AT 2023-10-05T19:13:47 DUE TO TIME LIMIT ***
+forrtl: error (78): process killed (SIGTERM)
+Image              PC                Routine            Line        Source             
+libifcoremt.so.5   000014FD4EC274DC  for__signal_handl     Unknown  Unknown
+libpthread-2.28.s  000014FD4C28ECE0  Unknown               Unknown  Unknown
+libiomp5.so        000014FD4F20633F  Unknown               Unknown  Unknown
+libiomp5.so        000014FD4F208645  Unknown               Unknown  Unknown
+libiomp5.so        000014FD4F24C03D  Unknown               Unknown  Unknown
+libiomp5.so        000014FD4F24B4D0  Unknown               Unknown  Unknown
+libiomp5.so        000014FD4F20A5E1  __kmpc_fork_call      Unknown  Unknown
+dns                0000000000435C31  pntsolv_                 5168  dns.f90
+dns                00000000004376AF  penta_                   4872  dns.f90
+dns                0000000000467E71  MAIN__                    429  dns.f90
+dns                0000000000402482  Unknown               Unknown  Unknown
+libc-2.28.so       000014FD4BCEDCF3  __libc_start_main     Unknown  Unknown
+dns                000000000040238E  Unknown               Unknown  Unknown
