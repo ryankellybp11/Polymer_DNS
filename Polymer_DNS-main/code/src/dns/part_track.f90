@@ -173,7 +173,7 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
 
     ! Write particle data
     if ((mod(it,iprnfrq) .eq. 0 .or. it .eq. 1) .and. it .ne. 0) then
-        if (npart .le. 100) then ! write particle data to ASCII file
+        if (npart .le. 10000) then ! write particle data to ASCII file
             write(filename_part,'("part-t-",i6.6,".dat")') it
             if (it .eq. 1) then
                 open(31, file = directory_part//filename_part)
@@ -391,12 +391,13 @@ subroutine fluid_interp(xp,yp,zp,u,v,w,uf,vf,wf)
     delxm = xl /float(mx-1)
     delzm = zl /float(mz-1)
 
-    imin = mod(floor(xp/delxm) + mx, mx) + 1
-    imax = mod(imin, mx) + 1
-    jmin = mod(floor(zp/delzm) + mx, mx) + 1
+    imin = mod(floor(xpart/delxm) + mx, mx) + 1
+    imax = mod(imin,mx) + 1
+    jmin = mod(floor(zpart/delzm) + mz, mz) + 1
     jmax = mod(jmin,mz) + 1
-    kmin = mod(ceiling(float(ny)/pi*dacos(1.0 - 2.0*yp/yl)) - 1 + nyp,nyp) + 1
-    kmax = mod(kmin,nyp) + 1
+    kmin = ceiling(float(ny)/pi*dacos(1.0 - 2.0*ypart/yl))
+    if (kmin .eq. nyp) kmin = ny
+    kmax = kmin + 1
     
     xmin = float(imin-1)*delxm
     xmax = float(imax-1)*delxm
@@ -757,10 +758,11 @@ subroutine SubDerivative(u,v,w,u_old,v_old,w_old,ufluid,vfluid,wfluid,subDufDt,s
  
     imin = mod(floor(xpart/delxm) + mx, mx) + 1
     imax = mod(imin,mx) + 1
-    jmin = mod(floor(zpart/delzm) + mx, mx) + 1
+    jmin = mod(floor(zpart/delzm) + mz, mz) + 1
     jmax = mod(jmin,mz) + 1
-    kmin = mod(ceiling(float(ny)/pi*dacos(1.0 - 2.0*ypart/yl)) - 1 + nyp,nyp) + 1
-    kmax = mod(kmin,nyp) + 1
+    kmin = ceiling(float(ny)/pi*dacos(1.0 - 2.0*ypart/yl))
+    if (kmin .eq. nyp) kmin = ny
+    kmax = kmin + 1
     
     xmin = float(imin-1)*delxm
     xmax = float(imax-1)*delxm
@@ -1005,11 +1007,12 @@ subroutine interp_swirl(xpart,ypart,zpart,swirl,u11,u12,u13,u21,u22,u23,u31,u32,
 
     ! Normal interpolation
     imin = mod(floor(xpart/delxm) + mx, mx) + 1
-    imax = mod(imin, mx) + 1
-    jmin = mod(floor(zpart/delzm) + mx, mx) + 1
+    imax = mod(imin,mx) + 1
+    jmin = mod(floor(zpart/delzm) + mz, mz) + 1
     jmax = mod(jmin,mz) + 1
-    kmin = mod(ceiling(float(ny)/pi*dacos(1.0 - 2.0*ypart/yl)) - 1 + nyp,nyp) + 1
-    kmax = mod(kmin,nyp) + 1
+    kmin = ceiling(float(ny)/pi*dacos(1.0 - 2.0*ypart/yl))
+    if (kmin .eq. nyp) kmin = ny
+    kmax = kmin + 1
     
     xmin = float(imin-1)*delxm
     xmax = float(imax-1)*delxm

@@ -696,7 +696,7 @@ subroutine vortex_only(initu,initv,initw)
     vSign = float((-1)**i) ! Sign of vortex - default is counter-rotating vortex pair - Ryan 6/8/23
 
     do j = 1,nz
-        z = (j-1)*zl/nz
+        z = (j-1)*zl/(nz-1)
         
         do k = 1,nyp
             y = ycoord(k)
@@ -705,6 +705,9 @@ subroutine vortex_only(initu,initv,initw)
             vortY = y - vyc
             vortZ = z - vzc
             vortR2 = (vortY)**2 + (vortZ)**2
+            if (vortR2 .eq. 0.0) then
+                vortR2 = 1.0e-8 ! no NaNs
+            end if
             vortVi(j,k) = vortVi(j,k) - vSign*(vortZ)/vortR2*(1 - exp(-vortR2/vortSigma**2))
             vortWi(j,k) = vortWi(j,k) + vSign*(vortY)/vortR2*(1 - exp(-vortR2/vortSigma**2))
 
