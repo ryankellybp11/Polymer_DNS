@@ -1,0 +1,28 @@
+#!/bin/bash
+#SBATCH -J my_jobcode
+#SBATCH -o outputs/log # output and error file name (%j expands to jobID)
+#SBATCH -e outputs/err
+#SBATCH -N 1 # total number of nodes
+#SBATCH -n 1 # total number of mpi tasks requested
+#SBATCH -p icx-normal # queue (partition) -- normal, development, etc.
+#SBATCH -t 1:00:00 # run time (hh:mm:ss)
+#SBATCH -A OTH21032 # Project number
+
+#SBATCH --mail-user=rek@utexas.edu
+#SBATCH --mail-type=end     # email me when the job finishes
+
+dns=code/bin/dns
+
+
+shopt -s extglob
+cd outputs
+rm -r !("log"|"err")
+cd ..
+mkdir outputs/flowfield
+mkdir outputs/particles
+mkdir outputs/polyforce
+
+export OMP_NUM_THREADS=32
+export OMP_STACKSIZE=5G
+ulimit -s unlimited
+$dns
