@@ -9,5 +9,6 @@ cd ..
 mkdir outputs/flowfield
 mkdir outputs/particles
 mkdir outputs/polyforce
+mkdir outputs/morestuff
 
 ./code/bin/dns 

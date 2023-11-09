@@ -20,7 +20,6 @@ rm -r !("log"|"err")
 cd ..
 mkdir outputs/flowfield
 mkdir outputs/particles
-mkdir outputs/polyforce
 
 export OMP_NUM_THREADS=32
 export OMP_STACKSIZE=5G

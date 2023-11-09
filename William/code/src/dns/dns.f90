@@ -5856,7 +5856,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
     real dragx(mz,mx), dragy(mz,mx), dragz(mz,mx)
     real cfl(nyp)
   
-    real cflcheck, cflmax, x, y, z
+    real cflcheck, cflmax, x, y, z, r
 
     ! Extra variables for vortex ring
     real xi, zj, argx, argrad, fx, fr, rsq
@@ -5912,8 +5912,19 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
   
     ! Output grid data
     integer imin, imax, jmin, jmax, kmin, kmax, istep, kstep
+ 
+    ! Misc. variables added
+    character(31) :: filename2
+    real :: z1, y1, y2, wxi, wxj, sci, scj, SG
+    real :: vortY, vortZ
   
-  
+    ! Read in vortex parameters
+    open(999,file='setup/vort.config',status='old')
+    do i = 1,15
+        read(999,*) 
+    end do
+    read(999,*) vortY,vortZ
+    close(999)
   !++++++++++++++++++  
   
     bfhead  = 2
@@ -6907,26 +6918,23 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
 !*** Removed lambda2 calculations in favor of swirl calculations (I think it looks nicer) - Ryan 3/10/23 ***!
 
       ! Calculate swirl and print flowfield 
+      ! Calculate swirl
+      !$omp parallel do private(i,j,k,swirl)     
+          do k = 1,nyp
+              do j = 1,mz
+                  do i = 1,mx
+                      call calcswirl(u11p3d(k,j,i),u21p3d(k,j,i),u31p3d(k,j,i),u12p3d(k,j,i),u22p3d(k,j,i), &
+                                     u32p3d(k,j,i),u13p3d(k,j,i),u23p3d(k,j,i),u33p3d(k,j,i),swirl)
+
+                      swirl_3d(k,j,i) = swirl
+                  end do
+              end do
+          end do
+      !$omp end parallel do
+
+      ! End swirl calculation
       if (print3d .ne. 0) then 
-
-
         if((mod(it,iprnfrq) .eq. 0 .and. it .ne. 0) .or. it .eq. 1) then
-            ! Calculate swirl
-            write(*,*) 'Start calculating swirl'
-            !$omp parallel do private(i,j,k,dudx,dvdx,dwdx,dudy,dvdy,dwdy,dudz,dvdz,dwdz,swirl)     
-                do k = 1,nyp
-                    do j = 1,mz
-                        do i = 1,mx
-                            call calcswirl(u11p3d(k,j,i),u21p3d(k,j,i),u31p3d(k,j,i),u12p3d(k,j,i),u22p3d(k,j,i), &
-                                           u32p3d(k,j,i),u13p3d(k,j,i),u23p3d(k,j,i),u33p3d(k,j,i),swirl)
-
-                            swirl_3d(k,j,i) = swirl
-                        end do
-                    end do
-                end do
-            !$omp end parallel do
-            write(*,*) 'Finished calculating swirl'
-            ! End swirl calculation
     
             ! Write output files
             if (print3d .eq. 1 .or. print3d .eq. 2) then
@@ -6938,9 +6946,42 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
                     call write_flowfield_plt(it, up3d, vp3d, wp3d, wx3d, wy3d, wz3d, swirl_3d, real(imatrix), scp3d, xl, zl)
                 end if
             end if
+
+            ! Print out wx and scalar as a function of r
+            write(filename2,'("outputs/morestuff/fr-",i6.6,".dat")') it
+            open(190, file = filename2)
+            do j = 1,mz/2-1
+                z = delzm*(j-1)
+                r = abs(z - vortZ)
+                wxi = wx3d(nyh,mz/2+j,1) + wx3d(nyh,mz/2-j,1)
+                do k = 1,3
+                    argy = pi/4.0*float(k)
+                    z1 = r*cos(argy) + vortZ
+                    y1 = r*sin(argy) + vortY
+                    y2 = vortY - r*sin(argy)
+                   
+                    if (y1 .gt. 0.0 .and. y1 .lt. yl) then 
+                        call fluid_interp(0.0,y1,z1,wx3d,scp3d,up3d,wxj,scj,up1)
+                        wxi = wxi + wxj
+                        sci = sci + scj
+                        call fluid_interp(0.0,y2,z1,wx3d,scp3d,up3d,wxj,scj,up1)
+                        wxi = wxi + wxj
+                        sci = sci + scj
+                    end if
+                end do
+
+                wxi = wxi/8.0
+                sci = sci/8.0
+
+                write(190,"(3(e14.6,1x))") r, wxi ,sci
+            end do
+            close(190)
+
         end if
     end if
     
+
+
 
     !===================================================================================!
     !                              Interpolation Check                                  !    
@@ -7108,8 +7149,9 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
     ! Computing Global KE and Enstrophy for all flow cases
     sumens = 0.0
     KE = 0.0
+    SG = 0.0
     volume = xl*yl*zl
-    !$omp parallel do reduction(+:sumens,KE) default(shared) private(i,j,k,Lx,Ly,Lz)
+    !$omp parallel do reduction(+:sumens,KE,SG) default(shared) private(i,j,k,Lx,Ly,Lz)
     do i = 1,nyp
         ! Calc y length
         if (i .eq. 1) then
@@ -7137,6 +7179,7 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
 
                 KE = KE + 0.5*(up3d(i,j,k)**2 + vp3d(i,j,k)**2 + wp3d(i,j,k)**2)*Lx*Ly*Lz 
                 sumens = sumens + (wx3d(i,j,k)**2 + wy3d(i,j,k)**2 + wz3d(i,j,k)**2)*Lx*Ly*Lz 
+                SG = SG + swirl_3d(i,j,k)*scp3d(i,j,k)*Lx*Ly*Lz
             end do
         end do
     end do
@@ -7145,14 +7188,18 @@ subroutine vcw3d(u,v,w,omx,omy,omz,fn,gn,scalar,sclx,scly,sclz,scn,     &
     if (it .eq. irstrt) then
         open(100,file="outputs/KE")
         open(101,file="outputs/Ens")
+        open(102,file="outputs/SG")
     else if (it .gt. irstrt) then
         open(100,file="outputs/KE",position="append")
         open(101,file="outputs/Ens",position="append")
+        open(102,file="outputs/SG",position="append")
     end if
     write(100,*) KE/volume
     write(101,*) sumens/volume
+    write(102,*) SG/volume
     close(100)
     close(101)
+    close(102)
 
     !-----------------------------------------------------------------------------------!
 
@@ -7745,17 +7792,13 @@ subroutine ubulk(u,ub)
          end do
 end
 
-! Below I'm implementing a solver to determine eigenvalues to calculate the
-! swirl strength - Ryan 10/26/22
-subroutine eig(u11,u12,u13,u21,u22,u23,u31,u32,u33, &
+subroutine eig(u11r,u12r,u13r,u21r,u22r,u23r,u31r,u32r,u33r, &
                lambda1,lambda2,lambda3)
 
 ! ==================================================== !
 ! This subroutine is used to get the eigenvalues of a  !
 ! 3x3 matrix, using a pre-determined expression for    !
-! the values. Because of how it will be used in the    !
-! DNS code, I have the matrix elements as separate     !
-! inputs (u11 - u33).                                  !
+! the values. 
 !                                                      !
 ! The outputs are lambda1, lambda2, and lambda3, which !
 ! are the eigenvalues of the matrix U.                 !
@@ -7765,9 +7808,24 @@ subroutine eig(u11,u12,u13,u21,u22,u23,u31,u32,u33, &
 
     implicit none
 
-    real u11,u12,u13,u21,u22,u23,u31,u32,u33 ! velocity gradients
-    complex lambda1, lambda2, lambda3 ! Eigenvalues
-    complex im
+    ! Passed variables  
+    real    :: u11r,u12r,u13r,u21r,u22r,u23r,u31r,u32r,u33r ! velocity gradients
+    complex :: u11,u12,u13,u21,u22,u23,u31,u32,u33 ! velocity gradients
+    complex :: lambda1, lambda2, lambda3 ! Eigenvalues
+
+    ! Calculation variable
+    complex :: im
+
+    ! Change to complex data type to avoid NaNs
+    u11 = cmplx(u11r,0.0) 
+    u12 = cmplx(u12r,0.0) 
+    u13 = cmplx(u13r,0.0) 
+    u21 = cmplx(u21r,0.0) 
+    u22 = cmplx(u22r,0.0) 
+    u23 = cmplx(u23r,0.0) 
+    u31 = cmplx(u31r,0.0) 
+    u32 = cmplx(u32r,0.0) 
+    u33 = cmplx(u33r,0.0) 
 
     im = (0.0,1.0) ! imaginary number i
 
@@ -7856,7 +7914,9 @@ subroutine eig(u11,u12,u13,u21,u22,u23,u31,u32,u33, &
               ((u11 + u22 + u33)**2/9 - (u11*u22)/3 + (u12*u21)/3 - (u11*u33)/3 + (u13*u31)/3 - &
               (u22*u33)/3 + (u23*u32)/3)**3)**(1./2.) + (u11*u22*u33)/2 - (u11*u23*u32)/2 -        &
               (u12*u21*u33)/2 + (u12*u23*u31)/2 + (u13*u21*u32)/2 - (u13*u22*u31)/2)**(1./3.)/2 
-end subroutine
+end subroutine eig
+    
+!---------------------------------------------------------------------!
 
 subroutine calcswirl(u11,u21,u31,u12,u22,u32,u13,u23,u33,swirl)
 ! This subroutine calculates the swirl strength, defined as the magnitude of the
