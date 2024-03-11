@@ -1,9 +1,0 @@
-shopt -s extglob
-cd outputs
-rm -r !("log"|"err")
-cd ..
-mkdir outputs/flowfield
-mkdir outputs/particles
-mkdir outputs/polyforce
-mkdir outputs/morestuff
-
