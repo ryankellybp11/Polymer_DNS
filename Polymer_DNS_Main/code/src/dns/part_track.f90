@@ -85,6 +85,7 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
 ! ============================================================================ !
 
     use grid_size
+    use omp_lib
 
     implicit none
 
@@ -143,6 +144,10 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
  
         ! Compute new particle location
         if (particle_flag .ge. 0) then
+        !$omp parallel do shared(xpart,ypart,zpart,upart,vpart,wpart,u,v,w,   &
+        !$omp                    u_old,v_old,w_old,omx,omy,omz,a,u11,u12,u13, &
+        !$omp                    u21,u22,u23,u31,u32,u33,Lu,Lv,Lw,Lu_old,     &
+        !$omp                    Lv_old,Lw_old)
         do j = 1,npart
             if (particle_flag .eq. 0) then ! Tracer
                 call tracer_update(xpart(j),ypart(j),zpart(j),upart(j),vpart(j),wpart(j),u,v,w,a)
@@ -170,6 +175,7 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
                 end do
             end if
         end do
+        !$omp end parallel do
         end if
 
         ! Change dt back to normal
@@ -1527,17 +1533,6 @@ subroutine write_particles_szplt(xp,yp,zp,up,vp,wp,swirl)
     ! Close file
     i = tecend142()
 
-
-end subroutine
-
-#else
-
-subroutine write_particles_szplt(xp,yp,zp,up,vp,wp,swirl)
-
-    use grid_size
-    implicit none
-
-    real,dimension(npart) :: xp,yp,zp,up,vp,wp,swirl
 
 end subroutine
 #endif
