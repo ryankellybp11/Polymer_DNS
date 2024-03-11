@@ -118,19 +118,26 @@ Run `preconfigure-dns` from the case directory after each change in the grid siz
 
 ## Run:
 There are a few ways to run the code:
-- Run the DNS code in a single core, locally:
+- Run the DNS code locally or on a compute node on TACC:
 ```console
-./code/bin/dns
+. run
 ```
-- Run the DNS code with multipe cores, locally:
+
+- Run the DNS code in the background locally or on a compute node on TACC:
 ```console
-./omprun
+. hushrun
 ```
-- Run the DNS code as a job in TACC:
+
+- Run the DNS code as a batch job on TACC:
 ```console
 sbatch jobcode
 ```
 where `jobcode` has been **edited** (job name, number of nores/mpi tasks, time, email, etc) according to the user's needs.
+
+You can also clean up the output files by running the script
+```console
+. clean
+```
 
 ## Using Github in TACC:
 TACC does not allow one to create ssh keys within a cloud node. In order to clone/pull/push this repo on a TACC server, one has to use Personal Access Tokens: https://docs.github.com/en/github/authenticating-to-github/keeping-your-account-and-data-secure/creating-a-personal-access-token
