@@ -9,7 +9,6 @@ This branch has a self-contained case: all the necessary code, binaries, and fil
 
 ## Code structure:
 
-
     .
     ├── code                             # Contains source code, compiled code, binariy files, and geometry file
     │   ├── bin                          # Contains all binary files
@@ -20,44 +19,45 @@ This branch has a self-contained case: all the necessary code, binaries, and fil
     │   │   ├── grid_size.mod            # Binary module for grid size data
     │   └── src                          # Contains all the source files
     │       ├── dns                      # Contains DNS source files
-    │       │   ├── dns.f90              # Main DNS source file (with polymer)
-    │       │   ├── dns_no_poly.f90      # Main DNS source file (without polymer)
-    │       │   ├── ffts.f90             # Useful fft functions for dns.f90
+    │       │   ├── derivatives.f90      # Contains subroutines related to gradients and derivatives
+    │       │   ├── ffts.f90             # Useful FFT functions for dns.f90
     │       │   ├── grid_size.f90        # Module with all grid size data
     │       │   ├── init_flow.f90        # Defines flow type (Channel, Couette, BL, etc.)
+    │       │   ├── helpers.f90          # Contains various helpful functions and subroutines
+    │       │   ├── main_dns.f90         # Main DNS source file 
     │       │   ├── part_track.f90       # Particle tracking integrator
-    │       │   └── polymer_routines.f90 # Additional subroutines for polymer effects
+    │       │   └── solvers.f90          # Contains the solvers used in the code, including vcw3dp
     │       ├── geometry                 # Contains geometry generator source code
     │       │   └── Geom.f90             # Geometry generator source code
     │       └── preconfigure.py          # preconfigure tool: compiles all the necessary files. Run with Python >=2.7.13 
+    ├── outputs                          # Contails all the outputs produced by the DNS
+    │   ├── flowfield                    # Contains tecplot-readable binary data files of the flow field
+    │   │   ├── grid.plt                 # Grid file
+    │   │   ├── time-000001.szplt           # Flow field at time step 1 (in Tecplot binary format)
+    │   │   └── ...                      # etc.
+    │   ├── particles                    # Contains particle data
+    │   │   ├── part-t-000001.dat         # Particles at time step 1 (in Tecplot ASCII format)
+    │   │   └── ...                      # etc.
+    │   ├── last-restart                 # Latest restart file. Copy to setup/restart to restart latest simulation
+    │   ├── c-last-restart               # Latest polymer restart file. Copy to setup/c-restart to restart latest simulation
+    │   ├── err                          # Runtime errors will appear here
+    │   ├── log                          # Runtime outputs
+    │   └── KE,enstrophy,...             # Output files for comparing different flow variables
     │── setup                            # Contains all the setup files that are inputs to the DNS. 
     │   ├── dns.config                   # Main DNS input file
-    │   ├── vort.config                  # Contains input information for generating vortices (soon to be vortex ring as well, but as of now, that's in dns.config)
+    │   ├── vort.config                  # Contains input information for generating vortices 
     │   ├── restart                      # Restart file (outputs/last-restart file of previous simulation)
     │   ├── c-restart                    # Scalar/polymer restart file 
     │   └── particles			         # Particle setup files
     │       ├── generator.f90            # Generates random particles in flow domain 
     │       ├── particles.dat            # Contains particle trajectory info (ASCII)
     │       └── pgen					 # Binary particle generator file   
-    ├── outputs                          # Contails all the outputs produced by the DNS
-    │   ├── flowfield                    # Contains tecplot-readable binary data files of the flow field
-    │   │   ├── grid.plt                 # Grid file
-    │   │   ├── time-00000.plt           # Flow field at time step 0 (in Tecplot binary format)
-    │   │   └── ...                      # etc.
-    │   ├── particles                    # Contains particle data
-    │   │   ├── part-t-00000.dat         # Particles at time step 0 (in Tecplot ASCII format)
-    │   │   └── ...                      # etc.
-    │   ├── last-restart                 # Latest restart file. Do `mv outputs/last-restart setup/restart` if you want to restart latest simulation.
-    │   ├── c-last-restart               # Latest polymer restart file. `mv outputs/c-last-restart setup/c-restart` if you want to restart latest simulation.
-    │   ├── err                          # Runtime errors will appear here
-    │   ├── log                          # Runtime outputs
-    │   └── KE,enstrophy,...             # Channel flow output files for comparing different flow variables
-    ├── jobcode                          # File for submitting a job to TACC. Usage: `sbatch jobcode`
+    ├── batch_movie.mcr                  # Tecplot macro file for generating a movie in batch mode (must be edited, somewhat complicated)
     ├── clean                            # File for cleaning outputs directory. Usage: `. clean'
-    ├── run                              # File for running the code locally (or on a work node). Usage: `. run'
+    ├── err_comp.txt                     # Output file for any compilation errors (empty if no errors)
     ├── hushrun                          # Same as `run' but runs the code in the background
-    └── err_comp.txt                     # Output file for any compilation errors (empty if no errors)
-
+    ├── jobcode                          # File for submitting a job to TACC. Usage: `sbatch jobcode`
+    └── run                              # File for running the code locally (or on a work node). Usage: `. run'
 
 
 ## Prerequisites (OPTIONAL)
