@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J mpi_dns_LO_polymer
+#SBATCH -J [jobname here]
 #SBATCH -o log # output and error file name (%j expands to jobID)
 #SBATCH -e err
 #SBATCH -N 2 # total number of nodes
@@ -8,7 +8,7 @@
 #SBATCH -t 3:00:00 # run time (hh:mm:ss)
 #SBATCH -A OTH21032 # Project number
 
-#SBATCH --mail-user=rek@utexas.edu
+#SBATCH --mail-user=[your email here]
 #SBATCH --mail-type=all     # email me when the job finishes
 
 
