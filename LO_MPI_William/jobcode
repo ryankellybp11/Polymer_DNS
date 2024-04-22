@@ -4,12 +4,12 @@
 #SBATCH -e err
 #SBATCH -N 2 # total number of nodes
 #SBATCH -n 8 # total number of mpi tasks requested
-#SBATCH -p normal # queue (partition) -- normal, development, etc.
+#SBATCH -p spr # queue (partition) -- normal, development, etc.
 #SBATCH -t 3:00:00 # run time (hh:mm:ss)
-#SBATCH -A OTH21032 # Project number
+#SBATCH -A CTS24014 # Project number
 
 #SBATCH --mail-user=[your email here]
-#SBATCH --mail-type=all     # email me when the job finishes
+#SBATCH --mail-type=end     # email me when the job finishes
 
 
 rm -r outputs*
