@@ -2406,40 +2406,6 @@ contains
         end if
 #ENDIF
         do j = 1,mz
-            up(j,nxp) = up(j,2)
-            vp(j,nxp) = vp(j,2)
-            wp(j,nxp) = wp(j,2)
-            wx(j,nxp) = wx(j,2)
-            wy(j,nxp) = wy(j,2)
-            wz(j,nxp) = wz(j,2)
-            
-            u11p(j,nxp) = u11p(j,2)
-            u12p(j,nxp) = u12p(j,2)
-            u13p(j,nxp) = u13p(j,2)
-            u21p(j,nxp) = u21p(j,2)
-            u22p(j,nxp) = u22p(j,2)
-            u23p(j,nxp) = u23p(j,2)
-            u31p(j,nxp) = u31p(j,2)
-            u32p(j,nxp) = u32p(j,2)
-            u33p(j,nxp) = u33p(j,2)
-            
-            Lup(j,nxp) = Lup(j,2) 
-            Lvp(j,nxp) = Lvp(j,2) 
-            Lwp(j,nxp) = Lwp(j,2) 
-#IFDEF SCALAR    
-            scp(j,nxp) = scp(j,2)
-             cx(j,nxp) =  cx(j,2)
-             cy(j,nxp) =  cy(j,2)
-             cz(j,nxp) =  cz(j,2)
-            scp(j,2) = 0.0
-             cx(j,2) = 0.0
-             cy(j,2) = 0.0
-             cz(j,2) = 0.0
-            scp(j,nxp2) = scp(j,2)
-             cx(j,nxp2) =  cx(j,2)
-             cy(j,nxp2) =  cy(j,2)
-             cz(j,nxp2) =  cz(j,2)
-#ENDIF            
             up(j,2) = 0.0
             vp(j,2) = 0.0
             wp(j,2) = 0.0
@@ -2461,68 +2427,38 @@ contains
             Lvp(j,2) = 0.0
             Lwp(j,2) = 0.0
 
-            up(j,nxp2) = up(j,2)
-            vp(j,nxp2) = vp(j,2)
-            wp(j,nxp2) = wp(j,2)
-            wx(j,nxp2) = wx(j,2)
-            wy(j,nxp2) = wy(j,2)
-            wz(j,nxp2) = wz(j,2)
+            up(j,nxp2) = 0.0
+            vp(j,nxp2) = 0.0
+            wp(j,nxp2) = 0.0
+            wx(j,nxp2) = 0.0
+            wy(j,nxp2) = 0.0
+            wz(j,nxp2) = 0.0
             
-            u11p(j,nxp2) = u11p(j,2)
-            u12p(j,nxp2) = u12p(j,2)
-            u13p(j,nxp2) = u13p(j,2)
-            u21p(j,nxp2) = u21p(j,2)
-            u22p(j,nxp2) = u22p(j,2)
-            u23p(j,nxp2) = u23p(j,2)
-            u31p(j,nxp2) = u31p(j,2)
-            u32p(j,nxp2) = u32p(j,2)
-            u33p(j,nxp2) = u33p(j,2)
+            u11p(j,nxp2) = 0.0
+            u12p(j,nxp2) = 0.0
+            u13p(j,nxp2) = 0.0
+            u21p(j,nxp2) = 0.0
+            u22p(j,nxp2) = 0.0
+            u23p(j,nxp2) = 0.0
+            u31p(j,nxp2) = 0.0
+            u32p(j,nxp2) = 0.0
+            u33p(j,nxp2) = 0.0
             
-            Lup(j,nxp2) = Lup(j,2) 
-            Lvp(j,nxp2) = Lvp(j,2) 
-            Lwp(j,nxp2) = Lwp(j,2) 
+            Lup(j,nxp2) = 0.0
+            Lvp(j,nxp2) = 0.0
+            Lwp(j,nxp2) = 0.0
+#IFDEF SCALAR    
+            scp(j,2) = 0.0
+             cx(j,2) = 0.0
+             cy(j,2) = 0.0
+             cz(j,2) = 0.0
+            scp(j,nxp2) = 0.0
+             cx(j,nxp2) = 0.0
+             cy(j,nxp2) = 0.0
+             cz(j,nxp2) = 0.0
+#ENDIF            
 #IFDEF POLYMER
             if (it .ge. src_start-1) then
-            c11p(j,nxp) = c11p(j,2)
-            c12p(j,nxp) = c12p(j,2)
-            c13p(j,nxp) = c13p(j,2)
-            c21p(j,nxp) = c21p(j,2)
-            c22p(j,nxp) = c22p(j,2)
-            c23p(j,nxp) = c23p(j,2)
-            c31p(j,nxp) = c31p(j,2)
-            c32p(j,nxp) = c32p(j,2)
-            c33p(j,nxp) = c33p(j,2)
-                           
-            dc111p(j,nxp) = dc111p(j,2)
-            dc112p(j,nxp) = dc112p(j,2)
-            dc113p(j,nxp) = dc113p(j,2)
-            dc211p(j,nxp) = dc211p(j,2)
-            dc212p(j,nxp) = dc212p(j,2)
-            dc213p(j,nxp) = dc213p(j,2)
-            dc311p(j,nxp) = dc311p(j,2)
-            dc312p(j,nxp) = dc312p(j,2)
-            dc313p(j,nxp) = dc313p(j,2)
-                                     
-            dc121p(j,nxp) = dc121p(j,2)
-            dc122p(j,nxp) = dc122p(j,2)
-            dc123p(j,nxp) = dc123p(j,2)
-            dc221p(j,nxp) = dc221p(j,2)
-            dc222p(j,nxp) = dc222p(j,2)
-            dc223p(j,nxp) = dc223p(j,2)
-            dc321p(j,nxp) = dc321p(j,2)
-            dc322p(j,nxp) = dc322p(j,2)
-            dc323p(j,nxp) = dc323p(j,2) 
-                                    
-            dc131p(j,nxp) = dc131p(j,2)
-            dc132p(j,nxp) = dc132p(j,2)
-            dc133p(j,nxp) = dc133p(j,2)
-            dc231p(j,nxp) = dc231p(j,2)
-            dc232p(j,nxp) = dc232p(j,2)
-            dc233p(j,nxp) = dc233p(j,2)
-            dc331p(j,nxp) = dc331p(j,2)
-            dc332p(j,nxp) = dc332p(j,2)
-            dc333p(j,nxp) = dc333p(j,2)
-
             c11p(j,2) = 0.0
             c12p(j,2) = 0.0
             c13p(j,2) = 0.0
@@ -2563,45 +2499,45 @@ contains
             dc332p(j,2) = 0.0
             dc333p(j,2) = 0.0
 
-            c11p(j,nxp2) = c11p(j,2)
-            c12p(j,nxp2) = c12p(j,2)
-            c13p(j,nxp2) = c13p(j,2)
-            c21p(j,nxp2) = c21p(j,2)
-            c22p(j,nxp2) = c22p(j,2)
-            c23p(j,nxp2) = c23p(j,2)
-            c31p(j,nxp2) = c31p(j,2)
-            c32p(j,nxp2) = c32p(j,2)
-            c33p(j,nxp2) = c33p(j,2)
+            c11p(j,nxp2) = 0.0
+            c12p(j,nxp2) = 0.0
+            c13p(j,nxp2) = 0.0
+            c21p(j,nxp2) = 0.0
+            c22p(j,nxp2) = 0.0
+            c23p(j,nxp2) = 0.0
+            c31p(j,nxp2) = 0.0
+            c32p(j,nxp2) = 0.0
+            c33p(j,nxp2) = 0.0
                            
-            dc111p(j,nxp2) = dc111p(j,2)
-            dc112p(j,nxp2) = dc112p(j,2)
-            dc113p(j,nxp2) = dc113p(j,2)
-            dc211p(j,nxp2) = dc211p(j,2)
-            dc212p(j,nxp2) = dc212p(j,2)
-            dc213p(j,nxp2) = dc213p(j,2)
-            dc311p(j,nxp2) = dc311p(j,2)
-            dc312p(j,nxp2) = dc312p(j,2)
-            dc313p(j,nxp2) = dc313p(j,2)
+            dc111p(j,nxp2) = 0.0
+            dc112p(j,nxp2) = 0.0
+            dc113p(j,nxp2) = 0.0
+            dc211p(j,nxp2) = 0.0
+            dc212p(j,nxp2) = 0.0
+            dc213p(j,nxp2) = 0.0
+            dc311p(j,nxp2) = 0.0
+            dc312p(j,nxp2) = 0.0
+            dc313p(j,nxp2) = 0.0
 
-            dc121p(j,nxp2) = dc121p(j,2)
-            dc122p(j,nxp2) = dc122p(j,2)
-            dc123p(j,nxp2) = dc123p(j,2)
-            dc221p(j,nxp2) = dc221p(j,2)
-            dc222p(j,nxp2) = dc222p(j,2)
-            dc223p(j,nxp2) = dc223p(j,2)
-            dc321p(j,nxp2) = dc321p(j,2)
-            dc322p(j,nxp2) = dc322p(j,2)
-            dc323p(j,nxp2) = dc323p(j,2) 
+            dc121p(j,nxp2) = 0.0
+            dc122p(j,nxp2) = 0.0
+            dc123p(j,nxp2) = 0.0
+            dc221p(j,nxp2) = 0.0
+            dc222p(j,nxp2) = 0.0
+            dc223p(j,nxp2) = 0.0
+            dc321p(j,nxp2) = 0.0
+            dc322p(j,nxp2) = 0.0
+            dc323p(j,nxp2) = 0.0
 
-            dc131p(j,nxp2) = dc131p(j,2)
-            dc132p(j,nxp2) = dc132p(j,2)
-            dc133p(j,nxp2) = dc133p(j,2)
-            dc231p(j,nxp2) = dc231p(j,2)
-            dc232p(j,nxp2) = dc232p(j,2)
-            dc233p(j,nxp2) = dc233p(j,2)
-            dc331p(j,nxp2) = dc331p(j,2)
-            dc332p(j,nxp2) = dc332p(j,2)
-            dc333p(j,nxp2) = dc333p(j,2)
+            dc131p(j,nxp2) = 0.0
+            dc132p(j,nxp2) = 0.0
+            dc133p(j,nxp2) = 0.0
+            dc231p(j,nxp2) = 0.0
+            dc232p(j,nxp2) = 0.0
+            dc233p(j,nxp2) = 0.0
+            dc331p(j,nxp2) = 0.0
+            dc332p(j,nxp2) = 0.0
+            dc333p(j,nxp2) = 0.0
             end if
 #ENDIF
         end do
