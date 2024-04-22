@@ -14,7 +14,7 @@
 
 rm -r outputs*
 
-export OMP_NUM_THREADS=32
+export OMP_NUM_THREADS=24
 export OMP_STACKSIZE=1500M
 ulimit -s unlimited
 
