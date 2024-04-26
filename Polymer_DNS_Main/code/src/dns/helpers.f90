@@ -1868,36 +1868,71 @@ contains
 
         integer :: i,j,k
         integer :: it
+        real    :: dt
 
+        integer :: irstrt,nsteps,iprnfrq,print3d
+        real :: xl,yl,zl
+    
+        real :: delxm,delzm
+
+        character(17) :: filename
+
+        real,dimension(nyp) :: yvec
+        real,dimension(mz)  :: zvec
+        real,dimension(mx)  :: xvec
 
 
         ! Common blocks
-
+        common/iocontrl/ irstrt,nsteps,iprnfrq,print3d
+        common/itime/    it,dt
+        common/domain/   xl,yl,zl
 
 
         ! Calculate domain variables
+        delxm = xl/float(mx-1)
+        delzm = zl/float(mz-1)
 
+        do i = 1,nyp
+            yvec(i) = ycoord(i)
+        end do
+        do j = 1,mz
+            zvec(j) = float(j-1)*delzm
+        end do
+        do k = 1,mx
+            xvec(k) = float(k-1)*delxm
+        end do
 
 
         ! Write grid file at first write
         if (it .eq. 1) then
             ! Write grid file in ASCII format for readability
-            write(123,file="outputs/flowfield/FTLE_grid.dat",status="new")
-            write(123) "NYP = ",nyp,", MZ = ",mz,", MX = ",mx
-            write(123) "LY = ",yl,", LZ = ",zl,", LX = ",xl
+            open(122,file="outputs/flowfield/FTLE_grid.dat")
+            write(122,*) "NYP = ",nyp,", MZ = ",mz,", MX = ",mx
+            write(122,*) "LY = ",yl,", LZ = ",zl,", LX = ",xl
+            write(122,*) "DT = ",dt,", IPRNFRQ = ",iprnfrq,", NSTEPS = ",nsteps
+            write(122,*) xvec
+            write(122,*) yvec
+            write(122,*) zvec
+            close(122)
+
+            ! Write grid file in unformatted binary
+            open(123,file="outputs/flowfield/FTLE_grid",status="new",form="unformatted")
+            write(123) nyp,mz,mx
+            write(123) yl,zl,xl
+            write(123) dt,iprnfrq,nsteps
             write(123) xvec
             write(123) yvec
             write(123) zvec
             close(123)
+        end if
 
-            ! Write grid file in unformatted binary
-!            write(123,file="outputs/flowfield/FTLE_grid",status="new",form="unformatted")
-!            write(123) nyp,mz,mx
-!            write(123) yl,zl,xl
-!            write(123) xvec
-!            write(123) yvec
-!            write(123) zvec
-!            close(123)
+
+        ! Write flowfield file every write
+        write(filename,'("FTLE_veloc-",i6.6)')it
+        open(124,file="outputs/flowfield/"//filename,form="unformatted")
+        write(124) u,v,w
+!        write(124) wx,wy,wz ! Not sure if these are useful/necessary
+        close(124)
     end subroutine write_FTLE_output
 
 end module helpers
