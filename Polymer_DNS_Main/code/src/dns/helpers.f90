@@ -694,7 +694,8 @@ contains
         avg_beta = avg_beta/volume
         print *,'avg beta = ',avg_beta
         print *,'total scalar = ',total_scl
-        if (avg_beta .le. qbeta) src_stop = it
+        if (avg_beta .le. 0.999) src_stop = it
+        qbeta = avg_beta
     end subroutine calc_total_beta
 
     !---------------------------------------------------------------------!
@@ -1856,5 +1857,47 @@ contains
         deallocate(floatValues,varTypes,shareVarFromZone,valueLocation,passiveVarList)
     end subroutine
 #endif
+
+    subroutine write_FTLE_output(u,v,w,wx,wy,wz)
+
+        use grid_size   
+
+        implicit none
+
+        real,dimension(nyp,mz,mx) :: u,v,w,wx,wy,wz
+
+        integer :: i,j,k
+        integer :: it
+
+
+
+        ! Common blocks
+
+
+
+        ! Calculate domain variables
+
+
+
+        ! Write grid file at first write
+        if (it .eq. 1) then
+            ! Write grid file in ASCII format for readability
+            write(123,file="outputs/flowfield/FTLE_grid.dat",status="new")
+            write(123) "NYP = ",nyp,", MZ = ",mz,", MX = ",mx
+            write(123) "LY = ",yl,", LZ = ",zl,", LX = ",xl
+            write(123) xvec
+            write(123) yvec
+            write(123) zvec
+            close(123)
+
+            ! Write grid file in unformatted binary
+!            write(123,file="outputs/flowfield/FTLE_grid",status="new",form="unformatted")
+!            write(123) nyp,mz,mx
+!            write(123) yl,zl,xl
+!            write(123) xvec
+!            write(123) yvec
+!            write(123) zvec
+!            close(123)
+    end subroutine write_FTLE_output
 
 end module helpers

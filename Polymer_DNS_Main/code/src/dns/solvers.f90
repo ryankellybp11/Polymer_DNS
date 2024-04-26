@@ -3066,7 +3066,7 @@ contains
         if ((mod(it,iprnfrq) .eq. 0 .and. it .ne. 0) .or. it .eq. 1) then
             
             ! Write output files
-            if (print3d .eq. 1) then
+            if (print3d .eq. 1) then ! Write output in ASCII format
 #IFDEF POLYMER
                 call write_flowfield_ascii(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,swirl_3d,beta3d,float(imatrix))
 #ELIF DEFINED SCALAR
@@ -3075,7 +3075,7 @@ contains
                 call write_flowfield_ascii(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,swirl_3d,float(imatrix))
 #ENDIF
 #IFDEF OUTPUTFORM
-            else if (print3d .eq. 3) then
+            else if (print3d .eq. 3) then ! Write output in Tecplot binary (.szplt)
 #IFDEF POLYMER
                 call write_flowfield_plt(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,swirl_3d,beta3d,float(imatrix))
 #ELIF DEFINED SCALAR
@@ -3084,6 +3084,8 @@ contains
                 call write_flowfield_plt(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,swirl_3d,float(imatrix))
 #ENDIF
 #ENDIF
+            else if (print3d .eq. 2) then ! Write outputs specifically for FTLE
+                call write_FTLE_output(up3d,vp3d,wp3d,wx3d,wy3d,wz3d)
             else
                 write(*,*) 'Warning: Unknown print type. No output data will be written.'
             end if
