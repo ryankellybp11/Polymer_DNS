@@ -1116,7 +1116,7 @@ subroutine setstuff
 #IFDEF POLYMER
     ! Polymer variables
     integer :: ipolyflag,itarget,ipeter
-    real    :: alpha_poly,tpoly,zlmax,diffpoly,qbeta
+    real    :: alpha_poly,tpoly,zlmax,diffpoly,qbeta,beta_min
     real    :: c11z,c22z,c33z
 #ENDIF
 
@@ -1257,6 +1257,7 @@ subroutine setstuff
     read(110,*) c22z
     read(110,*) c33z
     read(110,*) qbeta
+    beta_min = qbeta
 #ELSE
     read(110,*) 
     read(110,*) 

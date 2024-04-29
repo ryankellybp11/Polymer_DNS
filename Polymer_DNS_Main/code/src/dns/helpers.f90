@@ -645,7 +645,7 @@ contains
 
         ! Polymer variables
         integer :: ipolyflag,itarget,ipeter
-        real    :: alpha_poly,tpoly,zlmax,diffpoly,qbeta
+        real    :: alpha_poly,tpoly,zlmax,diffpoly,qbeta,beta_min
 
         !- Common blocks -!
         common/domain/    xl,yl,zl
@@ -694,7 +694,7 @@ contains
         avg_beta = avg_beta/volume
         print *,'avg beta = ',avg_beta
         print *,'total scalar = ',total_scl
-        if (avg_beta .le. 0.999) src_stop = it
+        if (avg_beta .le. beta_min) src_stop = it
         qbeta = avg_beta
     end subroutine calc_total_beta
 

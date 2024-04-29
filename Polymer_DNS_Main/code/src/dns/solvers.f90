@@ -2018,7 +2018,7 @@ contains
             kk = Qx(n)
             ii = Qy(n)
             jj = Qz(n)
-            if (beta3d(ii,jj,kk) .gt. 0.8) then 
+            if (beta3d(ii,jj,kk) .gt. 0.9) then 
                 xc1 = delxm*(kk-1)
                 yc1 = ycoord(ii)
                 zc1 = delzm*(jj-1)
