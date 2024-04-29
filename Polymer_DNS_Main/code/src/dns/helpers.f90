@@ -1118,6 +1118,7 @@ contains
     !$omp end parallel do
 
     ! Check for local (grid) min
+    Qcrit = -1.0*Qcrit ! Sort largest -> smallest
     cnt = 1
     do k = 2,mx-1
         do j = 2,mz-1
