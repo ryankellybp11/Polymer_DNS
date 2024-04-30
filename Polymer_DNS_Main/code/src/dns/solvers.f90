@@ -2687,14 +2687,16 @@ contains
                     beta_poly(j,i) = qbeta
                 else if (itarget .eq. 1) then
                     ! Nonlinear model:
-                    ! beta = exp(-alpha*gamma), alpha = 2.6e-03 PPM --> alpha_poly
-                    ! gamma - scalar concentration (PPM) --> scp
+                    ! beta = exp(-alpha*gamma) --> beta_poly
+                    ! alpha = 2.6e-03 PPM --> alpha_poly
+                    ! gamma = scalar concentration (PPM) --> scp
 
                     beta_poly(j,i) = exp(-alpha_poly*abs(scp(j,i)))
-                else if (itarget .eq. 2) then ! target swirl
-                    ! Use a linear relationship for beta based on swirl
-                    ! do nothing for now
-                    beta_poly(j,i) = 1.0
+
+                else if (itarget .eq. 2) then ! Linear polymer model
+                    ! Linear model:
+                    ! beta = (alpha*|gamma|)
+                    beta_poly(j,i) = 1.0/(alpha_poly*abs(scp(j,i)) + 1.0)
                 end if
 
                 zbeta1 = (1.0 - beta_poly(j,i))/(re*beta_poly(j,i)*tpoly) ! = (nu_0 - nu_s)
