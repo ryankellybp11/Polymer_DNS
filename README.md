@@ -155,6 +155,5 @@ git pull
 from within this repo, and enter your username and **access token instead of your password**.
 
 ## Known issues with current version of code:
-- Polymer targeting unexpectedly causes CFL failure
-- Blasius BL flow initialization is extremely slow
-- Misc. unused variables, inappropriately allocated arrays
+- Polymer targeting unexpectedly causes CFL failure 
+-> working on possible fixes (numerical instability issue)
