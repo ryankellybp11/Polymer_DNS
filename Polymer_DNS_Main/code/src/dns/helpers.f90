@@ -366,22 +366,6 @@ contains
     end do
     !$omp end parallel do 
 
-    ! test
-    !!$omp parallel do 
-    !do k = 1,nxh
-    !    do j = 1,nz
-    !        do i = 1,nyp
-    !            if (abs(real(a(i,j,k))) .lt. 1.0e-16) then
-    !                a(i,j,k) = cmplx(0.0,aimag(a(i,j,k)))
-    !            end if
-    !            if (abs(aimag(a(i,j,k))) .lt. 1.0e-16) then
-    !                a(i,j,k) = cmplx(real(a(i,j,k)),0.0)
-    !            end if
-    !        end do
-    !    end do
-    !end do
-    !!$omp end parallel do 
-                
     end subroutine norm
     
     !---------------------------------------------------------------------!

@@ -405,13 +405,14 @@ program dns
         end do
         !$omp end parallel do
 
-        ! -------------------------------------------------------------------- !
-        ! Evaluate derivatives necessary for constructing the composite solution
-        !
-        ! v = vp + c1*gf1 + c2*gf2
-        !   
-        ! evaluate d(nb)vp/dy(nb) at y = -1
-        ! evaluate d(nt)vp/dy(nt) at y = +1
+        ! ---------------------------------------------------------------------- !
+        ! Evaluate derivatives necessary for constructing the composite solution !
+        !                                                                        !
+        ! v = vp + c1*gf1 + c2*gf2                                               !
+        !                                                                        !
+        ! evaluate d(nb)vp/dy(nb) at y = -1                                      !
+        ! evaluate d(nt)vp/dy(nt) at y = +1                                      !
+        ! ---------------------------------------------------------------------- !
 
         iyb = 2
         iyt = 4
