@@ -1,0 +1,4 @@
+- Try getting a flow snapshot from DNS in spectral space and writing to Tecplot after transforming with FFTW
+  - Check values in Tecplot
+  - Transform spectral to physical somehow in FFTW
+  - Write physical data to Tecplot and compare to DNS

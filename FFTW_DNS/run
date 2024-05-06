@@ -1,0 +1,12 @@
+ulimit -s unlimited
+export OMP_NUM_THREADS=32
+export OMP_STACKSIZE=2G
+
+shopt -s extglob
+cd outputs
+rm -r !("log"|"err")
+cd ..
+mkdir outputs/flowfield
+mkdir outputs/particles
+
+./code/bin/dns
