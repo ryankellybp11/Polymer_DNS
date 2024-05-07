@@ -1857,7 +1857,7 @@ contains
 
         integer :: irstrt,nsteps,iprnfrq,print3d
         real :: xl,yl,zl
-    
+        real :: x,y,z 
         real :: delxm,delzm
 
         character(17) :: filename
@@ -1887,6 +1887,25 @@ contains
             xvec(k) = float(k-1)*delxm
         end do
 
+        ! Write ASCII Data for visualization in Tecplot/Paraview
+        write(ascii_filename,'("outputs/flowfield/time-",i6.6,".dat")')it
+        open(6,file=filename)
+        write(6,9711) 'filetype = full, variables = "x", "y", "z", "u", "v", "w"'
+        write(6,9712) 'zone f=point t="Field", solutiontime=', it,',i=',mx, 'j=',1, 'k=', nyp, new_line('a')
+        do k = 1,mx
+            x = float(k-1)*delxm
+            do j = 1,mz
+                z = float(j-1)*delzm
+                do i = 1,nyp
+                    write(6,8611) x,y,z,u(i,j,k),v(i,j,k),w(i,j,k)
+                end do
+            end do
+        end do
+        close(6)
+        8611 format(6(e14.6,1x))
+        9711 format(a93)
+        9712 format(a40,i3,a5,i4,a5,i4,a5,i4,a2)
+       
 
         ! Write grid file at first write
         if (it .eq. 1) then
@@ -1916,7 +1935,6 @@ contains
         write(filename,'("FTLE_veloc-",i6.6)')it
         open(124,file="outputs/flowfield/"//filename,form="unformatted")
         write(124) u,v,w
-!        write(124) wx,wy,wz ! Not sure if these are useful/necessary
         close(124)
     end subroutine write_FTLE_output
 
