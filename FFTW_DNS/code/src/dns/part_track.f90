@@ -103,7 +103,7 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
     ! Particle variables
     integer :: particle_flag,CD_switch
 	real    :: ratio,a,C_mu,g
-    real,save,dimension(npart) :: xpart,ypart,zpart,upart,vpart,wpart,swirl_part
+    real,dimension(npart) :: xpart,ypart,zpart,upart,vpart,wpart,swirl_part
     real :: xp,yp,zp,up,vp,wp
 
     real :: p_cfl,umax1
@@ -125,7 +125,8 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
 ! ============================================================================ !
     common/iocontrl/   irstrt,nsteps,iprnfrq,print3d
     common/particles/  particle_flag,CD_switch,ratio,a,C_mu,g
-    common/itime/      it,dt
+    common/itime/      it
+    common/dtime/      dt
     common/part_traj/  xpart,ypart,zpart,swirl_part
 ! ---------------------------------------------------------------------------- !
 
@@ -188,7 +189,7 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
 
 !    ! Update trap time
 !    if (trap_time(1) .eq. -1) then
-!        call traptime(xpart,ypart,zpart,swirl_part,trap_time)
+!        call traptime(swirl_part,trap_time)
 !    end if
 !
 !    if (it .eq. nsteps) then
@@ -333,7 +334,8 @@ subroutine substep_check(substep)
 ! ============================================================================ !
 !                            Define common blocks                              !
 ! ============================================================================ !
-    common/itime/      it,dt
+    common/itime/      it
+    common/dtime/      dt
     common/flow/       re,Uinf,R_tau,dPdx
     common/particles/  particle_flag,CD_switch,ratio,a,C_mu,g
 ! ---------------------------------------------------------------------------- !
@@ -399,7 +401,8 @@ subroutine tracer_update(xp,yp,zp,up,vp,wp,u,v,w,a)
 ! ============================================================================ !
 !                            Define common blocks                              !
 ! ============================================================================ !
-    common/itime/      it,dt
+    common/itime/      it
+    common/dtime/      dt
     common/domain/     xl,yl,zl
     common/imat/       imatrix,kwall,kmaxsurf
 ! ---------------------------------------------------------------------------- !
@@ -456,7 +459,8 @@ subroutine fluid_interp1(xp,yp,zp,u,uf)
 ! ============================================================================ !
 !                            Define common blocks                              !
 ! ============================================================================ !
-    common/itime/  it,dt
+    common/itime/  it
+    common/dtime/  dt
     common/domain/ xl,yl,zl
 ! ---------------------------------------------------------------------------- !
 
@@ -538,7 +542,8 @@ subroutine fluid_interp(xp,yp,zp,u,v,w,uf,vf,wf)
 ! ============================================================================ !
 !                            Define common blocks                              !
 ! ============================================================================ !
-    common/itime/  it,dt
+    common/itime/  it
+    common/dtime/  dt
     common/domain/ xl,yl,zl
 ! ---------------------------------------------------------------------------- !
 
@@ -639,9 +644,9 @@ subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a,
     real :: Ku3,Kv3,Kw3
     real :: Ku4,Kv4,Kw4
 
-    real :: u1,u2,u3,u4
-    real :: v1,v2,v3,v4
-    real :: w1,w2,w3,w4
+    real :: u2,u3,u4
+    real :: v2,v3,v4
+    real :: w2,w3,w4
     
     real :: un,vn,wn,Ku,Kv,Kw
     real :: ufluid,vfluid,wfluid
@@ -650,7 +655,8 @@ subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a,
 ! ============================================================================ !
 !                            Define common blocks                              !
 ! ============================================================================ !
-    common/itime/  it,dt
+    common/itime/  it
+    common/dtime/  dt
     common/imat/   imatrix,kwall,kmaxsurf
     common/domain/ xl,yl,zl
 ! ---------------------------------------------------------------------------- !
@@ -784,7 +790,7 @@ subroutine RKstage(sn,un,vn,wn,xp,yp,zp,Ku,Kv,Kw,u,v,w, &
 
     ! Calculation variables
     real :: C_D, Re_p, C_L, Height
-    real :: h, umax, Pi_f, Pi_p
+    real :: h, Pi_f, Pi_p
     real :: subDufDt, subDvfDt, subDwfDt
     real :: ufluid, vfluid, wfluid, wxf, wyf, wzf, Luf, Lvf, Lwf
     real :: PGX, DX, LX, PGY, DY, LY, PGZ, DZ, LZ, FX, FY, FZ
@@ -798,7 +804,8 @@ subroutine RKstage(sn,un,vn,wn,xp,yp,zp,Ku,Kv,Kw,u,v,w, &
 ! ============================================================================ !
     common/flow/       re,Uinf,R_tau,dPdx
     common/particles/  particle_flag,CD_switch,ratio,a,C_mu,g
-    common/itime/      it,dt
+    common/itime/      it
+    common/dtime/      dt
     common/imat/       imatrix,kwall,kmaxsurf
     common/domain/     xl,yl,zl
 ! ---------------------------------------------------------------------------- !
@@ -938,7 +945,8 @@ subroutine SubDerivative(u,v,w,u_old,v_old,w_old,ufluid,vfluid,wfluid,subDufDt,s
 ! ============================================================================ !
 !                            Define common blocks                              !
 ! ============================================================================ !
-    common/itime/      it,dt
+    common/itime/      it
+    common/dtime/      dt
     common/domain/     xl,yl,zl
 ! ---------------------------------------------------------------------------- !
 
@@ -1093,7 +1101,8 @@ subroutine swirl_count(xpart,ypart,zpart,swirl_part,u11,u12,u13,u21,u22,u23,u31,
     real    :: pArea,vArea
 
     ! Common block
-    common/itime/  it,dt
+    common/itime/  it
+    common/dtime/  dt
     common/domain/ xl,yl,zl
 
     ! -------------------------------------------------------- !
@@ -1136,7 +1145,7 @@ end subroutine
 
 ! --------------------------------------------------------------------------------- !
 
-subroutine traptime(xpart,ypart,zpart,swirl_part,trap_time)
+subroutine traptime(swirl_part,trap_time)
     ! Updates trap_time vector
 
     use grid_size
@@ -1144,7 +1153,7 @@ subroutine traptime(xpart,ypart,zpart,swirl_part,trap_time)
     implicit none
 
     ! Input variables
-    real,dimension(npart) :: xpart,ypart,zpart,swirl_part,trap_time
+    real,dimension(npart) :: swirl_part,trap_time
 
     ! Simulation control variables
     integer :: it
@@ -1154,7 +1163,8 @@ subroutine traptime(xpart,ypart,zpart,swirl_part,trap_time)
     integer :: j
 
     ! Common block
-    common/itime/  it,dt
+    common/itime/  it
+    common/dtime/  dt
 
     ! -------------------------------------------------------- !
     !                      Begin Calculations                  !
@@ -1244,7 +1254,8 @@ subroutine interp_swirl(xpart,ypart,zpart,swirl,u11,u12,u13,u21,u22,u23,u31,u32,
 
 
     ! Common blocks
-    common/itime/      it,dt
+    common/itime/      it
+    common/dtime/      dt
     common/domain/     xl,yl,zl
     ! -------------------------------------------------------- !
     !                      Begin Calculations                  !
@@ -1428,7 +1439,8 @@ subroutine write_particles_szplt(xp,yp,zp,up,vp,wp,swirl)
     integer :: it, i
     real    :: dt
     real, dimension(npart) :: xp,yp,zp,up,vp,wp,swirl
-    common/itime/ it,dt
+    common/itime/ it
+    common/dtime/ dt
 
     character*1 :: NULLCHR
     character (37) :: filename

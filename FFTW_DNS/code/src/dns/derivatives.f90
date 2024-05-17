@@ -259,7 +259,6 @@ contains
     complex, dimension(nyp,nz,nxh) :: f,df
     
     ! Calculation variables
-    complex :: im
     integer :: i,j,k
     
     ! Solver variables
@@ -299,7 +298,7 @@ contains
     ! Bottom wall
     do k = 1,nxh
         do j = 1,nz
-            df(1,j,k) = 0.5*df(1,j,k)
+            df(1,j,k) = 0.5*df(1,j,k) 
         end do
     end do
     
@@ -505,7 +504,6 @@ contains
     
     ! Calculation variables
     integer :: i,j,k
-    real    :: sgn
     
     !---------------------------------------------------------------------!
     

@@ -1361,7 +1361,7 @@ contains
 !        Strain = u12*u21 + u13*u31 + u23*u32 ! Strain rate tensor magnitude squared
 
         Strain = u11**2 + u22**2 + u33**2
-        Rot = -2.0*(u12*u21 + u13*u32 + u23*u32)
+        Rot = -2.0*(u12*u21 + u13*u31 + u23*u32)
         Q = 0.5*(Rot - Strain)
          
     end subroutine calcQ
@@ -1850,6 +1850,10 @@ contains
         implicit none
 
         real,dimension(nyp,mz,mx) :: u,v,w,wx,wy,wz
+        real,dimension(nyp)       :: yvec
+        real,dimension(mz)        :: zvec
+        real,dimension(mx)        :: xvec
+
 
         integer :: i,j,k
         integer :: it
@@ -1861,10 +1865,7 @@ contains
         real :: delxm,delzm
 
         character(17) :: filename
-
-        real,dimension(nyp) :: yvec
-        real,dimension(mz)  :: zvec
-        real,dimension(mx)  :: xvec
+        character(35) :: ascii_filename
 
 
         ! Common blocks
@@ -1889,7 +1890,7 @@ contains
 
         ! Write ASCII Data for visualization in Tecplot/Paraview
         write(ascii_filename,'("outputs/flowfield/time-",i6.6,".dat")')it
-        open(6,file=filename)
+        open(6,file=ascii_filename)
         write(6,9711) 'filetype = full, variables = "x", "y", "z", "u", "v", "w"'
         write(6,9712) 'zone f=point t="Field", solutiontime=', it,',i=',mx, 'j=',1, 'k=', nyp, new_line('a')
         do k = 1,mx

@@ -49,7 +49,6 @@ contains
     ! Solver variables
     real :: gain,ugain,theta,alpha,beta,dyde
     real :: wavx(nxh),wavz(nz) 
-    real :: c(nyp)
     
     ! Flow setup variables
     real    :: re,Uinf,R_tau,dPdx
@@ -64,9 +63,10 @@ contains
     !                            Common Blocks                            !
     ! =================================================================== !
     common/solver/     gain,ugain,theta,alpha,beta,dyde
-    common/waves/      wavx,wavz,c
+    common/waves/      wavx,wavz
     common/flow/       re,Uinf,R_tau,dPdx
-    common/itime/      it,dt
+    common/itime/      it
+    common/dtime/      dt
     !---------------------------------------------------------------------!
     
     ! =================================================================== !
@@ -257,7 +257,7 @@ contains
     nrank = nyh
     
     call oddc(a,wn,dyde)
-    call odds(u,bctop,bcbot,ib,c,wrkc)
+    call odds(u,bctop,bcbot,ib,wrkc)
     
     if (ib .ne. 0) call neumbc(t,dyde,nrank,ip)
     
@@ -439,7 +439,7 @@ contains
     
     !---------------------------------------------------------------------!
     
-    subroutine odds(s,bctop,bcbot,ib,c,wrk)
+    subroutine odds(s,bctop,bcbot,ib,wrk)
     ! Sets up RHS for even tri-diagonal problem, given the results of sbr RHS
     use grid_size
     implicit none
@@ -447,7 +447,6 @@ contains
     complex, dimension(nyp,nz) :: wrk
     complex, dimension(nz)     :: bctop, bcbot
     complex :: s(0:ny,nz) ! note zero-based arrays
-    real    :: c(nyp)
     
     integer :: i,j,k,jp2,jm2,ib
     real    :: rj1,rj2,rj3
@@ -507,7 +506,7 @@ contains
     
     real, dimension(nyp,nz) :: d
     real, dimension(nz)     :: f
-    integer :: i,j,k,m,mm1,mm2
+    integer :: i,k,m,mm1,mm2
     
     m = nrank-1
     mm1 = m-1
@@ -591,7 +590,6 @@ contains
     ! Solver variables
     real :: gain,ugain,theta,alpha,beta,dyde
     real :: wavx(nxh),wavz(nz) 
-    real :: c(nyp)
     
     ! Flow setup variables
     real    :: re,Uinf,R_tau,dPdx
@@ -605,9 +603,10 @@ contains
     !                            Common Blocks                            !
     ! =================================================================== !
     common/solver/     gain,ugain,theta,alpha,beta,dyde
-    common/waves/      wavx,wavz,c
+    common/waves/      wavx,wavz
     common/flow/       re,Uinf,R_tau,dPdx
-    common/itime/      it,dt
+    common/itime/      it
+    common/dtime/      dt
     !---------------------------------------------------------------------!
     
     ! =================================================================== !
@@ -699,7 +698,7 @@ contains
     ! Calculation variables
     real, dimension(nyp) :: t
     real, dimension(nz)  :: wn
-    integer :: i,j,k,nrank,kzero,ip
+    integer :: j,k,nrank,kzero,ip
     
     ! Solver variables
     real :: wavx(nxh),wavz(nz) 
@@ -718,13 +717,15 @@ contains
     ! =================================================================== !
     common/waves/      wavx,wavz,c
     common/flow/       re,Uinf,R_tau,dPdx
-    common/itime/      it,dt
+    common/itime/      it
+    common/dtime/      dt
     !---------------------------------------------------------------------!
     
     ! =================================================================== !
     !                         Begin Calculations                          !
     ! =================================================================== !
-    
+   
+     
     call mixedbc(at,ab,bt,bb,dyde)
     
     do k = 1,nz
@@ -752,7 +753,7 @@ contains
     ip = 2
     nrank = nyh
     call oddc(a,wn,dyde)
-    call pntodds(u,c,wrkc)
+    call pntodds(u,wrkc)
     call pntsolve(a,t,wrkc,gtop,gbot,ip,nrank)
     
     ! Update u
@@ -848,14 +849,13 @@ contains
     
     !---------------------------------------------------------------------!
     
-    subroutine pntodds(s,c,wrk)
+    subroutine pntodds(s,wrk)
     ! Sets up RHS for even tri-diagonal problem, given the results of sbr RHS
     use grid_size
     implicit none
     
     complex, dimension(nyp,nz) :: wrk
     complex :: s(0:ny,nz) ! note zero-based arrays
-    real    :: c(0:ny)
     
     integer :: i,j,k,jp2,jm2
     real    :: rj1,rj2,rj3
@@ -911,7 +911,7 @@ contains
     real,    dimension(nyhp,nz,3)  :: a
     real,    dimension(nyp)        :: t
     
-    integer :: i,j,k,ip,nrank,ipass,js,n,m,mm1,mm2,ii   
+    integer :: i,k,ip,nrank,ipass,js,n,m,mm1,mm2,ii   
     
     ! Begin calculations
     
@@ -1018,7 +1018,7 @@ contains
     real, dimension(nyp) :: tt,tb,t
     integer :: nrank,ip,ipass
     
-    integer :: i,j,k
+    integer :: j,k
     
     ! Common block(s)
     common/robin/ tt,tb
@@ -1090,7 +1090,7 @@ contains
     ! Calculation variables
     real, dimension(nyp) :: t,wrk1
     real    :: g
-    integer :: i,j,k
+    integer :: i
     
     ! Solver variables
     real :: gain,ugain,theta,alpha,beta,dyde
@@ -1112,7 +1112,8 @@ contains
     ! =================================================================== !
     common/solver/ gain,ugain,theta,alpha,beta,dyde
     common/flow/   re,Uinf,R_tau,dPdx
-    common/itime/  it,dt
+    common/itime/  it
+    common/dtime/  dt
     common/u0bcs/  atu,btu,gtu,abu,bbu,gbu
     common/w0bcs/  atw,btw,gtw,abw,bbw,gbw 
     !---------------------------------------------------------------------!
@@ -1191,7 +1192,7 @@ contains
     ! Solver variables
     real :: wavx(nxh),wavz(nz) 
     real :: c(nyp)
-    
+ 
     ! Flow variables
     real :: re,Uinf,R_tau,dPdx
     
@@ -1265,9 +1266,8 @@ contains
     implicit none
     
     real,    dimension(nyhp,3)  :: a
-    real,    dimension(nyp)     :: t
     real :: x,g,wavz,dyde,rj1,rj2,rj3,wn
-    integer :: i,j,k
+    integer :: i,j
     
     wn = wavz**2 + x + g
     do i = 1,nyh
@@ -1295,9 +1295,8 @@ contains
     implicit none
     
     real, dimension(nyhp,3)  :: a
-    real, dimension(nyp)        :: t
     real :: x,g,wavz,dyde,rj1,rj2,rj3,wn
-    integer :: i,j,k
+    integer :: i,j
     
     wn = wavz**2 + x + g
     
@@ -1515,14 +1514,13 @@ contains
     
     ! Solver variables
     real :: wavx(nxh),wavz(nz) 
-    real :: c(nyp)
     
     !---------------------------------------------------------------------!
     
     ! =================================================================== !
     !                            Common Blocks                            !
     ! =================================================================== !
-    common/waves/      wavx,wavz,c
+    common/waves/      wavx,wavz
     !---------------------------------------------------------------------!
     
     ! =================================================================== !
@@ -1599,14 +1597,13 @@ contains
     
     ! Solver variables
     real :: wavx(nxh),wavz(nz) 
-    real :: c(nyp)
     
     !---------------------------------------------------------------------!
     
     ! =================================================================== !
     !                            Common Blocks                            !
     ! =================================================================== !
-    common/waves/      wavx,wavz,c
+    common/waves/      wavx,wavz
     !---------------------------------------------------------------------!
     
     ! =================================================================== !
@@ -1652,7 +1649,7 @@ contains
     
     !---------------------------------------------------------------------!
     
-    subroutine vort(u,v,w,omx,omz,wrkc)
+    subroutine vort(u,v,w,omx,omz)
     !---------------------------------------------------------------------!
     !  This subroutine calculates the x and z vorticity componenents:     !
     !                                                                     !
@@ -1676,7 +1673,7 @@ contains
     implicit none
     
     ! Passed variables
-    complex, dimension(nyp,nz,nxh) :: u,v,w,omx,omz,wrkc
+    complex, dimension(nyp,nz,nxh) :: u,v,w,omx,omz
     
     ! Calculation variables
     complex :: im
@@ -1684,14 +1681,13 @@ contains
     
     ! Solver variables
     real :: wavx(nxh),wavz(nz) 
-    real :: c(nyp)
     
     !---------------------------------------------------------------------!
     
     ! =================================================================== !
     !                            Common Blocks                            !
     ! =================================================================== !
-    common/waves/      wavx,wavz,c
+    common/waves/      wavx,wavz
     !---------------------------------------------------------------------!
     
     ! =================================================================== !
@@ -1702,7 +1698,7 @@ contains
     
     call cderiv(u,omz) ! store du/dy in omz
     call cderiv(w,omx) ! store dw/dy in omx
-    
+   
     do k = 1,nxh
     do j = 1,nz
         do i = 1,nyp
@@ -1730,8 +1726,10 @@ contains
                     str11n,str12n,str13n,str22n,str23n,str33n,             &
                     qp11,qp12,qp13,qp22,qp23,qp33,  &
 #ENDIF
-                    Lu_old,Lv_old,Lw_old) 
+                    Lu_old,Lv_old,Lw_old, &
+                    planZb,planXb,planY,planXf,planZf) 
 
+    !---------------------------------------------------------------------!
     !  This subroutine calculates the nonlinear term in the rotational    !
     !  form of the N-S equations (3D calculation)                         !
     !                                                                     !
@@ -1741,15 +1739,14 @@ contains
     !                                                                     !
     !---------------------------------------------------------------------!
     !  The velocity and vorticity fields coming in are assumed to be in   !
-    !  real space in y and Fourier in x and z. Before this subroutine is  !
-    !  called, we must to a y-transformation on all arrays containing     !
-    !  velocity, vorticity, or velocity derivatives. Also, we assume that !
-    !  the appropriate modes in all fields (i.e., the first and last      !
-    !  modes) are set to zero prior to this point.                        !
+    !  spectral space in all three dimensions. We also assume that the    !
+    !  appropriate modes in all fields (i.e., the first and last modes)   !
+    !  are set to zero prior to this point.                               !
     !---------------------------------------------------------------------!
     ! =================================================================== !
     !                           Declare Modules                           !
     ! =================================================================== !
+    use,intrinsic :: iso_c_binding
     use omp_lib
     use grid_size
     use derivs
@@ -1760,17 +1757,20 @@ contains
     !                   Declare all variables explicitly                  !
     ! =================================================================== !
     implicit none
-   
+  
+    include 'fftw3.f03'
+ 
     integer, parameter :: qn = 10000
  
     ! Passed variables
+    type(C_PTR) :: planZb,planXb,planY,planXf,planZf
+
+    ! Input/Output variables
     complex, dimension(nyp,nz,nxh) :: u,v,w,omx,omy,omz,fn,gn
     complex, dimension(nyp,nz,nxh) :: u11,u12,u13,u21,u22,u23,u31,u32,u33
     complex, dimension(nyp,nz,nxh) :: Lu,Lv,Lw
 #IFDEF SCALAR
     complex, dimension(nyp,nz,nxh) :: scalar,sclx,scly,sclz,scn
-    real,    dimension(nyp,mz,mx)  :: scp3d,scsource
-    real,    dimension(mzp,mxp2)   :: scp,cx,cy,cz,vc
 #ENDIF
 #IFDEF POLYMER
     complex, dimension(nyp,nz,nxh) :: c11,c12,c13,c21,c22,c23,c31,c32,c33
@@ -1781,72 +1781,93 @@ contains
     complex, dimension(nyp,nz,nxh) :: dc311,dc312,dc313,dc321,dc322,dc323,dc331,dc332,dc333
 
     complex, dimension(nyp,nz,nxh) :: str11n,str12n,str13n,str22n,str23n,str33n
-    complex, dimension(nyp,nz,nxh) :: str11nm1,str12nm1,str13nm1,str22nm1,str23nm1,str33nm1
 
     complex, dimension(nyp,nz,nxh) :: qp11,qp12,qp13,qp22,qp23,qp33
-    real,    dimension(nyp,mz,mx)  :: beta3d
-    real,    dimension(mzp,mxp2)   :: beta_poly
+    real,    dimension(nyp,mz,mx)  :: beta_poly
+#ENDIF
+   
+    ! FFT complex arrays 
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: us = 0.0,vs = 0.0,ws = 0.0,wxs = 0.0,wys = 0.0,wzs = 0.0
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: u11s = 0.0,u12s = 0.0,u13s = 0.0,u21s = 0.0,u22s = 0.0,u23s = 0.0,u31s = 0.0,u32s = 0.0,u33s = 0.0
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: Lus = 0.0,Lvs = 0.0,Lws = 0.0
+
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: vwxs = 0.0,vwys = 0.0,vwzs = 0.0
+#IFDEF SCALAR
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: scs,cxs,cys,czs
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: vcs
+#ENDIF
+#IFDEF POLYMER
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: c11s,c12s,c13s,c21s,c22s,c23s,c31s,c32s,c33s
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: c11ns,c12ns,c13ns,c22ns,c23ns,c33ns
+
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: dc111s,dc112s,dc113s,dc121s,dc122s,dc123s,dc131s,dc132s,dc133s
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: dc211s,dc212s,dc213s,dc221s,dc222s,dc223s,dc231s,dc232s,dc233s
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: dc311s,dc312s,dc313s,dc321s,dc322s,dc323s,dc331s,dc332s,dc333s
+
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: str11ns,str12ns,str13ns,str22ns,str23ns,str33ns
+
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: qp11s,qp12s,qp13s,qp22s,qp23s,qp33s
 #ENDIF
     
     ! Calculation variables
+    ! FFTW variables - must be C-type arrays
+    ! Input variables
     real, save, dimension(nyp,mz,mx) :: u_old,v_old,w_old
     real, dimension(nyp,mz,mx) :: Lu_old,Lv_old,Lw_old
-    real, dimension(nyp,mz,mx) :: up3d,vp3d,wp3d,wx3d,wy3d,wz3d
-    real, dimension(nyp,mz,mx) :: u11p3d,u12p3d,u13p3d
-    real, dimension(nyp,mz,mx) :: u21p3d,u22p3d,u23p3d
-    real, dimension(nyp,mz,mx) :: u31p3d,u32p3d,u33p3d
-    real, dimension(nyp,mz,mx) :: Lup3d,Lvp3d,Lwp3d,swirl_3d
+
+    real(C_DOUBLE), dimension(nyp,mz,mx) :: up,vp,wp,wxp,wyp,wzp
+    real(C_DOUBLE), dimension(nyp,mz,mx) :: u11p,u12p,u13p
+    real(C_DOUBLE), dimension(nyp,mz,mx) :: u21p,u22p,u23p
+    real(C_DOUBLE), dimension(nyp,mz,mx) :: u31p,u32p,u33p
+    real(C_DOUBLE), dimension(nyp,mz,mx) :: Lup,Lvp,Lwp,swirl_3d
     
-    real, dimension(mzp,mxp2)  :: up,vp,wp,wx,wy,wz,vwx,vwy,vwz
-    real, dimension(mzp,mxp2)  :: u11p,u12p,u13p
-    real, dimension(mzp,mxp2)  :: u21p,u22p,u23p
-    real, dimension(mzp,mxp2)  :: u31p,u32p,u33p
-    real, dimension(mzp,mxp2)  :: Lup,Lvp,Lwp
+    real(C_DOUBLE), dimension(nyp,mz,mx) :: vwx,vwy,vwz
 
 #IFDEF POLYMER    
-    real, dimension(mzp,mxp2)  :: c11p,c12p,c13p
-    real, dimension(mzp,mxp2)  :: c21p,c22p,c23p
-    real, dimension(mzp,mxp2)  :: c31p,c32p,c33p
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: c11p,c12p,c13p
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: c21p,c22p,c23p
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: c31p,c32p,c33p
 
-    real, dimension(mzp,mxp2)  :: trp
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: trp
 
-    real, dimension(mzp,mxp2)  :: dc111p, dc112p, dc113p
-    real, dimension(mzp,mxp2)  :: dc211p, dc212p, dc213p
-    real, dimension(mzp,mxp2)  :: dc311p, dc312p, dc313p
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc111p, dc112p, dc113p
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc211p, dc212p, dc213p
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc311p, dc312p, dc313p
     
-    real, dimension(mzp,mxp2)  :: dc121p, dc122p, dc123p
-    real, dimension(mzp,mxp2)  :: dc221p, dc222p, dc223p
-    real, dimension(mzp,mxp2)  :: dc321p, dc322p, dc323p
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc121p, dc122p, dc123p
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc221p, dc222p, dc223p
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc321p, dc322p, dc323p
     
-    real, dimension(mzp,mxp2)  :: dc131p, dc132p, dc133p
-    real, dimension(mzp,mxp2)  :: dc231p, dc232p, dc233p
-    real, dimension(mzp,mxp2)  :: dc331p, dc332p, dc333p
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc131p, dc132p, dc133p
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc231p, dc232p, dc233p
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc331p, dc332p, dc333p
 
-    real, dimension(mzp,mxp2)  :: c11np,c12np,c13np
-    real, dimension(mzp,mxp2)  :: c22np,c23np,c33np
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: c11np,c12np,c13np
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: c22np,c23np,c33np
     
-    real, dimension(mzp,mxp2)  :: str11np,str12np,str13np
-    real, dimension(mzp,mxp2)  :: str22np,str23np,str33np
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: str11np,str12np,str13np
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: str22np,str23np,str33np
     
-    real, dimension(mzp,mxp2)  :: qp11np,qp12np,qp13np
-    real, dimension(mzp,mxp2)  :: qp22np,qp23np,qp33np
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: qp11np,qp12np,qp13np
+    real(C_DOUBLE), dimension(nyp,mz,mx)  :: qp22np,qp23np,qp33np
 #ENDIF
 #IFDEF SCALAR    
+    real(C_DOUBLE), dimension(nyp,mz,mx) :: scp,cxp,cyp,czp,vc
+
+    real, dimension(nyp,mz,mx) :: scsource
     real, dimension(nyp,nz,nx) :: Qcrit
     real, dimension(qn)     :: Qmin = 0.0
     integer, dimension(qn)  :: Qx,Qy,Qz 
 #ENDIF
     
-    integer :: i,j,k,i1,i2,inc,isgn,jump,lot,n
-    integer :: ii,jj,ipii,jpjj,idif,jdif,kk
-    integer :: cnt
+    integer :: i,j,k,n
+    integer :: ii,jj,ipii,jpjj,idif,jdif
     real    :: delx,delz,delxm,delzm,pi,vArea
     real    :: segdrag,xsegdrag,ysegdrag,zsegdrag,wdes
     real    :: cflcheck,cflmax,swirl
     
-    real,dimension(nwrk)  :: wrk
     real,dimension(nyp)   :: cfl
-    real,dimension(mz,mx) :: dragx,dragy,dragz
+    real,dimension(nyp,mz,mx) :: dragx,dragy,dragz
     
     real :: xi,zj,argx,argrad,fx,fr,rsq
     real :: uxmean(mz),uzmean(nyp)
@@ -1867,6 +1888,7 @@ contains
     real :: gain,ugain,theta,alpha,beta,dyde
     real :: wavx(nxh),wavz(nz) 
     real :: c(nyp)
+    real :: fac
     
     ! Buffer variables
     real, dimension(1200) :: bfgain,bfugain
@@ -1904,7 +1926,7 @@ contains
 #ENDIF
 
     ! Particle variables
-    real,save,dimension(npart) :: xpart,ypart,zpart,swirl_part
+    real,dimension(npart) :: xpart,ypart,zpart,swirl_part
 
 #IFDEF POLYMER
     ! Polymer variables
@@ -1928,7 +1950,8 @@ contains
     common/domain/     xl,yl,zl
     common/trig/       trigx,trigy,trigz,sine,cosine,trigx32,trigz32
     common/ifax/       ixfax,iyfax,izfax,ixfax32,izfax32
-    common/itime/      it,dt
+    common/itime/      it
+    common/dtime/      dt
     common/imat/       imatrix,kwall,kmaxsurf
     common/vortexring/ forbeta,xcenter,ycenter,zcenter,L,rad,bdyfx
     common/setup/      geomtype,flow_select,perturbtime
@@ -1950,7 +1973,6 @@ contains
     !---------------------------------------------------------------------!
     !                    Initialize some variables                        !
     !---------------------------------------------------------------------!
-   
  
     pi = 2.0*acos(0.0)
     delx = xl/float(nx-1)
@@ -2052,1021 +2074,982 @@ contains
     cfl = 0.0
     cflcheck = 0.0
     cflmax = 0.0
+   
+
     
-    !---------------------------------------------------------------------!
-    !         Calculate (u x omega), iterating over y-planes              !
-    !---------------------------------------------------------------------!
-    
-    !$omp parallel do default(shared) private(i,j,k,ii,i1,i2,ipii,idif,jj,   &
-    !$omp    jpjj,jdif,segdrag,xsegdrag,ysegdrag,zsegdrag,cflcheck,          &
-    !$omp    up,vp,wp,wx,wy,wz,vwx,vwy,vwz,dragx,dragy,dragz,wrk,inc,isgn,   &
-    !$omp    u11p,u12p,u13p,u21p,u22p,u23p,u31p,u32p,u33p,Lup,Lvp,Lwp,       &
-#IFDEF SCALAR
-    !$omp    scp,cx,cy,cz,vc,                                                &
-#ENDIF
-#IFDEF POLYMER
-    !$omp    beta_poly,c11p,c12p,c13p,c21p,c22p,c23p,c31p,c32p,c33p,         &
-    !$omp    dc111p,dc112p,dc113p,dc211p,dc212p,dc213p,                      &
-    !$omp    dc311p,dc312p,dc313p,dc121p,dc122p,dc123p,dc221p,dc222p,dc223p, &
-    !$omp    dc321p,dc322p,dc323p,dc131p,dc132p,dc133p,dc231p,dc232p,dc233p, &
-    !$omp    dc331p,dc332p,dc333p,trp,c11np,c12np,c13np,c22np,c23np,c33np,   &
-    !$omp    str11np,str12np,str13np,str22np,str23np,str33np,                &
-    !$omp    qp11np,qp12np,qp13np,qp22np,qp23np,qp33np,zbeta1,               &
-#ENDIF
-    !$omp    jump,lot,fx,fr,xi,zj,argrad,rsq,argx) schedule(dynamic)
-    
-    do k = 1,nyp
-        ! Initialize the velocities and vorticities on the kth x-z plane 
-        ! with zeros. We need to pad the extra 1/2 modes with zeros by 3/2 rule
-    
-        do j = 1,mzp
-            do i = 1,mxp2
-    
-                up(j,i) = 0.0
-                vp(j,i) = 0.0
-                wp(j,i) = 0.0
-    
-                wx(j,i) = 0.0
-                wy(j,i) = 0.0
-                wz(j,i) = 0.0
-    
-                vwx(j,i) = 0.0
-                vwy(j,i) = 0.0
-                vwz(j,i) = 0.0
-    
-                ! Used in particle tracking
-                u11p(j,i) = 0.0
-                u12p(j,i) = 0.0
-                u13p(j,i) = 0.0
-                u21p(j,i) = 0.0
-                u22p(j,i) = 0.0
-                u23p(j,i) = 0.0
-                u31p(j,i) = 0.0
-                u32p(j,i) = 0.0
-                u33p(j,i) = 0.0
-          
-                Lup(j,i) = 0.0
-                Lvp(j,i) = 0.0
-                Lwp(j,i) = 0.0  
-#IFDEF SCALAR   
-                scp(j,i) = 0.0
-                 cx(j,i) = 0.0 
-                 cy(j,i) = 0.0 
-                 cz(j,i) = 0.0 
-                 vc(j,i) = 0.0 
-#ENDIF
-#IFDEF POLYMER
-                if (it .ge. src_start-1) then
-                c11p(j,i) = 0.0
-                c12p(j,i) = 0.0
-                c13p(j,i) = 0.0
-                c21p(j,i) = 0.0
-                c22p(j,i) = 0.0
-                c23p(j,i) = 0.0
-                c31p(j,i) = 0.0
-                c32p(j,i) = 0.0
-                c33p(j,i) = 0.0
-                
-                dc111p(j,i) = 0.0
-                dc112p(j,i) = 0.0
-                dc113p(j,i) = 0.0 
-                dc211p(j,i) = 0.0
-                dc212p(j,i) = 0.0
-                dc213p(j,i) = 0.0
-                dc311p(j,i) = 0.0
-                dc312p(j,i) = 0.0
-                dc313p(j,i) = 0.0
-            
-                dc121p(j,i) = 0.0
-                dc122p(j,i) = 0.0
-                dc123p(j,i) = 0.0 
-                dc221p(j,i) = 0.0
-                dc222p(j,i) = 0.0
-                dc223p(j,i) = 0.0
-                dc321p(j,i) = 0.0
-                dc322p(j,i) = 0.0
-                dc323p(j,i) = 0.0  
-            
-                dc131p(j,i) = 0.0
-                dc132p(j,i) = 0.0
-                dc133p(j,i) = 0.0 
-                dc231p(j,i) = 0.0
-                dc232p(j,i) = 0.0
-                dc233p(j,i) = 0.0
-                dc331p(j,i) = 0.0
-                dc332p(j,i) = 0.0
-                dc333p(j,i) = 0.0
-            
-                trp(j,i) = 0.0
-            
-                c11np(j,i) = 0.0
-                c12np(j,i) = 0.0
-                c13np(j,i) = 0.0
-                c22np(j,i) = 0.0
-                c23np(j,i) = 0.0
-                c33np(j,i) = 0.0
-            
-                str11np(j,i) = 0.0
-                str12np(j,i) = 0.0
-                str13np(j,i) = 0.0
-                str22np(j,i) = 0.0
-                str23np(j,i) = 0.0
-                str33np(j,i) = 0.0
-            
-                qp11np(j,i) = 0.0
-                qp12np(j,i) = 0.0
-                qp13np(j,i) = 0.0
-                qp22np(j,i) = 0.0
-                qp23np(j,i) = 0.0
-                qp33np(j,i) = 0.0
-                end if
-#ENDIF
+    !----------------------------------------------------------------------!
+    !  Compute FFTs on all spectral data to transform into real 3/2 space  ! 
+    !----------------------------------------------------------------------!
+    ! We take the normal coefficients (spectral field data) and we         !
+    ! interpolate them onto a 3/2 grid so we can "de-alias" the last 1/3   !
+    ! spectral modes (filter them out) when we transform them back.        !
+    ! We do this during the nonlinear term calculations because this is    !
+    ! most likely place for a numerical instability to manifest.           !
+    !                                                                      !
+    ! The FFTW routines do this interpolation automatically when we        !
+    ! transform using different sizes. However, it requires the smaller    !
+    ! array to be "padded" with zeros in order for the algorithm to work.  !
+    ! So we must copy the (nyp)x(nz)x(nxh) variables over to a larger      !
+    ! array of size (nyp)x(mz)x(mx) before the FFTs can be performed.      !
+    !                                                                      !
+    ! It is assumed that the FFTW plans are created before the first call  !
+    ! to this subroutine, so all we have to do is execute them with the    !
+    ! appropriate arguments.                                               !
+    !----------------------------------------------------------------------!
+
+
+    ! Zero out arrays
+    !$omp parallel do default(shared) private(i,j,k)
+    do k = 1,mx
+        do j = 1,mz
+            do i = 1,nyp
+                us(i,j,k) = 0.0
+                vs(i,j,k) = 0.0
+                ws(i,j,k) = 0.0
+
+                wxs(i,j,k) = 0.0
+                wys(i,j,k) = 0.0
+                wzs(i,j,k) = 0.0
+
+                u11(i,j,k) = 0.0
+                u12(i,j,k) = 0.0
+                u13(i,j,k) = 0.0
+                u21(i,j,k) = 0.0
+                u22(i,j,k) = 0.0
+                u23(i,j,k) = 0.0
+                u31(i,j,k) = 0.0
+                u32(i,j,k) = 0.0
+                u33(i,j,k) = 0.0
+
+                Lus(i,j,k) = 0.0
+                Lvs(i,j,k) = 0.0
+                Lws(i,j,k) = 0.0
             end do
         end do
-    
-        do j = 1,nz
+    end do
+
+    ! Copy spectral variables into larger arrays for transforms 
+    ! Also convert Chebyshev modes to cosine modes
+    !$omp parallel do default(shared) private(i,j,k,jj)
+    do k = 1,nxh
+        do j = 1,nz 
             if (j .le. nzh) jj = j
             if (j .gt. nzh) jj = (mz-nz) + j
-            
-            do i = 1,nxh
-                i1 = 2*(i-1) + 1
-                i2 = 2*i
-    
-                up(jj,i1) =  real(u(k,j,i))
-                up(jj,i2) = aimag(u(k,j,i))
-                vp(jj,i1) =  real(v(k,j,i))
-                vp(jj,i2) = aimag(v(k,j,i))
-                wp(jj,i1) =  real(w(k,j,i))
-                wp(jj,i2) = aimag(w(k,j,i))
-    
-                wx(jj,i1) =  real(omx(k,j,i))
-                wx(jj,i2) = aimag(omx(k,j,i))
-                wy(jj,i1) =  real(omy(k,j,i))
-                wy(jj,i2) = aimag(omy(k,j,i))
-                wz(jj,i1) =  real(omz(k,j,i))
-                wz(jj,i2) = aimag(omz(k,j,i))
-    
-                u11p(jj,i1) =  real(u11(k,j,i))
-                u11p(jj,i2) = aimag(u11(k,j,i))
-                u12p(jj,i1) =  real(u12(k,j,i))
-                u12p(jj,i2) = aimag(u12(k,j,i))
-                u13p(jj,i1) =  real(u13(k,j,i))
-                u13p(jj,i2) = aimag(u13(k,j,i))
-                u21p(jj,i1) =  real(u21(k,j,i))
-                u21p(jj,i2) = aimag(u21(k,j,i))
-                u22p(jj,i1) =  real(u22(k,j,i))
-                u22p(jj,i2) = aimag(u22(k,j,i))
-                u23p(jj,i1) =  real(u23(k,j,i))
-                u23p(jj,i2) = aimag(u23(k,j,i))
-                u31p(jj,i1) =  real(u31(k,j,i))
-                u31p(jj,i2) = aimag(u31(k,j,i))
-                u32p(jj,i1) =  real(u32(k,j,i))
-                u32p(jj,i2) = aimag(u32(k,j,i))
-                u33p(jj,i1) =  real(u33(k,j,i))
-                u33p(jj,i2) = aimag(u33(k,j,i))
-                
-                Lup(jj,i1) =  real(Lu(k,j,i))
-                Lup(jj,i2) = aimag(Lu(k,j,i))
-                Lvp(jj,i1) =  real(Lv(k,j,i))
-                Lvp(jj,i2) = aimag(Lv(k,j,i))
-                Lwp(jj,i1) =  real(Lw(k,j,i))
-                Lwp(jj,i2) = aimag(Lw(k,j,i))
-#IFDEF SCALAR    
-                scp(jj,i1) =  real(scalar(k,j,i))
-                scp(jj,i2) = aimag(scalar(k,j,i))
-                cx(jj,i1)  =  real(sclx(k,j,i))
-                cx(jj,i2)  = aimag(sclx(k,j,i))
-                cy(jj,i1)  =  real(scly(k,j,i))
-                cy(jj,i2)  = aimag(scly(k,j,i))
-                cz(jj,i1)  =  real(sclz(k,j,i))
-                cz(jj,i2)  = aimag(sclz(k,j,i))
+            do i = 1,nyp
+
+                fac = c(i)/2.0
+
+                ! Velocity Field
+                us(i,jj,k) = u(i,j,k)*fac
+                vs(i,jj,k) = v(i,j,k)*fac
+                ws(i,jj,k) = w(i,j,k)*fac
+
+                ! Vorticity Field
+                wxs(i,jj,k) = omx(i,j,k)*fac
+                wys(i,jj,k) = omy(i,j,k)*fac
+                wzs(i,jj,k) = omz(i,j,k)*fac
+
+                ! Velocity Gradient
+                u11s(i,jj,k) = u11(i,j,k)*fac
+                u12s(i,jj,k) = u12(i,j,k)*fac
+                u13s(i,jj,k) = u13(i,j,k)*fac
+                u21s(i,jj,k) = u21(i,j,k)*fac
+                u22s(i,jj,k) = u22(i,j,k)*fac
+                u23s(i,jj,k) = u23(i,j,k)*fac
+                u31s(i,jj,k) = u31(i,j,k)*fac
+                u32s(i,jj,k) = u32(i,j,k)*fac
+                u33s(i,jj,k) = u33(i,j,k)*fac
+
+                ! Laplacian
+                Lus(i,jj,k) = Lu(i,j,k)*fac
+                Lvs(i,jj,k) = Lv(i,j,k)*fac
+                Lws(i,jj,k) = Lw(i,j,k)*fac
+#IFDEF SCALAR
+                ! Scalar and its gradient
+                scs(i,jj,k) = scalar(i,j,k)*fac
+                cxs(i,jj,k) = sclx(i,j,k)*fac 
+                cys(i,jj,k) = scly(i,j,k)*fac
+                czs(i,jj,k) = sclz(i,j,k)*fac
 #ENDIF
 #IFDEF POLYMER
-                if (it .ge. src_start-1) then
-                c11p(jj,i1) = real(c11(k,j,i))
-                c12p(jj,i1) = real(c12(k,j,i))
-                c13p(jj,i1) = real(c13(k,j,i))
-                c21p(jj,i1) = real(c21(k,j,i))
-                c22p(jj,i1) = real(c22(k,j,i))
-                c23p(jj,i1) = real(c23(k,j,i))
-                c31p(jj,i1) = real(c31(k,j,i))
-                c32p(jj,i1) = real(c32(k,j,i))
-                c33p(jj,i1) = real(c33(k,j,i))
-            
-                dc111p(jj,i1) = real(dc111(k,j,i))
-                dc112p(jj,i1) = real(dc112(k,j,i))
-                dc113p(jj,i1) = real(dc113(k,j,i))
-                dc211p(jj,i1) = real(dc211(k,j,i))
-                dc212p(jj,i1) = real(dc212(k,j,i))
-                dc213p(jj,i1) = real(dc213(k,j,i))
-                dc311p(jj,i1) = real(dc311(k,j,i))
-                dc312p(jj,i1) = real(dc312(k,j,i))
-                dc313p(jj,i1) = real(dc313(k,j,i))
-            
-                dc121p(jj,i1) = real(dc121(k,j,i))
-                dc122p(jj,i1) = real(dc122(k,j,i))
-                dc123p(jj,i1) = real(dc123(k,j,i))
-                dc221p(jj,i1) = real(dc221(k,j,i))
-                dc222p(jj,i1) = real(dc222(k,j,i))
-                dc223p(jj,i1) = real(dc223(k,j,i))
-                dc321p(jj,i1) = real(dc321(k,j,i))
-                dc322p(jj,i1) = real(dc322(k,j,i))
-                dc323p(jj,i1) = real(dc323(k,j,i))
-            
-                dc131p(jj,i1) = real(dc131(k,j,i))
-                dc132p(jj,i1) = real(dc132(k,j,i))
-                dc133p(jj,i1) = real(dc133(k,j,i))
-                dc231p(jj,i1) = real(dc231(k,j,i))
-                dc232p(jj,i1) = real(dc232(k,j,i))
-                dc233p(jj,i1) = real(dc233(k,j,i))
-                dc331p(jj,i1) = real(dc331(k,j,i))
-                dc332p(jj,i1) = real(dc332(k,j,i))
-                dc333p(jj,i1) = real(dc333(k,j,i))
+                ! Conformation tensor
+                c11s(i,jj,k) = c11(i,j,k)*fac
+                c12s(i,jj,k) = c12(i,j,k)*fac
+                c13s(i,jj,k) = c13(i,j,k)*fac
+                c21s(i,jj,k) = c21(i,j,k)*fac
+                c22s(i,jj,k) = c22(i,j,k)*fac
+                c23s(i,jj,k) = c23(i,j,k)*fac
+                c31s(i,jj,k) = c31(i,j,k)*fac
+                c32s(i,jj,k) = c32(i,j,k)*fac
+                c33s(i,jj,k) = c33(i,j,k)*fac
+               
+                ! Conformation tensor gradient
+                dc111s(i,jj,k) = dc111(i,j,k)*fac 
+                dc112s(i,jj,k) = dc112(i,j,k)*fac 
+                dc113s(i,jj,k) = dc113(i,j,k)*fac 
+                dc121s(i,jj,k) = dc121(i,j,k)*fac 
+                dc122s(i,jj,k) = dc122(i,j,k)*fac 
+                dc123s(i,jj,k) = dc123(i,j,k)*fac 
+                dc131s(i,jj,k) = dc131(i,j,k)*fac 
+                dc132s(i,jj,k) = dc132(i,j,k)*fac 
+                dc133s(i,jj,k) = dc133(i,j,k)*fac 
 
-                c11p(jj,i2) = aimag(c11(k,j,i))
-                c12p(jj,i2) = aimag(c12(k,j,i))
-                c13p(jj,i2) = aimag(c13(k,j,i))
-                c21p(jj,i2) = aimag(c21(k,j,i))
-                c22p(jj,i2) = aimag(c22(k,j,i))
-                c23p(jj,i2) = aimag(c23(k,j,i))
-                c31p(jj,i2) = aimag(c31(k,j,i))
-                c32p(jj,i2) = aimag(c32(k,j,i))
-                c33p(jj,i2) = aimag(c33(k,j,i))
-           
-                dc111p(jj,i2) = aimag(dc111(k,j,i))
-                dc112p(jj,i2) = aimag(dc112(k,j,i))
-                dc113p(jj,i2) = aimag(dc113(k,j,i))
-                dc211p(jj,i2) = aimag(dc211(k,j,i))
-                dc212p(jj,i2) = aimag(dc212(k,j,i))
-                dc213p(jj,i2) = aimag(dc213(k,j,i))
-                dc311p(jj,i2) = aimag(dc311(k,j,i))
-                dc312p(jj,i2) = aimag(dc312(k,j,i))
-                dc313p(jj,i2) = aimag(dc313(k,j,i))
-           
-                dc121p(jj,i2) = aimag(dc121(k,j,i))
-                dc122p(jj,i2) = aimag(dc122(k,j,i))
-                dc123p(jj,i2) = aimag(dc123(k,j,i))
-                dc221p(jj,i2) = aimag(dc221(k,j,i))
-                dc222p(jj,i2) = aimag(dc222(k,j,i))
-                dc223p(jj,i2) = aimag(dc223(k,j,i))
-                dc321p(jj,i2) = aimag(dc321(k,j,i))
-                dc322p(jj,i2) = aimag(dc322(k,j,i))
-                dc323p(jj,i2) = aimag(dc323(k,j,i))
-           
-                dc131p(jj,i2) = aimag(dc131(k,j,i))
-                dc132p(jj,i2) = aimag(dc132(k,j,i))
-                dc133p(jj,i2) = aimag(dc133(k,j,i))
-                dc231p(jj,i2) = aimag(dc231(k,j,i))
-                dc232p(jj,i2) = aimag(dc232(k,j,i))
-                dc233p(jj,i2) = aimag(dc233(k,j,i))
-                dc331p(jj,i2) = aimag(dc331(k,j,i))
-                dc332p(jj,i2) = aimag(dc332(k,j,i))
-                dc333p(jj,i2) = aimag(dc333(k,j,i))
-                end if
+                dc211s(i,jj,k) = dc211(i,j,k)*fac 
+                dc212s(i,jj,k) = dc212(i,j,k)*fac 
+                dc213s(i,jj,k) = dc213(i,j,k)*fac 
+                dc221s(i,jj,k) = dc221(i,j,k)*fac 
+                dc222s(i,jj,k) = dc222(i,j,k)*fac 
+                dc223s(i,jj,k) = dc223(i,j,k)*fac 
+                dc231s(i,jj,k) = dc231(i,j,k)*fac 
+                dc232s(i,jj,k) = dc232(i,j,k)*fac 
+                dc233s(i,jj,k) = dc233(i,j,k)*fac 
+
+                dc311s(i,jj,k) = dc311(i,j,k)*fac 
+                dc312s(i,jj,k) = dc312(i,j,k)*fac 
+                dc313s(i,jj,k) = dc313(i,j,k)*fac 
+                dc321s(i,jj,k) = dc321(i,j,k)*fac 
+                dc322s(i,jj,k) = dc322(i,j,k)*fac 
+                dc323s(i,jj,k) = dc323(i,j,k)*fac 
+                dc331s(i,jj,k) = dc331(i,j,k)*fac 
+                dc332s(i,jj,k) = dc332(i,j,k)*fac 
+                dc333s(i,jj,k) = dc333(i,j,k)*fac 
 #ENDIF
             end do
         end do
-   
-    !---------------------------------------------------------------------!
-    !        Transform (interpolate) into 3/2 grid physical space         !
-    !---------------------------------------------------------------------!
-    
-        inc  = 1
-        isgn = 1
-        jump = 2*mzp
-        lot  = nx/2
-    
-        call cfftmlt(up(1,1),up(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(vp(1,1),vp(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(wp(1,1),wp(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(wx(1,1),wx(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(wy(1,1),wy(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(wz(1,1),wz(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-    
-        call cfftmlt(u11p(1,1),u11p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u12p(1,1),u12p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u13p(1,1),u13p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u21p(1,1),u21p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u22p(1,1),u22p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u23p(1,1),u23p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u31p(1,1),u31p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u32p(1,1),u32p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u33p(1,1),u33p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-     
-        call cfftmlt(Lup(1,1),Lup(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(Lvp(1,1),Lvp(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(Lwp(1,1),Lwp(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-#IFDEF SCALAR    
-        call cfftmlt(scp(1,1),scp(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(cx(1,1),cx(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(cy(1,1),cy(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(cz(1,1),cz(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+    end do
+
+    ! NOTE:
+    !   The following routines notably use a 1D FFT in each direction,
+    !   looped over the indices of the non-transformed variable. FFTW
+    !   does have routines to do multiple FFTs like the legacy DNS code,
+    !   however, it requires the data to be "shuffled" before and after
+    !   each transform, resulting in a total of 3x the memory allocation
+    !   and at best a 2x slow-down in the overall transform procedure.
+    !   Perhaps there is a way to do this more efficiently, but I'm not
+    !   aware of it. - REK 5/15/24
+
+    ! Complex --> Complex Transform (z-direction)
+    !$omp parallel do default(shared) private(i,k)
+    do k = 1,nxh
+        do i = 1,nyp
+            ! Velocity Field
+            call fftw_execute_dft(planZb,us(i,:,k),us(i,:,k))
+            call fftw_execute_dft(planZb,vs(i,:,k),vs(i,:,k))
+            call fftw_execute_dft(planZb,ws(i,:,k),ws(i,:,k))
+
+            ! Vorticity Field
+            call fftw_execute_dft(planZb,wxs(i,:,k),wxs(i,:,k))
+            call fftw_execute_dft(planZb,wys(i,:,k),wys(i,:,k))
+            call fftw_execute_dft(planZb,wzs(i,:,k),wzs(i,:,k))
+            
+            ! Velocity Gradient
+            call fftw_execute_dft(planZb,u11s(i,:,k),u11s(i,:,k))
+            call fftw_execute_dft(planZb,u12s(i,:,k),u12s(i,:,k))
+            call fftw_execute_dft(planZb,u13s(i,:,k),u13s(i,:,k))
+            call fftw_execute_dft(planZb,u21s(i,:,k),u21s(i,:,k))
+            call fftw_execute_dft(planZb,u22s(i,:,k),u22s(i,:,k))
+            call fftw_execute_dft(planZb,u23s(i,:,k),u23s(i,:,k))
+            call fftw_execute_dft(planZb,u31s(i,:,k),u31s(i,:,k))
+            call fftw_execute_dft(planZb,u32s(i,:,k),u32s(i,:,k))
+            call fftw_execute_dft(planZb,u33s(i,:,k),u33s(i,:,k))
+
+            if (npart .gt. 0) then ! only used in particle tracking
+            ! Laplacian
+            call fftw_execute_dft(planZb,Lus(i,:,k),Lus(i,:,k))
+            call fftw_execute_dft(planZb,Lvs(i,:,k),Lvs(i,:,k))
+            call fftw_execute_dft(planZb,Lws(i,:,k),Lws(i,:,k))
+            end if
+#IFDEF SCALAR
+            ! Scalar field and its gradient
+            call fftw_execute_dft(planZb,scs(i,:,k),scs(i,:,k))
+            call fftw_execute_dft(planZb,cxs(i,:,k),cxs(i,:,k))
+            call fftw_execute_dft(planZb,cys(i,:,k),cys(i,:,k))
+            call fftw_execute_dft(planZb,czs(i,:,k),czs(i,:,k))
+            
 #ENDIF
 #IFDEF POLYMER
-        if (it .ge. (src_start - 1)) then
-        call cfftmlt(c11p(1,1),c11p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(c12p(1,1),c12p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(c13p(1,1),c13p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(c21p(1,1),c21p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(c22p(1,1),c22p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(c23p(1,1),c23p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(c31p(1,1),c31p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(c32p(1,1),c32p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(c33p(1,1),c33p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-     
-        call cfftmlt(dc111p(1,1),dc111p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc112p(1,1),dc112p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc113p(1,1),dc113p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc211p(1,1),dc211p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc212p(1,1),dc212p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc213p(1,1),dc213p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc311p(1,1),dc311p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc312p(1,1),dc312p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc313p(1,1),dc313p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-     
-        call cfftmlt(dc121p(1,1),dc121p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc122p(1,1),dc122p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc123p(1,1),dc123p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc221p(1,1),dc221p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc222p(1,1),dc222p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc223p(1,1),dc223p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc321p(1,1),dc321p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc322p(1,1),dc322p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc323p(1,1),dc323p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-     
-        call cfftmlt(dc131p(1,1),dc131p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc132p(1,1),dc132p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc133p(1,1),dc133p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc231p(1,1),dc231p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc232p(1,1),dc232p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc233p(1,1),dc233p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc331p(1,1),dc331p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc332p(1,1),dc332p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(dc333p(1,1),dc333p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        end if
-#ENDIF
-        do j = 1,mz
-            up(j,2) = 0.0
-            vp(j,2) = 0.0
-            wp(j,2) = 0.0
-            wx(j,2) = 0.0
-            wy(j,2) = 0.0
-            wz(j,2) = 0.0
-            
-            u11p(j,2) = 0.0
-            u12p(j,2) = 0.0
-            u13p(j,2) = 0.0
-            u21p(j,2) = 0.0
-            u22p(j,2) = 0.0
-            u23p(j,2) = 0.0
-            u31p(j,2) = 0.0
-            u32p(j,2) = 0.0
-            u33p(j,2) = 0.0
-            
-            Lup(j,2) = 0.0
-            Lvp(j,2) = 0.0
-            Lwp(j,2) = 0.0
+            if (it .ge. (src_start-1)) then
+            ! Conformation tensor
+            call fftw_execute_dft(planZb,c11s(i,:,k),c11s(i,:,k))
+            call fftw_execute_dft(planZb,c12s(i,:,k),c12s(i,:,k))
+            call fftw_execute_dft(planZb,c13s(i,:,k),c13s(i,:,k))
+            call fftw_execute_dft(planZb,c21s(i,:,k),c21s(i,:,k))
+            call fftw_execute_dft(planZb,c22s(i,:,k),c22s(i,:,k))
+            call fftw_execute_dft(planZb,c23s(i,:,k),c23s(i,:,k))
+            call fftw_execute_dft(planZb,c31s(i,:,k),c31s(i,:,k))
+            call fftw_execute_dft(planZb,c32s(i,:,k),c32s(i,:,k))
+            call fftw_execute_dft(planZb,c33s(i,:,k),c33s(i,:,k))
 
-            up(j,nxp2) = 0.0
-            vp(j,nxp2) = 0.0
-            wp(j,nxp2) = 0.0
-            wx(j,nxp2) = 0.0
-            wy(j,nxp2) = 0.0
-            wz(j,nxp2) = 0.0
-            
-            u11p(j,nxp2) = 0.0
-            u12p(j,nxp2) = 0.0
-            u13p(j,nxp2) = 0.0
-            u21p(j,nxp2) = 0.0
-            u22p(j,nxp2) = 0.0
-            u23p(j,nxp2) = 0.0
-            u31p(j,nxp2) = 0.0
-            u32p(j,nxp2) = 0.0
-            u33p(j,nxp2) = 0.0
-            
-            Lup(j,nxp2) = 0.0
-            Lvp(j,nxp2) = 0.0
-            Lwp(j,nxp2) = 0.0
-#IFDEF SCALAR    
-            scp(j,2) = 0.0
-             cx(j,2) = 0.0
-             cy(j,2) = 0.0
-             cz(j,2) = 0.0
-            scp(j,nxp2) = 0.0
-             cx(j,nxp2) = 0.0
-             cy(j,nxp2) = 0.0
-             cz(j,nxp2) = 0.0
-#ENDIF            
-#IFDEF POLYMER
-            if (it .ge. src_start-1) then
-            c11p(j,2) = 0.0
-            c12p(j,2) = 0.0
-            c13p(j,2) = 0.0
-            c21p(j,2) = 0.0
-            c22p(j,2) = 0.0
-            c23p(j,2) = 0.0
-            c31p(j,2) = 0.0
-            c32p(j,2) = 0.0
-            c33p(j,2) = 0.0
-             
-            dc111p(j,2) = 0.0
-            dc112p(j,2) = 0.0
-            dc113p(j,2) = 0.0 
-            dc211p(j,2) = 0.0
-            dc212p(j,2) = 0.0
-            dc213p(j,2) = 0.0
-            dc311p(j,2) = 0.0
-            dc312p(j,2) = 0.0
-            dc313p(j,2) = 0.0
-     
-            dc121p(j,2) = 0.0
-            dc122p(j,2) = 0.0
-            dc123p(j,2) = 0.0 
-            dc221p(j,2) = 0.0
-            dc222p(j,2) = 0.0
-            dc223p(j,2) = 0.0
-            dc321p(j,2) = 0.0
-            dc322p(j,2) = 0.0
-            dc323p(j,2) = 0.0  
-     
-            dc131p(j,2) = 0.0
-            dc132p(j,2) = 0.0
-            dc133p(j,2) = 0.0 
-            dc231p(j,2) = 0.0
-            dc232p(j,2) = 0.0
-            dc233p(j,2) = 0.0
-            dc331p(j,2) = 0.0
-            dc332p(j,2) = 0.0
-            dc333p(j,2) = 0.0
+            ! Conformation tensor gradient
+            call fftw_execute_dft(planZb,dc111s(i,:,k),dc111s(i,:,k))
+            call fftw_execute_dft(planZb,dc112s(i,:,k),dc112s(i,:,k))
+            call fftw_execute_dft(planZb,dc113s(i,:,k),dc113s(i,:,k))
+            call fftw_execute_dft(planZb,dc121s(i,:,k),dc121s(i,:,k))
+            call fftw_execute_dft(planZb,dc122s(i,:,k),dc122s(i,:,k))
+            call fftw_execute_dft(planZb,dc123s(i,:,k),dc123s(i,:,k))
+            call fftw_execute_dft(planZb,dc131s(i,:,k),dc131s(i,:,k))
+            call fftw_execute_dft(planZb,dc132s(i,:,k),dc132s(i,:,k))
+            call fftw_execute_dft(planZb,dc133s(i,:,k),dc133s(i,:,k))
 
-            c11p(j,nxp2) = 0.0
-            c12p(j,nxp2) = 0.0
-            c13p(j,nxp2) = 0.0
-            c21p(j,nxp2) = 0.0
-            c22p(j,nxp2) = 0.0
-            c23p(j,nxp2) = 0.0
-            c31p(j,nxp2) = 0.0
-            c32p(j,nxp2) = 0.0
-            c33p(j,nxp2) = 0.0
-                           
-            dc111p(j,nxp2) = 0.0
-            dc112p(j,nxp2) = 0.0
-            dc113p(j,nxp2) = 0.0
-            dc211p(j,nxp2) = 0.0
-            dc212p(j,nxp2) = 0.0
-            dc213p(j,nxp2) = 0.0
-            dc311p(j,nxp2) = 0.0
-            dc312p(j,nxp2) = 0.0
-            dc313p(j,nxp2) = 0.0
+            call fftw_execute_dft(planZb,dc211s(i,:,k),dc211s(i,:,k))
+            call fftw_execute_dft(planZb,dc212s(i,:,k),dc212s(i,:,k))
+            call fftw_execute_dft(planZb,dc213s(i,:,k),dc213s(i,:,k))
+            call fftw_execute_dft(planZb,dc221s(i,:,k),dc221s(i,:,k))
+            call fftw_execute_dft(planZb,dc222s(i,:,k),dc222s(i,:,k))
+            call fftw_execute_dft(planZb,dc223s(i,:,k),dc223s(i,:,k))
+            call fftw_execute_dft(planZb,dc231s(i,:,k),dc231s(i,:,k))
+            call fftw_execute_dft(planZb,dc232s(i,:,k),dc232s(i,:,k))
+            call fftw_execute_dft(planZb,dc233s(i,:,k),dc233s(i,:,k))
 
-            dc121p(j,nxp2) = 0.0
-            dc122p(j,nxp2) = 0.0
-            dc123p(j,nxp2) = 0.0
-            dc221p(j,nxp2) = 0.0
-            dc222p(j,nxp2) = 0.0
-            dc223p(j,nxp2) = 0.0
-            dc321p(j,nxp2) = 0.0
-            dc322p(j,nxp2) = 0.0
-            dc323p(j,nxp2) = 0.0
-
-            dc131p(j,nxp2) = 0.0
-            dc132p(j,nxp2) = 0.0
-            dc133p(j,nxp2) = 0.0
-            dc231p(j,nxp2) = 0.0
-            dc232p(j,nxp2) = 0.0
-            dc233p(j,nxp2) = 0.0
-            dc331p(j,nxp2) = 0.0
-            dc332p(j,nxp2) = 0.0
-            dc333p(j,nxp2) = 0.0
+            call fftw_execute_dft(planZb,dc311s(i,:,k),dc311s(i,:,k))
+            call fftw_execute_dft(planZb,dc312s(i,:,k),dc312s(i,:,k))
+            call fftw_execute_dft(planZb,dc313s(i,:,k),dc313s(i,:,k))
+            call fftw_execute_dft(planZb,dc321s(i,:,k),dc321s(i,:,k))
+            call fftw_execute_dft(planZb,dc322s(i,:,k),dc322s(i,:,k))
+            call fftw_execute_dft(planZb,dc323s(i,:,k),dc323s(i,:,k))
+            call fftw_execute_dft(planZb,dc331s(i,:,k),dc331s(i,:,k))
+            call fftw_execute_dft(planZb,dc332s(i,:,k),dc332s(i,:,k))
+            call fftw_execute_dft(planZb,dc333s(i,:,k),dc333s(i,:,k))
             end if
 #ENDIF
         end do
+    end do
+    !$omp end parallel do
+
+    ! Complex --> Real Transform (x-direction)
+    !$omp parallel do default(shared) private(i,j)
+    do j = 1,mz
+        do i = 1,nyp
+            ! Velocity Field
+            call fftw_execute_dft_c2r(planXb,us(i,j,:),up(i,j,:))
+            call fftw_execute_dft_c2r(planXb,vs(i,j,:),vp(i,j,:))
+            call fftw_execute_dft_c2r(planXb,ws(i,j,:),wp(i,j,:))
+
+            ! Vorticity Field
+            call fftw_execute_dft_c2r(planXb,wxs(i,j,:),wxp(i,j,:))
+            call fftw_execute_dft_c2r(planXb,wys(i,j,:),wyp(i,j,:))
+            call fftw_execute_dft_c2r(planXb,wzs(i,j,:),wzp(i,j,:))
             
-    
-        isgn = 1
-        inc  = mzp
-        jump = 1
-        lot  = mz
-    
-        call rfftmlt(up,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(vp,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(wp,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(wx,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(wy,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(wz,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-    
-        call rfftmlt(u11p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u12p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u13p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u21p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u22p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u23p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u31p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u32p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u33p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-     
-        call rfftmlt(Lup,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(Lvp,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(Lwp,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-#IFDEF SCALAR    
-        call rfftmlt(scp,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(cx ,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(cy ,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(cz ,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+            ! Velocity Gradient
+            call fftw_execute_dft_c2r(planXb,u11s(i,j,:),u11p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,u12s(i,j,:),u12p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,u13s(i,j,:),u13p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,u21s(i,j,:),u21p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,u22s(i,j,:),u22p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,u23s(i,j,:),u23p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,u31s(i,j,:),u31p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,u32s(i,j,:),u32p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,u33s(i,j,:),u33p(i,j,:))
+
+            if (npart .gt. 0) then ! only used in particle tracking
+            ! Laplacian
+            call fftw_execute_dft_c2r(planXb,Lus(i,j,:),Lup(i,j,:))
+            call fftw_execute_dft_c2r(planXb,Lvs(i,j,:),Lvp(i,j,:))
+            call fftw_execute_dft_c2r(planXb,Lws(i,j,:),Lwp(i,j,:))
+            end if
+#IFDEF SCALAR
+            ! Scalar field and its gradient
+            call fftw_execute_dft_c2r(planXb,scs(i,j,:),scp(i,j,:))
+            call fftw_execute_dft_c2r(planXb,cxs(i,j,:),cxp(i,j,:))
+            call fftw_execute_dft_c2r(planXb,cys(i,j,:),cyp(i,j,:))
+            call fftw_execute_dft_c2r(planXb,czs(i,j,:),czp(i,j,:))
+            
 #ENDIF
 #IFDEF POLYMER
-        if (it .ge. src_start-1) then
-        call rfftmlt(c11p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(c12p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(c13p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(c21p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(c22p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(c23p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(c31p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(c32p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(c33p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-     
-        call rfftmlt(dc111p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc112p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc113p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc211p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc212p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc213p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc311p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc312p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc313p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-     
-        call rfftmlt(dc121p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc122p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc123p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc221p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc222p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc223p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc321p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc322p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc323p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-     
-        call rfftmlt(dc131p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc132p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc133p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc231p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc232p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc233p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc331p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc332p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(dc333p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        end if  
+            if (it .ge. (src_start-1)) then
+            ! Conformation tensor
+            call fftw_execute_dft_c2r(planXb,c11s(i,j,:),c11p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,c12s(i,j,:),c12p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,c13s(i,j,:),c13p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,c21s(i,j,:),c21p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,c22s(i,j,:),c22p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,c23s(i,j,:),c23p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,c31s(i,j,:),c31p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,c32s(i,j,:),c32p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,c33s(i,j,:),c33p(i,j,:))
+
+            ! Conformation tensor gradient
+            call fftw_execute_dft_c2r(planXb,dc111s(i,j,:),dc111p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc112s(i,j,:),dc112p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc113s(i,j,:),dc113p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc121s(i,j,:),dc121p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc122s(i,j,:),dc122p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc123s(i,j,:),dc123p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc131s(i,j,:),dc131p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc132s(i,j,:),dc132p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc133s(i,j,:),dc133p(i,j,:))
+
+            call fftw_execute_dft_c2r(planXb,dc211s(i,j,:),dc211p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc212s(i,j,:),dc212p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc213s(i,j,:),dc213p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc221s(i,j,:),dc221p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc222s(i,j,:),dc222p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc223s(i,j,:),dc223p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc231s(i,j,:),dc231p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc232s(i,j,:),dc232p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc233s(i,j,:),dc233p(i,j,:))
+
+            call fftw_execute_dft_c2r(planXb,dc311s(i,j,:),dc311p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc312s(i,j,:),dc312p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc313s(i,j,:),dc313p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc321s(i,j,:),dc321p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc322s(i,j,:),dc322p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc323s(i,j,:),dc323p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc331s(i,j,:),dc331p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc332s(i,j,:),dc332p(i,j,:))
+            call fftw_execute_dft_c2r(planXb,dc333s(i,j,:),dc333p(i,j,:))
+            end if
 #ENDIF
-    !---------------------------------------------------------------------!
-    !        Compute the cross product of velocity and vorticity          !
-    !---------------------------------------------------------------------!
-    
+        end do
+    end do
+    !$omp end parallel do
+
+    ! Initialize the force field array for IBF
+    dragx = 0.0
+    dragy = 0.0
+    dragz = 0.0
+
+    ! Real --> Real Transform (y-transform) Uses DCT-I to transform to/from cosine grid
+
+    ! These loops also compute the nonlinear terms and then begin the process of
+    ! transforming the nonlinear output arrays to spectral space
+    !$omp parallel do default(shared) private(i,j,k,cflcheck,wdes,zj,rsq,argrad,fr,xi,argx,fx,ii,ipii,idif,jdif,segdrag,jpjj,jj)
+    do k = 1,mx
         do j = 1,mz
-            do i = 1,mx
-                vwx(j,i) =  vp(j,i)*wz(j,i) - wp(j,i)*wy(j,i)
-                vwy(j,i) = -up(j,i)*wz(j,i) + wp(j,i)*wx(j,i)
-                vwz(j,i) =  up(j,i)*wy(j,i) - vp(j,i)*wx(j,i)
+            ! Velocity Field
+            call fftw_execute_r2r(planY,up(:,j,k),up(:,j,k))
+            call fftw_execute_r2r(planY,vp(:,j,k),vp(:,j,k))
+            call fftw_execute_r2r(planY,wp(:,j,k),wp(:,j,k))
+
+            ! Vorticity Field
+            call fftw_execute_r2r(planY,wxp(:,j,k),wxp(:,j,k))
+            call fftw_execute_r2r(planY,wyp(:,j,k),wyp(:,j,k))
+            call fftw_execute_r2r(planY,wzp(:,j,k),wzp(:,j,k))
+            
+            ! Velocity Gradient
+            call fftw_execute_r2r(planY,u11p(:,j,k),u11p(:,j,k))
+            call fftw_execute_r2r(planY,u12p(:,j,k),u12p(:,j,k))
+            call fftw_execute_r2r(planY,u13p(:,j,k),u13p(:,j,k))
+            call fftw_execute_r2r(planY,u21p(:,j,k),u21p(:,j,k))
+            call fftw_execute_r2r(planY,u22p(:,j,k),u22p(:,j,k))
+            call fftw_execute_r2r(planY,u23p(:,j,k),u23p(:,j,k))
+            call fftw_execute_r2r(planY,u31p(:,j,k),u31p(:,j,k))
+            call fftw_execute_r2r(planY,u32p(:,j,k),u32p(:,j,k))
+            call fftw_execute_r2r(planY,u33p(:,j,k),u33p(:,j,k))
+
+            if (npart .gt. 0) then ! only used in particle tracking
+            ! Laplacian
+            call fftw_execute_r2r(planY,Lup(:,j,k),Lup(:,j,k))
+            call fftw_execute_r2r(planY,Lvp(:,j,k),Lvp(:,j,k))
+            call fftw_execute_r2r(planY,Lwp(:,j,k),Lwp(:,j,k))
+            end if
 #IFDEF SCALAR
-                 vc(j,i) = -(up(j,i)*cx(j,i) + vp(j,i)*cy(j,i) + wp(j,i)*cz(j,i))
+            ! Scalar field and its gradient
+            call fftw_execute_r2r(planY,scp(:,j,k),scp(:,j,k))
+            call fftw_execute_r2r(planY,cxp(:,j,k),cxp(:,j,k))
+            call fftw_execute_r2r(planY,cyp(:,j,k),cyp(:,j,k))
+            call fftw_execute_r2r(planY,czp(:,j,k),czp(:,j,k))
+#ENDIF
+#IFDEF POLYMER
+            if (it .ge. (src_start-1)) then
+            ! Conformation tensor
+            call fftw_execute_r2r(planY,c11p(:,j,k),c11p(:,j,k))
+            call fftw_execute_r2r(planY,c12p(:,j,k),c12p(:,j,k))
+            call fftw_execute_r2r(planY,c13p(:,j,k),c13p(:,j,k))
+            call fftw_execute_r2r(planY,c21p(:,j,k),c21p(:,j,k))
+            call fftw_execute_r2r(planY,c22p(:,j,k),c22p(:,j,k))
+            call fftw_execute_r2r(planY,c23p(:,j,k),c23p(:,j,k))
+            call fftw_execute_r2r(planY,c31p(:,j,k),c31p(:,j,k))
+            call fftw_execute_r2r(planY,c32p(:,j,k),c32p(:,j,k))
+            call fftw_execute_r2r(planY,c33p(:,j,k),c33p(:,j,k))
+
+            ! Conformation tensor gradYnt
+            call fftw_execute_r2r(planY,dc111p(:,j,k),dc111p(:,j,k))
+            call fftw_execute_r2r(planY,dc112p(:,j,k),dc112p(:,j,k))
+            call fftw_execute_r2r(planY,dc113p(:,j,k),dc113p(:,j,k))
+            call fftw_execute_r2r(planY,dc121p(:,j,k),dc121p(:,j,k))
+            call fftw_execute_r2r(planY,dc122p(:,j,k),dc122p(:,j,k))
+            call fftw_execute_r2r(planY,dc123p(:,j,k),dc123p(:,j,k))
+            call fftw_execute_r2r(planY,dc131p(:,j,k),dc131p(:,j,k))
+            call fftw_execute_r2r(planY,dc132p(:,j,k),dc132p(:,j,k))
+            call fftw_execute_r2r(planY,dc133p(:,j,k),dc133p(:,j,k))
+
+            call fftw_execute_r2r(planY,dc211p(:,j,k),dc211p(:,j,k))
+            call fftw_execute_r2r(planY,dc212p(:,j,k),dc212p(:,j,k))
+            call fftw_execute_r2r(planY,dc213p(:,j,k),dc213p(:,j,k))
+            call fftw_execute_r2r(planY,dc221p(:,j,k),dc221p(:,j,k))
+            call fftw_execute_r2r(planY,dc222p(:,j,k),dc222p(:,j,k))
+            call fftw_execute_r2r(planY,dc223p(:,j,k),dc223p(:,j,k))
+            call fftw_execute_r2r(planY,dc231p(:,j,k),dc231p(:,j,k))
+            call fftw_execute_r2r(planY,dc232p(:,j,k),dc232p(:,j,k))
+            call fftw_execute_r2r(planY,dc233p(:,j,k),dc233p(:,j,k))
+
+            call fftw_execute_r2r(planY,dc311p(:,j,k),dc311p(:,j,k))
+            call fftw_execute_r2r(planY,dc312p(:,j,k),dc312p(:,j,k))
+            call fftw_execute_r2r(planY,dc313p(:,j,k),dc313p(:,j,k))
+            call fftw_execute_r2r(planY,dc321p(:,j,k),dc321p(:,j,k))
+            call fftw_execute_r2r(planY,dc322p(:,j,k),dc322p(:,j,k))
+            call fftw_execute_r2r(planY,dc323p(:,j,k),dc323p(:,j,k))
+            call fftw_execute_r2r(planY,dc331p(:,j,k),dc331p(:,j,k))
+            call fftw_execute_r2r(planY,dc332p(:,j,k),dc332p(:,j,k))
+            call fftw_execute_r2r(planY,dc333p(:,j,k),dc333p(:,j,k))
+            end if
+#ENDIF
+
+            ! At this point, each y-column of the variables is appropriately
+            ! transformed to 3/2 physical space and can be used to compute
+            ! the nonlinear terms
+
+            !---------------------------------------------------------------------!
+            !        Compute the cross product of velocity and vorticity          !
+            !---------------------------------------------------------------------!
+   
+            do i = 1,nyp 
+                vwx(i,j,k) =  vp(i,j,k)*wzp(i,j,k) - wp(i,j,k)*wyp(i,j,k)
+                vwy(i,j,k) = -up(i,j,k)*wzp(i,j,k) + wp(i,j,k)*wxp(i,j,k)
+                vwz(i,j,k) =  up(i,j,k)*wyp(i,j,k) - vp(i,j,k)*wxp(i,j,k)
+#IFDEF SCALAR
+                 vc(i,j,k) = -(up(i,j,k)*cxp(i,j,k) + vp(i,j,k)*cyp(i,j,k) + wp(i,j,k)*czp(i,j,k))
 #ENDIF
 #IFDEF POLYMER    
                 if (it .ge. src_start-1) then
-                c11np(j,i)=c11p(j,i)*u11p(j,i)+c12p(j,i)*u12p(j,i)+c13p(j,i)*u13p(j,i)+  &
-                           c11p(j,i)*u11p(j,i)+c21p(j,i)*u12p(j,i)+c31p(j,i)*u13p(j,i)-  &
-                           (up(j,i)*dc111p(j,i)+vp(j,i)*dc112p(j,i)+wp(j,i)*dc113p(j,i))            
+                c11np(i,j,k)=c11p(i,j,k)*u11p(i,j,k)+c12p(i,j,k)*u12p(i,j,k)+c13p(i,j,k)*u13p(i,j,k)+  &
+                             c11p(i,j,k)*u11p(i,j,k)+c21p(i,j,k)*u12p(i,j,k)+c31p(i,j,k)*u13p(i,j,k)-  &
+                            (up(i,j,k)*dc111p(i,j,k)+vp(i,j,k)*dc112p(i,j,k)+wp(i,j,k)*dc113p(i,j,k))            
                   
-                c12np(j,i)=c11p(j,i)*u21p(j,i)+c12p(j,i)*u22p(j,i)+c13p(j,i)*u23p(j,i)+   &
-                           c12p(j,i)*u11p(j,i)+c22p(j,i)*u12p(j,i)+c32p(j,i)*u13p(j,i)-   &
-                           (up(j,i)*dc121p(j,i)+vp(j,i)*dc122p(j,i)+wp(j,i)*dc123p(j,i))
+                c12np(i,j,k)=c11p(i,j,k)*u21p(i,j,k)+c12p(i,j,k)*u22p(i,j,k)+c13p(i,j,k)*u23p(i,j,k)+   &
+                             c12p(i,j,k)*u11p(i,j,k)+c22p(i,j,k)*u12p(i,j,k)+c32p(i,j,k)*u13p(i,j,k)-   &
+                            (up(i,j,k)*dc121p(i,j,k)+vp(i,j,k)*dc122p(i,j,k)+wp(i,j,k)*dc123p(i,j,k))
                   
-                c13np(j,i)=c11p(j,i)*u31p(j,i)+c12p(j,i)*u32p(j,i)+c13p(j,i)*u33p(j,i)+   &
-                           c13p(j,i)*u11p(j,i)+c23p(j,i)*u12p(j,i)+c33p(j,i)*u13p(j,i)-   &
-                           (up(j,i)*dc131p(j,i)+vp(j,i)*dc132p(j,i)+wp(j,i)*dc133p(j,i))
+                c13np(i,j,k)=c11p(i,j,k)*u31p(i,j,k)+c12p(i,j,k)*u32p(i,j,k)+c13p(i,j,k)*u33p(i,j,k)+   &
+                             c13p(i,j,k)*u11p(i,j,k)+c23p(i,j,k)*u12p(i,j,k)+c33p(i,j,k)*u13p(i,j,k)-   &
+                             (up(i,j,k)*dc131p(i,j,k)+vp(i,j,k)*dc132p(i,j,k)+wp(i,j,k)*dc133p(i,j,k))
                   
-                c22np(j,i)=c21p(j,i)*u21p(j,i)+c22p(j,i)*u22p(j,i)+c23p(j,i)*u23p(j,i)+   &
-                           c12p(j,i)*u21p(j,i)+c22p(j,i)*u22p(j,i)+c32p(j,i)*u23p(j,i)-   &
-                           (up(j,i)*dc221p(j,i)+vp(j,i)*dc222p(j,i)+wp(j,i)*dc223p(j,i))
+                c22np(i,j,k)=c21p(i,j,k)*u21p(i,j,k)+c22p(i,j,k)*u22p(i,j,k)+c23p(i,j,k)*u23p(i,j,k)+   &
+                             c12p(i,j,k)*u21p(i,j,k)+c22p(i,j,k)*u22p(i,j,k)+c32p(i,j,k)*u23p(i,j,k)-   &
+                             (up(i,j,k)*dc221p(i,j,k)+vp(i,j,k)*dc222p(i,j,k)+wp(i,j,k)*dc223p(i,j,k))
                   
-                c23np(j,i)=c21p(j,i)*u31p(j,i)+c22p(j,i)*u32p(j,i)+c23p(j,i)*u33p(j,i)+   &
-                           c13p(j,i)*u21p(j,i)+c23p(j,i)*u22p(j,i)+c33p(j,i)*u23p(j,i)-   &
-                           (up(j,i)*dc231p(j,i)+vp(j,i)*dc232p(j,i)+wp(j,i)*dc233p(j,i))
+                c23np(i,j,k)=c21p(i,j,k)*u31p(i,j,k)+c22p(i,j,k)*u32p(i,j,k)+c23p(i,j,k)*u33p(i,j,k)+   &
+                             c13p(i,j,k)*u21p(i,j,k)+c23p(i,j,k)*u22p(i,j,k)+c33p(i,j,k)*u23p(i,j,k)-   &
+                             (up(i,j,k)*dc231p(i,j,k)+vp(i,j,k)*dc232p(i,j,k)+wp(i,j,k)*dc233p(i,j,k))
 
-                c33np(j,i)=c31p(j,i)*u31p(j,i)+c32p(j,i)*u32p(j,i)+c33p(j,i)*u33p(j,i)+   &         
-                           c13p(j,i)*u31p(j,i)+c23p(j,i)*u32p(j,i)+c33p(j,i)*u33p(j,i)-   &
-                           (up(j,i)*dc331p(j,i)+vp(j,i)*dc332p(j,i)+wp(j,i)*dc333p(j,i))
+                c33np(i,j,k)=c31p(i,j,k)*u31p(i,j,k)+c32p(i,j,k)*u32p(i,j,k)+c33p(i,j,k)*u33p(i,j,k)+   &         
+                             c13p(i,j,k)*u31p(i,j,k)+c23p(i,j,k)*u32p(i,j,k)+c33p(i,j,k)*u33p(i,j,k)-   &
+                            (up(i,j,k)*dc331p(i,j,k)+vp(i,j,k)*dc332p(i,j,k)+wp(i,j,k)*dc333p(i,j,k))
      
-                trp(j,i) = c11p(j,i) + c22p(j,i) + c33p(j,i)
+                trp(i,j,k) = c11p(i,j,k) + c22p(i,j,k) + c33p(i,j,k)
      
                 if (ipeter .eq. 0) then  ! peterlin function is 1.0
     
-                    str11np(j,i)= c11p(j,i)
-                    str12np(j,i)= c12p(j,i)
-                    str13np(j,i)= c13p(j,i)
-                    str22np(j,i)= c22p(j,i)
-                    str23np(j,i)= c23p(j,i)
-                    str33np(j,i)= c33p(j,i)
+                    str11np(i,j,k)= c11p(i,j,k)
+                    str12np(i,j,k)= c12p(i,j,k)
+                    str13np(i,j,k)= c13p(i,j,k)
+                    str22np(i,j,k)= c22p(i,j,k)
+                    str23np(i,j,k)= c23p(i,j,k)
+                    str33np(i,j,k)= c33p(i,j,k)
               
                 else
                
-                    str11np(j,i)=((zlmax**2 - 3.0)/(zlmax**2 - trp(j,i)))*c11p(j,i)
-                    str12np(j,i)=((zlmax**2 - 3.0)/(zlmax**2 - trp(j,i)))*c12p(j,i)
-                    str13np(j,i)=((zlmax**2 - 3.0)/(zlmax**2 - trp(j,i)))*c13p(j,i)
-                    str22np(j,i)=((zlmax**2 - 3.0)/(zlmax**2 - trp(j,i)))*c22p(j,i)
-                    str23np(j,i)=((zlmax**2 - 3.0)/(zlmax**2 - trp(j,i)))*c23p(j,i)
-                    str33np(j,i)=((zlmax**2 - 3.0)/(zlmax**2 - trp(j,i)))*c33p(j,i)
+                    str11np(i,j,k)=((zlmax**2 - 3.0)/(zlmax**2 - trp(i,j,k)))*c11p(i,j,k)
+                    str12np(i,j,k)=((zlmax**2 - 3.0)/(zlmax**2 - trp(i,j,k)))*c12p(i,j,k)
+                    str13np(i,j,k)=((zlmax**2 - 3.0)/(zlmax**2 - trp(i,j,k)))*c13p(i,j,k)
+                    str22np(i,j,k)=((zlmax**2 - 3.0)/(zlmax**2 - trp(i,j,k)))*c22p(i,j,k)
+                    str23np(i,j,k)=((zlmax**2 - 3.0)/(zlmax**2 - trp(i,j,k)))*c23p(i,j,k)
+                    str33np(i,j,k)=((zlmax**2 - 3.0)/(zlmax**2 - trp(i,j,k)))*c33p(i,j,k)
                
                 end if
                
                 ! Add brownian motion terms
-                str11np(j,i)=str11np(j,i)-1.0
-                str22np(j,i)=str22np(j,i)-1.0
-                str33np(j,i)=str33np(j,i)-1.0
+                str11np(i,j,k)=str11np(i,j,k)-1.0
+                str22np(i,j,k)=str22np(i,j,k)-1.0
+                str33np(i,j,k)=str33np(i,j,k)-1.0
 
                 ! Polymer model
                 if (itarget .eq. 0) then ! polymer ocean
-                    beta_poly(j,i) = qbeta
+                    beta_poly(i,j,k) = qbeta
                 else if (itarget .eq. 1) then
                     ! Nonlinear model:
                     ! beta = exp(-alpha*gamma) --> beta_poly
                     ! alpha = 2.6e-03 PPM --> alpha_poly
                     ! gamma = scalar concentration (PPM) --> scp
 
-                    beta_poly(j,i) = exp(-alpha_poly*abs(scp(j,i)))
+                    beta_poly(i,j,k) = exp(-alpha_poly*abs(scp(i,j,k)))
 
                 else if (itarget .eq. 2) then ! Linear polymer model
                     ! Linear model:
                     ! beta = (alpha*|gamma|)
-                    beta_poly(j,i) = 1.0/(alpha_poly*abs(scp(j,i)) + 1.0)
+                    beta_poly(i,j,k) = 1.0/(alpha_poly*abs(scp(i,j,k)) + 1.0)
                 end if
 
-                zbeta1 = (1.0 - beta_poly(j,i))/(re*beta_poly(j,i)*tpoly) ! = (nu_0 - nu_s)
+                zbeta1 = (1.0 - beta_poly(i,j,k))/(re*beta_poly(i,j,k)*tpoly) ! = (nu_0 - nu_s)
 
-                qp11np(j,i) = zbeta1*str11np(j,i)
-                qp12np(j,i) = zbeta1*str12np(j,i)
-                qp13np(j,i) = zbeta1*str13np(j,i)
-                qp22np(j,i) = zbeta1*str22np(j,i)
-                qp23np(j,i) = zbeta1*str23np(j,i)
-                qp33np(j,i) = zbeta1*str33np(j,i)
+                qp11np(i,j,k) = zbeta1*str11np(i,j,k)
+                qp12np(i,j,k) = zbeta1*str12np(i,j,k)
+                qp13np(i,j,k) = zbeta1*str13np(i,j,k)
+                qp22np(i,j,k) = zbeta1*str22np(i,j,k)
+                qp23np(i,j,k) = zbeta1*str23np(i,j,k)
+                qp33np(i,j,k) = zbeta1*str33np(i,j,k)
 
                 else
-                    beta_poly(j,i) = 1.0 ! for printing
+                    beta_poly(i,j,k) = 1.0 ! for printing
                 end if ! it >= src_start-1
 #ENDIF
+                cflcheck = (abs(up(i,j,k))/delx + abs(vp(i,j,k))/seght(k) + abs(wp(i,j,k))/delz)*dt
+                if(cflcheck .gt. cfl(i)) cfl(i) = cflcheck
 
-                cflcheck = (abs(up(j,i))/delx + abs(vp(j,i))/seght(k) + abs(wp(j,i))/delz)*dt
-                if(cflcheck .gt. cfl(k)) cfl(k) = cflcheck
-            end do
-        end do
-   
-    !---------------------------------------------------------------------!
-    ! Compute immersed boundary force terms and add to nonlinear term     !
-    ! The type of forcing is based on the value of imatrix at the grid    !
-    ! point. Several of these cases probably require more coding and      !
-    ! specification in the geometry file, but they have been unused since !
-    ! I've used the code                                                  !
-    !---------------------------------------------------------------------!
+                !---------------------------------------------------------------------!
+                ! Compute immersed boundary force terms and add to nonlinear term     !
+                ! The type of forcing is based on the value of imatrix at the grid    !
+                ! point. Several of these cases probably require more coding and      !
+                ! specification in the geometry file, but they have been unused since !
+                ! I've used the code                                                  !
+                !---------------------------------------------------------------------!
     
-        ! Initialize the force field array
-        dragx = 0.0
-        dragy = 0.0
-        dragz = 0.0
-   
-        do j = 1,mz
-            do i = 1,mx
-                if (imatrix(k,j,i) .eq. 1 .or. (imatrix(k,j,i) .eq. 4 .and. it .le. perturbtime)) then ! Generate solid surfaces
-                    fxintg(k,j,i) = fxintg(k,j,i) + up(j,i)
-                    fyintg(k,j,i) = fyintg(k,j,i) + vp(j,i)
-                    fzintg(k,j,i) = fzintg(k,j,i) + wp(j,i)
-                    dragx(j,i) = (-ugain*up(j,i)) - gain*fxintg(k,j,i)
-                    dragy(j,i) = (-ugain*vp(j,i)) - gain*fyintg(k,j,i)
-                    dragz(j,i) = (-ugain*wp(j,i)) - gain*fzintg(k,j,i)
+                if (imatrix(i,j,k) .eq. 1 .or. (imatrix(i,j,k) .eq. 4 .and. it .le. perturbtime)) then ! Generate solid surfaces
+                    fxintg(i,j,k) = fxintg(i,j,k) + up(i,j,k)
+                    fyintg(i,j,k) = fyintg(i,j,k) + vp(i,j,k)
+                    fzintg(i,j,k) = fzintg(i,j,k) + wp(i,j,k)
+                    dragx(i,j,k) = (-ugain*up(i,j,k)) - gain*fxintg(i,j,k)
+                    dragy(i,j,k) = (-ugain*vp(i,j,k)) - gain*fyintg(i,j,k)
+                    dragz(i,j,k) = (-ugain*wp(i,j,k)) - gain*fzintg(i,j,k)
         
-                else if (imatrix(k,j,i) .eq. 3) then ! Spanwise-damping textures
-                    fzintg(k,j,i) = fzintg(k,j,i) + wp(j,i)
-                    dragz(j,i) = -ugain*wp(j,i) - gain*fzintg(k,j,i)
+                else if (imatrix(i,j,k) .eq. 3) then ! Spanwise-damping textures
+                    fzintg(i,j,k) = fzintg(i,j,k) + wp(i,j,k)
+                    dragz(i,j,k) = -ugain*wp(i,j,k) - gain*fzintg(i,j,k)
         
-                else if (imatrix(k,j,i) .eq. 8) then ! Spanwise moving wall
-                    if (i .le. (bfwidth*3 + 1)) then
-                        wdes = (0.3*Uinf)/slopelength*(i - (bfwidth*3 + 1 - slopelength))
+                else if (imatrix(i,j,k) .eq. 8) then ! Spanwise moving wall
+                    if (k .le. (bfwidth*3 + 1)) then
+                        wdes = (0.3*Uinf)/slopelength*(k - (bfwidth*3 + 1 - slopelength))
                     else
                         wdes = 0.3*Uinf
                     end if
     
-                    fxintg(k,j,i) = fxintg(k,j,i) + up(j,i)
-                    fyintg(k,j,i) = fyintg(k,j,i) + vp(j,i)
-                    fzintg(k,j,i) = fzintg(k,j,i) + wp(j,i)-wdes
-                    dragx(j,i)    = -ugain*up(j,i) - gain*fxintg(k,j,i)
-                    dragy(j,i)    = -ugain*vp(j,i) - gain*fyintg(k,j,i)
-                    dragz(j,i)    = -ugain*(wp(j,i)-wdes) - gain*fzintg(k,j,i)
+                    fxintg(i,j,k) = fxintg(i,j,k) + up(i,j,k)
+                    fyintg(i,j,k) = fyintg(i,j,k) + vp(i,j,k)
+                    fzintg(i,j,k) = fzintg(i,j,k) + wp(i,j,k)-wdes
+                    dragx(i,j,k)    = -ugain*up(i,j,k) - gain*fxintg(i,j,k)
+                    dragy(i,j,k)    = -ugain*vp(i,j,k) - gain*fyintg(i,j,k)
+                    dragz(i,j,k)    = -ugain*(wp(i,j,k)-wdes) - gain*fzintg(i,j,k)
                     
-                else if (imatrix(k,j,i) .eq. 6) then ! Buffer zone
+                else if (imatrix(i,j,k) .eq. 6) then ! Buffer zone
                     ! NOTE: initu and initw should technically be transformed first, but since
                     ! the buffer region has only been used for x- and z-constant flows, using
                     ! them as they are should be fine
-                    fxintg(k,j,i) = fxintg(k,j,i) + up(j,i) - initu(k,j,i)
-                    fyintg(k,j,i) = fyintg(k,j,i) + vp(j,i) - initv(k,j,i)
-                    fzintg(k,j,i) = fzintg(k,j,i) + wp(j,i) - initw(k,j,i)
-                    vwx(j,i) = vwx(j,i) + (-bfugain(i-bfhead+1)*(up(j,i) - initu(k,j,i)) - (bfgain(i-bfhead+1) * fxintg(k,j,i)))
-                    vwy(j,i) = vwy(j,i) + (-bfugain(i-bfhead+1)*(vp(j,i) - initv(k,j,i)) - (bfgain(i-bfhead+1) * fyintg(k,j,i)))
-                    vwz(j,i) = vwz(j,i) + (-bfugain(i-bfhead+1)*(wp(j,i) - initw(k,j,i)) - (bfgain(i-bfhead+1) * fzintg(k,j,i)))
+                    fxintg(i,j,k) = fxintg(i,j,k) + up(i,j,k) - initu(i,j,k)
+                    fyintg(i,j,k) = fyintg(i,j,k) + vp(i,j,k) - initv(i,j,k)
+                    fzintg(i,j,k) = fzintg(i,j,k) + wp(i,j,k) - initw(i,j,k)
+                    vwx(i,j,k) = vwx(i,j,k) + (-bfugain(k-bfhead+1)*(up(i,j,k) - initu(i,j,k)) - (bfgain(k-bfhead+1) * fxintg(i,j,k)))
+                    vwy(i,j,k) = vwy(i,j,k) + (-bfugain(k-bfhead+1)*(vp(i,j,k) - initv(i,j,k)) - (bfgain(k-bfhead+1) * fyintg(i,j,k)))
+                    vwz(i,j,k) = vwz(i,j,k) + (-bfugain(k-bfhead+1)*(wp(i,j,k) - initw(i,j,k)) - (bfgain(k-bfhead+1) * fzintg(i,j,k)))
     
-                else if (imatrix(k,j,i) .eq. 7) then ! Suction region
-                    fyintg(k,j,i) = fyintg(k,j,i) + (vp(j,i)-vdes(i))
-                    vwy(j,i) = vwy(j,i) + (-gain*fyintg(k,j,i)) + (-ugain*(vp(j,i)-vdes(i)))
-                    fxintg(k,j,i) = fxintg(k,j,i) + (up(j,i)-uinf)
-                    vwx(j,i) = vwx(j,i) + (-gain*fxintg(k,j,i)) + (-ugain*(up(j,i)-uinf))
-                    fzintg(k,j,i) = fzintg(k,j,i) + (wp(j,i)-initw(k,j,i))
-                    vwz(j,i) = vwz(j,i) + (-gain*fzintg(k,j,i)) + (-ugain*(wp(j,i)-initw(k,j,i)))
+                else if (imatrix(i,j,k) .eq. 7) then ! Suction region
+                    fyintg(i,j,k) = fyintg(i,j,k) + (vp(i,j,k)-vdes(i))
+                    vwy(i,j,k) = vwy(i,j,k) + (-gain*fyintg(i,j,k)) + (-ugain*(vp(i,j,k)-vdes(i)))
+                    fxintg(i,j,k) = fxintg(i,j,k) + (up(i,j,k)-uinf)
+                    vwx(i,j,k) = vwx(i,j,k) + (-gain*fxintg(i,j,k)) + (-ugain*(up(i,j,k)-uinf))
+                    fzintg(i,j,k) = fzintg(i,j,k) + (wp(i,j,k)-initw(i,j,k))
+                    vwz(i,j,k) = vwz(i,j,k) + (-gain*fzintg(i,j,k)) + (-ugain*(wp(i,j,k)-initw(i,j,k)))
      
-                else if (imatrix(k,j,i) .eq. 11) then ! Constant x-force between wall and suction layer
-                    dragx(j,i) = 1.0
+                else if (imatrix(i,j,k) .eq. 11) then ! Constant x-force between wall and suction layer
+                    dragx(i,j,k) = 1.0
     
-                else if (imatrix(k,j,i) .eq. 0 .and. flow_select .eq. 1) then ! Constant pressure gradient
-                    vwx(j,i) = vwx(j,i) - dPdx 
+                else if (imatrix(i,j,k) .eq. 0 .and. flow_select .eq. 1) then ! Constant pressure gradient
+                    vwx(i,j,k) = vwx(i,j,k) - dPdx 
                 
                 else if (flow_select .eq. 5 .and. it .le. perturbtime) then ! Vortex ring
                     zj = float(j-1)*delzm
-                    rsq = (ycoord(k) - ycenter)**2 + (zj - zcenter)**2
+                    rsq = (ycoord(i) - ycenter)**2 + (zj - zcenter)**2
                     argrad = forbeta*(rad - sqrt(rsq))
                     fr = 0.5*(1.0 + tanh(argrad))
     
-                    xi = float(i-1)*delxm
+                    xi = float(k-1)*delxm
                     argx = forbeta*(L - abs(xi - xcenter))
                     fx = 0.5*(1.0 + tanh(argx))
   
-                    vwx(j,i) = vwx(j,i) + bdyfx*fx*fr
+                    vwx(i,j,k) = vwx(i,j,k) + bdyfx*fx*fr
     
                 end if
 #IFDEF SCALAR
                 if (scl_flag .ge. 2) then
-                    vc(j,i) = vc(j,i) + scsource(k,j,i)/dt
+                    vc(i,j,k) = vc(i,j,k) + scsource(i,j,k)/dt
                 end if
 #ENDIF
-            end do ! i
-        end do ! j
-    
+
         !---------------------------------------------------------------------!
         !            Apply the force field to the solid surface               !
         !---------------------------------------------------------------------!
-        if(k .le. kmaxsurf) then
-            do i = 1,mx
+                if (i .le. kmaxsurf) then
                 do ii = -2, 2
-                    ipii = i + ii
+                    ipii = k + ii
                     idif = 1 + iabs(ii)        
                     if(ipii .lt. 1 ) ipii = ipii + mx         
                     if(ipii .gt. mx) ipii = ipii - mx
                     do jj = -2, 2
                         jdif = 1 + iabs(jj)
                         segdrag = fspread(jdif,idif)
-    
-                        do j = 3, mzm2
+        
+                        if (j .ge. 3 .or. j .le. mzm2) then 
                             jpjj = j + jj
-                            xsegdrag = segdrag*dragx(j,i)
-                            ysegdrag = segdrag*dragy(j,i)
-                            zsegdrag = segdrag*dragz(j,i)
-                            vwx(jpjj,ipii) = vwx(jpjj,ipii) + xsegdrag
-                            vwy(jpjj,ipii) = vwy(jpjj,ipii) + ysegdrag
-                            vwz(jpjj,ipii) = vwz(jpjj,ipii) + zsegdrag
-                        end do
-    
-                        do j = 1, 2
+                            xsegdrag = segdrag*dragx(i,j,k)
+                            ysegdrag = segdrag*dragy(i,j,k)
+                            zsegdrag = segdrag*dragz(i,j,k)
+                            vwx(i,jpjj,ipii) = vwx(i,jpjj,ipii) + xsegdrag
+                            vwy(i,jpjj,ipii) = vwy(i,jpjj,ipii) + ysegdrag
+                            vwz(i,jpjj,ipii) = vwz(i,jpjj,ipii) + zsegdrag
+                        else if (j .eq. 1 .or. j .eq. 2) then 
                             jpjj = j + jj
                             if(jpjj .lt. 1 ) jpjj = jpjj + mz
-                            xsegdrag = segdrag*dragx(j,i)
-                            ysegdrag = segdrag*dragy(j,i)
-                            zsegdrag = segdrag*dragz(j,i)
-                            vwx(jpjj,ipii) = vwx(jpjj,ipii) + xsegdrag
-                            vwy(jpjj,ipii) = vwy(jpjj,ipii) + ysegdrag
-                            vwz(jpjj,ipii) = vwz(jpjj,ipii) + zsegdrag
-                        end do
-    
-                        do j = mzm1, mz
+                            xsegdrag = segdrag*dragx(i,j,k)
+                            ysegdrag = segdrag*dragy(i,j,k)
+                            zsegdrag = segdrag*dragz(i,j,k)
+                            vwx(i,jpjj,ipii) = vwx(i,jpjj,ipii) + xsegdrag
+                            vwy(i,jpjj,ipii) = vwy(i,jpjj,ipii) + ysegdrag
+                            vwz(i,jpjj,ipii) = vwz(i,jpjj,ipii) + zsegdrag
+                        else 
                             jpjj = j + jj
                             if(jpjj .gt. mz) jpjj = jpjj - mz
-                            xsegdrag = segdrag*dragx(j,i)
-                            ysegdrag = segdrag*dragy(j,i)
-                            zsegdrag = segdrag*dragz(j,i)
-                            vwx(jpjj,ipii) = vwx(jpjj,ipii) + xsegdrag
-                            vwy(jpjj,ipii) = vwy(jpjj,ipii) + ysegdrag
-                            vwz(jpjj,ipii) = vwz(jpjj,ipii) + zsegdrag
-                        end do
-    
+                            xsegdrag = segdrag*dragx(i,j,k)
+                            ysegdrag = segdrag*dragy(i,j,k)
+                            zsegdrag = segdrag*dragz(i,j,k)
+                            vwx(i,jpjj,ipii) = vwx(i,jpjj,ipii) + xsegdrag
+                            vwy(i,jpjj,ipii) = vwy(i,jpjj,ipii) + ysegdrag
+                            vwz(i,jpjj,ipii) = vwz(i,jpjj,ipii) + zsegdrag
+                        end if
                     end do ! jj
                 end do ! ii
-            end do ! i
-        end if
-    
-        !---------------------------------------------------------------------!
-        ! Save variables to print (or use in particle integration)            !
-        ! Note: There's a weird artifact of how the variables are transformed !
-        ! which flips the y-direction. In order to print out correctly, all   !
-        ! terms which include v or an odd number of derivatives in y must be  !
-        ! made negative. I know, I don't really get it either but it works.   !
-        !---------------------------------------------------------------------!
-    
-        up3d(k,1:mz,1:mx) = up(1:mz,1:mx)
-        vp3d(k,1:mz,1:mx) = -vp(1:mz,1:mx)
-        wp3d(k,1:mz,1:mx) = wp(1:mz,1:mx)
-        wx3d(k,1:mz,1:mx) = -wx(1:mz,1:mx)
-        wy3d(k,1:mz,1:mx) = wy(1:mz,1:mx)
-        wz3d(k,1:mz,1:mx) = -wz(1:mz,1:mx)
-        u11p3d(k,1:mz,1:mx) = u11p(1:mz,1:mx) 
-        u12p3d(k,1:mz,1:mx) = -u12p(1:mz,1:mx) 
-        u13p3d(k,1:mz,1:mx) = u13p(1:mz,1:mx) 
-        u21p3d(k,1:mz,1:mx) = -u21p(1:mz,1:mx) 
-        u22p3d(k,1:mz,1:mx) = u22p(1:mz,1:mx) 
-        u23p3d(k,1:mz,1:mx) = -u23p(1:mz,1:mx) 
-        u31p3d(k,1:mz,1:mx) = u31p(1:mz,1:mx) 
-        u32p3d(k,1:mz,1:mx) = -u32p(1:mz,1:mx) 
-        u33p3d(k,1:mz,1:mx) = u33p(1:mz,1:mx) 
-    
-        Lup3d(k,1:mz,1:mx) = Lup(1:mz,1:mx) 
-        Lvp3d(k,1:mz,1:mx) = Lvp(1:mz,1:mx) 
-        Lwp3d(k,1:mz,1:mx) = Lwp(1:mz,1:mx) 
-#IFDEF SCALAR   
-        scp3d(k,1:mz,1:mx) = scp(1:mz,1:mx)
-#ENDIF
-#IFDEF POLYMER
-        beta3d(k,1:mz,1:mx) = beta_poly(1:mz,1:mx)
-#ENDIF
+                end if
+
+            end do ! y-planes
 
 
         !---------------------------------------------------------------------!
         !              Now transform vxw back to spectral space               !
         !---------------------------------------------------------------------!
-    
-        isgn = -1
-        inc  = mzp
-        jump = 1
-        lot  = mz
-    
-        call rfftmlt(vwx,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(vwy,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(vwz,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-#IFDEF SCALAR
-        call rfftmlt(vc ,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn) 
-#ENDIF
-#IFDEF POLYMER
-        if (it .ge. src_start-1) then
-        call rfftmlt(c11np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(c12np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(c13np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(c22np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(c23np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(c33np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-     
-        call rfftmlt(str11np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(str12np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(str13np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(str22np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(str23np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(str33np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-     
-        call rfftmlt(qp11np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(qp12np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(qp13np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(qp22np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(qp23np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(qp33np,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+        ! We continue in the same loop to do the DCT-I again (it is its own inverse)    
+        ! But this time we need to normalize by 2*ny
 
-        do j = 1,mz
-            c11np(j,2) = 0.0  
-            c12np(j,2) = 0.0  
-            c13np(j,2) = 0.0  
-            c22np(j,2) = 0.0  
-            c23np(j,2) = 0.0  
-            c33np(j,2) = 0.0  
-         
-            str11np(j,2) = 0.0 
-            str12np(j,2) = 0.0 
-            str13np(j,2) = 0.0 
-            str22np(j,2) = 0.0 
-            str23np(j,2) = 0.0 
-            str33np(j,2) = 0.0 
-         
-            qp11np(j,2) = 0.0 
-            qp12np(j,2) = 0.0 
-            qp13np(j,2) = 0.0 
-            qp22np(j,2) = 0.0 
-            qp23np(j,2) = 0.0 
-            qp33np(j,2) = 0.0 
-        end do
-        end if 
-#ENDIF        
-        ! Wipe out unwanted last mode
-        do j = 1,mz
-            vwx(j,2) = 0.0
-            vwy(j,2) = 0.0
-            vwz(j,2) = 0.0
+            ! velocity x vorticity
+            call fftw_execute_r2r(planY,vwx(:,j,k),vwx(:,j,k))
+            call fftw_execute_r2r(planY,vwy(:,j,k),vwy(:,j,k))
+            call fftw_execute_r2r(planY,vwz(:,j,k),vwz(:,j,k))
 #IFDEF SCALAR
-             vc(j,2) = 0.0
-#ENDIF
-        end do
-        
-        isgn = -1
-        inc  = 1
-        jump = 2*mzp
-        lot  = nx/2
-    
-        call cfftmlt(vwx(1,1),vwx(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(vwy(1,1),vwy(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(vwz(1,1),vwz(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-#IFDEF SCALAR
-        call cfftmlt(vc(1,1) ,vc(1,2) ,wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+            ! velocity x scalar
+            call fftw_execute_r2r(planY,vc(:,j,k),vc(:,j,k))
 #ENDIF
 #IFDEF POLYMER
-        if (it .ge. src_start-1) then
-        call cfftmlt(c11np(1,1),c11np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(c12np(1,1),c12np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(c13np(1,1),c13np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(c22np(1,1),c22np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(c23np(1,1),c23np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(c33np(1,1),c33np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-     
-        call cfftmlt(str11np(1,1),str11np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(str12np(1,1),str12np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(str13np(1,1),str13np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(str22np(1,1),str22np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(str23np(1,1),str23np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(str33np(1,1),str33np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-     
-        call cfftmlt(qp11np(1,1),qp11np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(qp12np(1,1),qp12np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(qp13np(1,1),qp13np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(qp22np(1,1),qp22np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(qp23np(1,1),qp23np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(qp33np(1,1),qp33np(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        end if 
-#ENDIF    
-        do j = 1,nz
-            if (j .le. nzh) then
-                jj = j
-            else if (j .gt. nzh) then
-                jj = (mz-nz) + j
+            if (it .ge. (src_start-1)) then
+            ! Conformation tensor
+            call fftw_execute_r2r(planY,c11np(:,j,k),c11np(:,j,k))
+            call fftw_execute_r2r(planY,c12np(:,j,k),c12np(:,j,k))
+            call fftw_execute_r2r(planY,c13np(:,j,k),c13np(:,j,k))
+            call fftw_execute_r2r(planY,c22np(:,j,k),c22np(:,j,k))
+            call fftw_execute_r2r(planY,c23np(:,j,k),c23np(:,j,k))
+            call fftw_execute_r2r(planY,c33np(:,j,k),c33np(:,j,k))
+
+            ! Polymer stress
+            call fftw_execute_r2r(planY,str11np(:,j,k),str11np(:,j,k))
+            call fftw_execute_r2r(planY,str12np(:,j,k),str12np(:,j,k))
+            call fftw_execute_r2r(planY,str13np(:,j,k),str13np(:,j,k))
+            call fftw_execute_r2r(planY,str22np(:,j,k),str22np(:,j,k))
+            call fftw_execute_r2r(planY,str23np(:,j,k),str23np(:,j,k))
+            call fftw_execute_r2r(planY,str33np(:,j,k),str33np(:,j,k))
+
+            call fftw_execute_r2r(planY,qp11np(:,j,k),qp11np(:,j,k))
+            call fftw_execute_r2r(planY,qp12np(:,j,k),qp12np(:,j,k))
+            call fftw_execute_r2r(planY,qp13np(:,j,k),qp13np(:,j,k))
+            call fftw_execute_r2r(planY,qp22np(:,j,k),qp22np(:,j,k))
+            call fftw_execute_r2r(planY,qp23np(:,j,k),qp23np(:,j,k))
+            call fftw_execute_r2r(planY,qp33np(:,j,k),qp33np(:,j,k))
             end if
-            do i = 1,nxh
-                i1 = 2*(i-1) + 1
-                i2 = 2*i
-                gn(k,j,i)  = cmplx(vwx(jj,i1)*rmz,vwx(jj,i2)*rmz)
-                fn(k,j,i)  = cmplx(vwy(jj,i1)*rmz,vwy(jj,i2)*rmz)
-                omz(k,j,i) = cmplx(vwz(jj,i1)*rmz,vwz(jj,i2)*rmz)
+#ENDIF
+        end do ! j
+    end do ! k
+    !$omp end parallel do
+
+
+    ! Normalize then convert to Chebyshev modes
+    vwx = vwx/float(ny)
+    vwy = vwy/float(ny)
+    vwz = vwz/float(ny)
+
+    vwx(1,:,:) = vwx(1,:,:)/2.0
+    vwy(1,:,:) = vwy(1,:,:)/2.0
+    vwz(1,:,:) = vwz(1,:,:)/2.0
+    vwx(nyp,:,:) = vwx(nyp,:,:)/2.0
+    vwy(nyp,:,:) = vwy(nyp,:,:)/2.0
+    vwz(nyp,:,:) = vwz(nyp,:,:)/2.0
 #IFDEF SCALAR
-                scn(k,j,i) = cmplx( vc(jj,i1)*rmz, vc(jj,i2)*rmz)
+    vc  =  vc/float(ny)
+
+    vc(1,:,:) = vc(1,:,:)/2.0
+#ENDIF
+#IFDEF POLYMER  
+    if (it .ge. (src_start-1)) then
+    c11np = c11np/float(ny)
+    c12np = c12np/float(ny)
+    c13np = c13np/float(ny)
+    c21np = c21np/float(ny)
+    c22np = c22np/float(ny)
+    c33np = c33np/float(ny)
+
+    str11np = str11np/float(ny)
+    str12np = str12np/float(ny)
+    str13np = str13np/float(ny)
+    str21np = str21np/float(ny)
+    str22np = str22np/float(ny)
+    str33np = str33np/float(ny)
+
+    qp11np = qp11np/float(ny)
+    qp12np = qp12np/float(ny)
+    qp13np = qp13np/float(ny)
+    qp21np = qp21np/float(ny)
+    qp22np = qp22np/float(ny)
+    qp33np = qp33np/float(ny)
+
+    c11np(1,:,:) = c11np(1,:,:)/2.0
+    c12np(1,:,:) = c12np(1,:,:)/2.0
+    c13np(1,:,:) = c13np(1,:,:)/2.0
+    c22np(1,:,:) = c22np(1,:,:)/2.0
+    c23np(1,:,:) = c23np(1,:,:)/2.0
+    c33np(1,:,:) = c33np(1,:,:)/2.0
+    c11np(nyp,:,:) = c11np(nyp,:,:)/2.0
+    c12np(nyp,:,:) = c12np(nyp,:,:)/2.0
+    c13np(nyp,:,:) = c13np(nyp,:,:)/2.0
+    c22np(nyp,:,:) = c22np(nyp,:,:)/2.0
+    c23np(nyp,:,:) = c23np(nyp,:,:)/2.0
+    c33np(nyp,:,:) = c33np(nyp,:,:)/2.0
+
+    str11np(1,:,:)   = str11np(1,:,:)/2.0
+    str12np(1,:,:)   = str12np(1,:,:)/2.0
+    str13np(1,:,:)   = str13np(1,:,:)/2.0
+    str22np(1,:,:)   = str22np(1,:,:)/2.0
+    str23np(1,:,:)   = str23np(1,:,:)/2.0
+    str33np(1,:,:)   = str33np(1,:,:)/2.0
+    str11np(nyp,:,:) = str11np(nyp,:,:)/2.0
+    str12np(nyp,:,:) = str12np(nyp,:,:)/2.0
+    str13np(nyp,:,:) = str13np(nyp,:,:)/2.0
+    str22np(nyp,:,:) = str22np(nyp,:,:)/2.0
+    str23np(nyp,:,:) = str23np(nyp,:,:)/2.0
+    str33np(nyp,:,:) = str33np(nyp,:,:)/2.0
+
+    qp11np(1,:,:)   = qp11np(1,:,:)/2.0
+    qp12np(1,:,:)   = qp12np(1,:,:)/2.0
+    qp13np(1,:,:)   = qp13np(1,:,:)/2.0
+    qp22np(1,:,:)   = qp22np(1,:,:)/2.0
+    qp23np(1,:,:)   = qp23np(1,:,:)/2.0
+    qp33np(1,:,:)   = qp33np(1,:,:)/2.0
+    qp11np(nyp,:,:) = qp11np(nyp,:,:)/2.0
+    qp12np(nyp,:,:) = qp12np(nyp,:,:)/2.0
+    qp13np(nyp,:,:) = qp13np(nyp,:,:)/2.0
+    qp22np(nyp,:,:) = qp22np(nyp,:,:)/2.0
+    qp23np(nyp,:,:) = qp23np(nyp,:,:)/2.0
+    qp33np(nyp,:,:) = qp33np(nyp,:,:)/2.0
+    end if
+#ENDIF
+    
+    ! Real --> Complex Transform (x-direction)
+    !$omp parallel do default(shared) private(i,j)
+    do j = 1,mz
+        do i = 1,nyp
+            call fftw_execute_dft_r2c(planXf,vwx(i,j,:),vwxs(i,j,:))
+            call fftw_execute_dft_r2c(planXf,vwy(i,j,:),vwys(i,j,:))
+            call fftw_execute_dft_r2c(planXf,vwz(i,j,:),vwzs(i,j,:))
+#IFDEF SCALAR
+            call fftw_execute_dft_r2c(planXf,vc(i,j,:),vcs(i,j,:))
 #ENDIF
 #IFDEF POLYMER
-                if (ipolyflag .eq. 1 .and. it .ge. src_start-1) then
-                c11n(k,j,i) = cmplx(c11np(jj,i1)*rmz,c11np(jj,i2)*rmz)
-                c12n(k,j,i) = cmplx(c12np(jj,i1)*rmz,c12np(jj,i2)*rmz)
-                c13n(k,j,i) = cmplx(c13np(jj,i1)*rmz,c13np(jj,i2)*rmz)
-                c22n(k,j,i) = cmplx(c22np(jj,i1)*rmz,c22np(jj,i2)*rmz)
-                c23n(k,j,i) = cmplx(c23np(jj,i1)*rmz,c23np(jj,i2)*rmz)
-                c33n(k,j,i) = cmplx(c33np(jj,i1)*rmz,c33np(jj,i2)*rmz)
-     
-                str11n(k,j,i) = cmplx(str11np(jj,i1)*rmz,str11np(jj,i2)*rmz)
-                str12n(k,j,i) = cmplx(str12np(jj,i1)*rmz,str12np(jj,i2)*rmz)
-                str13n(k,j,i) = cmplx(str13np(jj,i1)*rmz,str13np(jj,i2)*rmz)
-                str22n(k,j,i) = cmplx(str22np(jj,i1)*rmz,str22np(jj,i2)*rmz)
-                str23n(k,j,i) = cmplx(str23np(jj,i1)*rmz,str23np(jj,i2)*rmz)
-                str33n(k,j,i) = cmplx(str33np(jj,i1)*rmz,str33np(jj,i2)*rmz)
-     
-                qp11(k,j,i) = cmplx(qp11np(jj,i1)*rmz,qp11np(jj,i2)*rmz)
-                qp12(k,j,i) = cmplx(qp12np(jj,i1)*rmz,qp12np(jj,i2)*rmz)
-                qp13(k,j,i) = cmplx(qp13np(jj,i1)*rmz,qp13np(jj,i2)*rmz)
-                qp22(k,j,i) = cmplx(qp22np(jj,i1)*rmz,qp22np(jj,i2)*rmz)
-                qp23(k,j,i) = cmplx(qp23np(jj,i1)*rmz,qp23np(jj,i2)*rmz)
-                qp33(k,j,i) = cmplx(qp33np(jj,i1)*rmz,qp33np(jj,i2)*rmz)
+            if (it .ge. (src_start-1)) then
+            call fftw_execute_dft_r2c(planXf,c11np(i,j,:),c11ns(i,j,:))
+            call fftw_execute_dft_r2c(planXf,c12np(i,j,:),c12ns(i,j,:))
+            call fftw_execute_dft_r2c(planXf,c13np(i,j,:),c13ns(i,j,:))
+            call fftw_execute_dft_r2c(planXf,c22np(i,j,:),c22ns(i,j,:))
+            call fftw_execute_dft_r2c(planXf,c23np(i,j,:),c23ns(i,j,:))
+            call fftw_execute_dft_r2c(planXf,c33np(i,j,:),c33ns(i,j,:))
+
+            call fftw_execute_dft_r2c(planXf,str11np(i,j,:),str11ns(i,j,:))
+            call fftw_execute_dft_r2c(planXf,str12np(i,j,:),str12ns(i,j,:))
+            call fftw_execute_dft_r2c(planXf,str13np(i,j,:),str13ns(i,j,:))
+            call fftw_execute_dft_r2c(planXf,str22np(i,j,:),str22ns(i,j,:))
+            call fftw_execute_dft_r2c(planXf,str23np(i,j,:),str23ns(i,j,:))
+            call fftw_execute_dft_r2c(planXf,str33np(i,j,:),str33ns(i,j,:))
+
+            call fftw_execute_dft_r2c(planXf,qp11np(i,j,:),qp11s(i,j,:))
+            call fftw_execute_dft_r2c(planXf,qp12np(i,j,:),qp12s(i,j,:))
+            call fftw_execute_dft_r2c(planXf,qp13np(i,j,:),qp13s(i,j,:))
+            call fftw_execute_dft_r2c(planXf,qp22np(i,j,:),qp22s(i,j,:))
+            call fftw_execute_dft_r2c(planXf,qp23np(i,j,:),qp23s(i,j,:))
+            call fftw_execute_dft_r2c(planXf,qp33np(i,j,:),qp33s(i,j,:))
+            end if
+#ENDIF
+        end do
+    end do
+    !$omp end parallel do
+
+    ! Normalize values by mx
+    vwxs = vwxs/float(mx)
+    vwys = vwys/float(mx)
+    vwzs = vwzs/float(mx)
+#IFDEF SCALAR
+    vcs  =  vcs/float(mx)
+#ENDIF
+#IFDEF POLYMER  
+    if (it .ge. (src_start-1)) then
+    c11ns = c11ns/float(mx)
+    c12ns = c12ns/float(mx)
+    c13ns = c13ns/float(mx)
+    c21ns = c21ns/float(mx)
+    c22ns = c22ns/float(mx)
+    c33ns = c33ns/float(mx)
+
+    str11ns = str11ns/float(mx)
+    str12ns = str12ns/float(mx)
+    str13ns = str13ns/float(mx)
+    str21ns = str21ns/float(mx)
+    str22ns = str22ns/float(mx)
+    str33ns = str33ns/float(mx)
+
+    qp11s = qp11s/float(mx)
+    qp12s = qp12s/float(mx)
+    qp13s = qp13s/float(mx)
+    qp21s = qp21s/float(mx)
+    qp22s = qp22s/float(mx)
+    qp33s = qp33s/float(mx)
+    end if
+#ENDIF
+
+
+    ! Complex --> Complex Transform (z-direction)
+    !$omp parallel do default(shared) private(i,k)
+    do k = 1,nxh
+        do i = 1,nyp
+            call fftw_execute_dft(planZf,vwxs(i,:,k),vwxs(i,:,k))
+            call fftw_execute_dft(planZf,vwys(i,:,k),vwys(i,:,k))
+            call fftw_execute_dft(planZf,vwzs(i,:,k),vwzs(i,:,k))
+#IFDEF SCALAR
+            call fftw_execute_dft(planZf,vcs(i,:,k),vcs(i,:,k))
+#ENDIF
+#IFDEF POLYMER
+            if (it .ge. (src_start-1)) then
+            call fftw_execute_dft(planZf,c11ns(i,:,k),c11ns(i,:,k))
+            call fftw_execute_dft(planZf,c12ns(i,:,k),c12ns(i,:,k))
+            call fftw_execute_dft(planZf,c13ns(i,:,k),c13ns(i,:,k))
+            call fftw_execute_dft(planZf,c22ns(i,:,k),c22ns(i,:,k))
+            call fftw_execute_dft(planZf,c23ns(i,:,k),c23ns(i,:,k))
+            call fftw_execute_dft(planZf,c33ns(i,:,k),c33ns(i,:,k))
+
+            call fftw_execute_dft(planZf,str11ns(i,:,k),str11ns(i,:,k))
+            call fftw_execute_dft(planZf,str12ns(i,:,k),str12ns(i,:,k))
+            call fftw_execute_dft(planZf,str13ns(i,:,k),str13ns(i,:,k))
+            call fftw_execute_dft(planZf,str22ns(i,:,k),str22ns(i,:,k))
+            call fftw_execute_dft(planZf,str23ns(i,:,k),str23ns(i,:,k))
+            call fftw_execute_dft(planZf,str33ns(i,:,k),str33ns(i,:,k))
+
+            call fftw_execute_dft(planZf,qp11s(i,:,k),qp11s(i,:,k))
+            call fftw_execute_dft(planZf,qp12s(i,:,k),qp12s(i,:,k))
+            call fftw_execute_dft(planZf,qp13s(i,:,k),qp13s(i,:,k))
+            call fftw_execute_dft(planZf,qp22s(i,:,k),qp22s(i,:,k))
+            call fftw_execute_dft(planZf,qp23s(i,:,k),qp23s(i,:,k))
+            call fftw_execute_dft(planZf,qp33s(i,:,k),qp33s(i,:,k))
+            end if
+#ENDIF
+        end do
+    end do
+    !$omp end parallel do
+
+    ! Normalize values by mz
+    vwxs = vwxs/float(mz)
+    vwys = vwys/float(mz)
+    vwzs = vwzs/float(mz)
+#IFDEF SCALAR
+    vcs  =  vcs/float(mz)
+#ENDIF
+#IFDEF POLYMER  
+    if (it .ge. (src_start-1)) then
+    c11ns = c11ns/float(mz)
+    c12ns = c12ns/float(mz)
+    c13ns = c13ns/float(mz)
+    c21ns = c21ns/float(mz)
+    c22ns = c22ns/float(mz)
+    c33ns = c33ns/float(mz)
+
+    str11ns = str11ns/float(mz)
+    str12ns = str12ns/float(mz)
+    str13ns = str13ns/float(mz)
+    str21ns = str21ns/float(mz)
+    str22ns = str22ns/float(mz)
+    str33ns = str33ns/float(mz)
+
+    qp11s = qp11s/float(mz)
+    qp12s = qp12s/float(mz)
+    qp13s = qp13s/float(mz)
+    qp21s = qp21s/float(mz)
+    qp22s = qp22s/float(mz)
+    qp33s = qp33s/float(mz)
+    end if
+#ENDIF
+
+    ! Fill in regular spectral variables | We cut out highest 1/3 of modes
+    ! for de-aliasing
+    !$omp parallel do default(shared) private(i,j,k,jj)
+    do k = 1,nxh
+        do j = 1,nz
+            if (j .le. nzh) jj = j
+            if (j .gt. nzh) jj = (mz-nz) + j
+            do i = 1,nyp
+                gn(i,j,k) = vwxs(i,jj,k)
+                fn(i,j,k) = vwys(i,jj,k)
+               omz(i,j,k) = vwzs(i,jj,k)
+#IFDEF SCALAR
+               scn(i,j,k) = vcs(i,jj,k)
+#ENDIF
+#IFDEF POLYMER
+                if (it .ge. src_start-1) then
+                c11n(i,j,k) = c11ns(i,jj,k)
+                c12n(i,j,k) = c12ns(i,jj,k)
+                c13n(i,j,k) = c13ns(i,jj,k)
+                c22n(i,j,k) = c22ns(i,jj,k)
+                c23n(i,j,k) = c23ns(i,jj,k)
+                c33n(i,j,k) = c33ns(i,jj,k)
+
+                str11n(i,j,k) = str11ns(i,jj,k)
+                str12n(i,j,k) = str12ns(i,jj,k)
+                str13n(i,j,k) = str13ns(i,jj,k)
+                str22n(i,j,k) = str22ns(i,jj,k)
+                str23n(i,j,k) = str23ns(i,jj,k)
+                str33n(i,j,k) = str33ns(i,jj,k)
+
+                qp11(i,j,k) = qp11s(i,jj,k)
+                qp12(i,j,k) = qp12s(i,jj,k)
+                qp13(i,j,k) = qp13s(i,jj,k)
+                qp22(i,j,k) = qp22s(i,jj,k)
+                qp23(i,j,k) = qp23s(i,jj,k)
+                qp33(i,j,k) = qp33s(i,jj,k)
                 end if
 #ENDIF
             end do
         end do
-   
-         
-    end do ! k
+    end do
     !$omp end parallel do
-    !                -----  end of loop over normal(y) planes  -----
-   
-        open(333,file="outputs/v_physical.dat")
-        write(333,*) vp3d
-        close(333)
+
 
     !---------------------------------------------------------------------!
     !     Calculate swirl criterion and write data for visualization      !
     !---------------------------------------------------------------------!
-    
-    ! Calculate swirl each time step to calculate area of vortex core 
+
     !$omp parallel do default(shared) private(i,j,k,swirl)
-    do i = 1,nyp
+    do k = 1,mx
         do j = 1,mz
-            do k = 1,mx
-                call calcswirl(u11p3d(i,j,k),u21p3d(i,j,k),u31p3d(i,j,k),u12p3d(i,j,k),u22p3d(i,j,k), &
-                               u32p3d(i,j,k),u13p3d(i,j,k),u23p3d(i,j,k),u33p3d(i,j,k),swirl)
+            do i = 1,nyp
+                call calcswirl(u11p(i,j,k),u21p(i,j,k),u31p(i,j,k),u12p(i,j,k),u22p(i,j,k), &
+                               u32p(i,j,k),u13p(i,j,k),u23p(i,j,k),u33p(i,j,k),swirl)
     
                 swirl_3d(i,j,k) = swirl
             end do
         end do
     end do
     !$omp end parallel do
-    
+
+    ! Process 3D variables (write outputs in physical space)
     if (print3d .ne. 0) then
     
         if ((mod(it,iprnfrq) .eq. 0 .and. it .ne. 0) .or. it .eq. 1) then
@@ -3074,24 +3057,24 @@ contains
             ! Write output files
             if (print3d .eq. 1) then ! Write output in ASCII format
 #IFDEF POLYMER
-                call write_flowfield_ascii(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,swirl_3d,beta3d,float(imatrix))
+                call write_flowfield_ascii(up,vp,wp,wxp,wyp,wzp,swirl_3d,beta_poly,float(imatrix))
 #ELIF DEFINED SCALAR
-                call write_flowfield_ascii(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,swirl_3d,scp3d,float(imatrix))
+                call write_flowfield_ascii(up,vp,wp,wxp,wyp,wzp,swirl_3d,scp,float(imatrix))
 #ELSE
-                call write_flowfield_ascii(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,swirl_3d,float(imatrix))
+                call write_flowfield_ascii(up,vp,wp,wxp,wyp,wzp,swirl_3d,float(imatrix))
 #ENDIF
 #IFDEF OUTPUTFORM
             else if (print3d .eq. 3) then ! Write output in Tecplot binary (.szplt)
 #IFDEF POLYMER
-                call write_flowfield_plt(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,swirl_3d,beta3d,float(imatrix))
-#ELIF DEFINED SCALAR
-                call write_flowfield_plt(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,swirl_3d,scp3d,float(imatrix))
-#ELSE
-                call write_flowfield_plt(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,swirl_3d,float(imatrix))
+                call write_flowfield_plt(up,vp,wp,wxp,wyp,wzp,swirl_3d,beta_poly,float(imatrix))
+#ELIF DEFINED SCALAR                                         
+                call write_flowfield_plt(up,vp,wp,wxp,wyp,wzp,swirl_3d,scp,float(imatrix))
+#ELSE                                                        
+                call write_flowfield_plt(up,vp,wp,wxp,wyp,wzp,swirl_3d,float(imatrix))
 #ENDIF
 #ENDIF
             else if (print3d .eq. 2) then ! Write outputs specifically for FTLE
-                call write_FTLE_output(up3d,vp3d,wp3d,wx3d,wy3d,wz3d)
+                call write_FTLE_output(up,vp,wp)
             else
                 write(*,*) 'Warning: Unknown print type. No output data will be written.'
             end if
@@ -3105,18 +3088,18 @@ contains
     !---------------------------------------------------------------------!
     
     if (npart .ne. 0) then
-        call part_track(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,u_old,v_old,w_old,  &
-                        u11p3d,u12p3d,u13p3d,u21p3d,u22p3d,u23p3d,u31p3d, &
-                        u32p3d,u33p3d,Lup3d,Lvp3d,Lwp3d,Lu_old,Lv_old,Lw_old,vArea)
+        call part_track(up,vp,wp,wxp,wyp,wzp,u_old,v_old,w_old,  &
+                        u11p,u12p,u13p,u21p,u22p,u23p,u31p, &
+                        u32p,u33p,Lup,Lvp,Lwp,Lu_old,Lv_old,Lw_old,vArea)
     
         ! Save velocity and Laplacian for time derivatives inside particle integration
-        u_old = up3d
-        v_old = vp3d
-        w_old = wp3d
+        u_old = up
+        v_old = vp
+        w_old = wp
     
-        Lu_old = Lup3d
-        Lv_old = Lvp3d
-        Lw_old = Lwp3d
+        Lu_old = Lup
+        Lv_old = Lvp
+        Lw_old = Lwp
     end if
    
     ! Calculate Q-criterion at particle locations
@@ -3141,7 +3124,7 @@ contains
     
         do i = 1,nyp
             do j = 1,mz
-                uxmean(j) = sum(up3d(i,j,:))/mx
+                uxmean(j) = sum(up(i,j,:))/mx
             end do
             uzmean(i) = sum(uxmean)/mz
 !            write(71,"(*(e14.6,1x))") uzmean
@@ -3160,7 +3143,7 @@ contains
     
     massFlux = 0.0
     do i = 1,ny
-        massFlux = massFlux + 1.0/yl*0.5*(uzmean(i+1) + uzmean(i))*(ycoord(i+1) - ycoord(i)) ! Bulk velocity
+        massFlux = massFlux + 1.0/yl*0.5*(uzmean(i+1) + uzmean(i))*abs(ycoord(i+1) - ycoord(i)) ! Bulk velocity
     end do
     
     write(72,*) massFlux
@@ -3168,21 +3151,21 @@ contains
 
 #IFDEF SCALAR
     ! Calculate global enstrophy, TKE, and S-gamma correlation
-        call writeoutputs(up3d,vp3d,wp3d,wx3d,wy3d,wz3d, &
+        call writeoutputs(up,vp,wp,wxp,wyp,wzp, &
 #IFDEF POLYMER
-                          beta3d, &
+                          beta_poly, &
 #ELSE
-                          scp3d, &
+                          scp, &
 #ENDIF
-                          u11p3d,u22p3d,u33p3d,uzmean)
+                          u11p,u22p,u33p,uzmean)
 #ENDIF
 #IFDEF POLYMER
     if (scl_flag .eq. 2 .and. it .le. src_stop .and. it .ge. src_start) then
-        call calc_total_beta(it,delxm,delzm,scp3d,beta3d)
+        call calc_total_beta(it,delxm,delzm,scp,beta_poly)
     end if
 
     ! Calculate correlation between beta and vortex structure (swirl/Q)
-    call correlate_vars(beta3d,swirl_3d,it)
+    call correlate_vars(beta_poly,swirl_3d,it)
 #ENDIF
  
     !---------------------------------------------------------------------!

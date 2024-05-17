@@ -5,7 +5,7 @@ import subprocess
 import os
 
 home = expanduser('~')
-compiler = ['ifort']
+compiler = ['ifx']
 
 
 print('\n')
@@ -60,7 +60,7 @@ print('       Done!\n')
 print('    2. Generating geometry file... ')
 
 os.chdir('code/bin/geometry/')
-comp_out, comp_err = subprocess.Popen(compiler + ['-g', '-traceback','../../src/dns/grid_size.f90', '../../src/geometry/Geom.f90', '-o', 'Geom'], stdout = subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+comp_out, comp_err = subprocess.Popen(compiler + ['../../src/dns/grid_size.f90', '../../src/geometry/Geom.f90', '-o', 'Geom'], stdout = subprocess.PIPE, stderr=subprocess.PIPE).communicate()
 # os.chmod 755 'Geom'
 exec_err = subprocess.call('./Geom', stderr=subprocess.PIPE)
 
@@ -136,56 +136,65 @@ else:
 
 
 #compiler_options = ['-mavx', '-r8', '-fr', '-132', '-w', '-O2', '-unroll', '-parallel', '-mcmodel', 'medium', '-fpp', '-shared-intel','-g','-traceback','-Wall','-check all']
-compiler_options = ['-mavx', '-r8', '-fr', '-132', '-w', '-O3', '-unroll', '-qopenmp', '-parallel', '-mcmodel', 'medium', '-fpp', '-shared-intel','-g','-traceback','-Wall','-check all']
-
-source_files = ['../src/dns/grid_size.f90', '../src/dns/derivatives.f90', '../src/dns/helpers.f90', '../src/dns/solvers.f90', '../src/dns/main_dns.f90', '../src/dns/ffts.f90', '../src/dns/init_flow.f90', '../src/dns/part_track.f90']
-
-other_options = ['-cref', '-wl', '-mkl', '-o']
-exec_name = ['dns']
-
-if output_format == 3:
-        current_env = os.environ.copy()
-        TECPLOT_360_INCLUDE = current_env["TECPLOT_360_INCLUDE"]
-        TECPLOT_360_LIB = current_env["TECPLOT_360_LIB"]
-        link_tecio = ['-lirc', '-I', TECPLOT_360_INCLUDE, '-L', TECPLOT_360_LIB, '-ltecio', '-DOUTPUTFORM=3']
-        print('       (Using tecio)')
-else:
-        print('       (Not using tecio)')
-        link_tecio = []
-
-
-os.chdir('code/bin/')
-#subprocess.call(['cp', code_dir + 'dns.f90', '.']) # Just a copy of the code - not used in compilation
-comp_out, comp_err = subprocess.Popen(compiler + compiler_options + link_tecio + defflags + source_files + other_options + exec_name, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-
-err_str = comp_err.decode("utf-8")
-with open('../../err_comp.txt','w') as f:
-    f.write(err_str)
-
-
-if not comp_err:
-    print('       Done!\n')
-elif 'warning' in err_str:
-        print('       Warning:')
-        print('       '+err_str)
-        print('')
-        print('       Code compilation is otherwise successful')
-else:   
-    print('compilation failed!\n')
-    print('Check error in err_comp.txt\n')
-
-os.chdir('../..')
-
-
-if not comp_err:
-    print('    ____________________________________    \n')
-    print('         DNS code is ready to run!')
-    print('____________________________________________\n')
-elif 'warning' in err_str:
-    print('    ____________________________________    \n')
-    print('         DNS code is ready to run!')
-    print('____________________________________________\n')
-else:
-    print('    ************************************    \n')
-    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n')
-
+#compiler_options = ['-mavx', '-r8', '-fr', '-132', '-w', '-O3', '-unroll', '-qopenmp', '-parallel', '-mcmodel', 'medium', '-fpp', '-shared-intel', '-mkl','-xhost'] #'-g','-traceback','-warn all','-check all']
+#
+#
+#current_env = os.environ.copy()
+#FFTW3_LIB = '/opt/apps/intel24/impi21/fftw3/3.3.10/lib'
+#FFTW3_INC = '/opt/apps/intel24/impi21/fftw3/3.3.10/include'
+#fftw_options = ['-I', FFTW3_INC, '-L', FFTW3_LIB, '-lfftw3 -lm -lfftw3_omp']
+#
+#source_files = ['../src/dns/grid_size.f90', '../src/dns/derivatives.f90', '../src/dns/helpers.f90', '../src/dns/solvers.f90', '../src/dns/main_dns.f90', '../src/dns/init_flow.f90', '../src/dns/part_track.f90']
+#
+#exec_name = ['-o dns']
+#
+#
+#if output_format == 3:
+#        current_env = os.environ.copy()
+#        TECPLOT_360_INCLUDE = current_env["TECPLOT_360_INCLUDE"]
+#        TECPLOT_360_LIB = current_env["TECPLOT_360_LIB"]
+#        link_tecio = ['-lirc', '-I', TECPLOT_360_INCLUDE, '-L', TECPLOT_360_LIB, '-ltecio', '-DOUTPUTFORM=3']
+#        print('       (Using tecio)')
+#else:
+#        print('       (Not using tecio)')
+#        link_tecio = []
+#
+#
+#os.chdir('code/bin/')
+#comp_out, comp_err = subprocess.Popen(compiler + compiler_options + link_tecio + fftw_options + defflags + source_files + exec_name, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+#
+#comp_str = comp_out.decode("utf-8")
+#with open('../../warn_comp.txt','w') as f:
+#    f.write(comp_str)
+#
+#err_str = comp_err.decode("utf-8")
+#with open('../../err_comp.txt','w') as f:
+#    f.write(err_str)
+#
+#
+#if not comp_err:
+#    print('       Done!\n')
+#elif 'warning' in err_str:
+#        print('       Warning:')
+#        print('       '+err_str)
+#        print('')
+#        print('       Code compilation is otherwise successful')
+#else:   
+#    print('compilation failed!\n')
+#    print('Check error in err_comp.txt\n')
+#
+#os.chdir('../..')
+#
+#
+#if not comp_err:
+#    print('    ____________________________________    \n')
+#    print('         DNS code is ready to run!')
+#    print('____________________________________________\n')
+#elif 'warning' in err_str:
+#    print('    ____________________________________    \n')
+#    print('         DNS code is ready to run!')
+#    print('____________________________________________\n')
+#else:
+#    print('    ************************************    \n')
+#    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n')
+#

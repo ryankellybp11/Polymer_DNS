@@ -1,1577 +1,1577 @@
 !
 !=======================================================================
 !
-      SUBROUTINE SAXPY(N,SA,SX,INCX,SY,INCY)
+      subroutine saxpy(n,sa,sx,incx,sy,incy)
 
 !
-!     CONSTANT TIMES A VECTOR PLUS A VECTOR.
-!     USES UNROLLED LOOP FOR INCREMENTS EQUAL TO ONE.
-!     JACK DONGARRA, LINPACK, 3/11/78.
+!     constant times a vector plus a vector.
+!     uses unrolled loop for increments equal to one.
+!     jack dongarra, linpack, 3/11/78.
 !
-      REAL SX(1),SY(1),SA
-      INTEGER I,INCX,INCY,IX,IY,M,MP1,N
+      real sx(1),sy(1),sa
+      integer i,incx,incy,ix,iy,m,mp1,n
 !
-      IF(N.LE.0)RETURN
-      IF (SA .EQ. 0.0) RETURN
-      IF(INCX.EQ.1.AND.INCY.EQ.1)GO TO 20
+      if(n.le.0)return
+      if (sa .eq. 0.0) return
+      if(incx.eq.1.and.incy.eq.1)go to 20
 !
-!        CODE FOR UNEQUAL INCREMENTS OR EQUAL INCREMENTS
-!          NOT EQUAL TO 1
+!        code for unequal increments or equal increments
+!          not equal to 1
 !
-      IX = 1
-      IY = 1
-      IF(INCX.LT.0)IX = (-N+1)*INCX + 1
-      IF(INCY.LT.0)IY = (-N+1)*INCY + 1
-      DO 10 I = 1,N
-        SY(IY) = SY(IY) + SA*SX(IX)
-        IX = IX + INCX
-        IY = IY + INCY
-   10 CONTINUE
-      RETURN
+      ix = 1
+      iy = 1
+      if(incx.lt.0)ix = (-n+1)*incx + 1
+      if(incy.lt.0)iy = (-n+1)*incy + 1
+      do 10 i = 1,n
+        sy(iy) = sy(iy) + sa*sx(ix)
+        ix = ix + incx
+        iy = iy + incy
+   10 continue
+      return
 !
-!        CODE FOR BOTH INCREMENTS EQUAL TO 1
+!        code for both increments equal to 1
 !
 !
-!        CLEAN-UP LOOP
+!        clean-up loop
 !
-   20 M = MOD(N,4)
-      IF( M .EQ. 0 ) GO TO 40
-      DO 30 I = 1,M
-        SY(I) = SY(I) + SA*SX(I)
-   30 CONTINUE
-      IF( N .LT. 4 ) RETURN
-   40 MP1 = M + 1
-      DO 50 I = MP1,N,4
-        SY(I) = SY(I) + SA*SX(I)
-        SY(I + 1) = SY(I + 1) + SA*SX(I + 1)
-        SY(I + 2) = SY(I + 2) + SA*SX(I + 2)
-        SY(I + 3) = SY(I + 3) + SA*SX(I + 3)
-   50 CONTINUE
-      RETURN
-      END SUBROUTINE
+   20 m = mod(n,4)
+      if( m .eq. 0 ) go to 40
+      do 30 i = 1,m
+        sy(i) = sy(i) + sa*sx(i)
+   30 continue
+      if( n .lt. 4 ) return
+   40 mp1 = m + 1
+      do 50 i = mp1,n,4
+        sy(i) = sy(i) + sa*sx(i)
+        sy(i + 1) = sy(i + 1) + sa*sx(i + 1)
+        sy(i + 2) = sy(i + 2) + sa*sx(i + 2)
+        sy(i + 3) = sy(i + 3) + sa*sx(i + 3)
+   50 continue
+      return
+      end subroutine
 !
 !=======================================================================
 !
-      SUBROUTINE CFTFAX(N,IFAX,TRIGS)
+      subroutine cftfax(n,ifax,trigs)
 
-      DIMENSION IFAX(13),TRIGS(1)
+      dimension ifax(13),trigs(1)
 !
-!     THIS ROUTINE WAS MODIFIED FROM TEMPERTON'S ORIGINAL
-!     BY DAVE FULKER.  IT NO LONGER PRODUCES FACTORS IN ASCENDING
-!     ORDER, AND THERE ARE NONE OF THE ORIGINAL 'MODE' OPTIONS.
+!     this routine was modified from temperton's original
+!     by dave fulker.  it no longer produces factors in ascending
+!     order, and there are none of the original 'mode' options.
 !
-! ON INPUT     N
-!               THE LENGTH OF EACH COMPLEX TRANSFORM TO BE PERFORMED
+! on input     n
+!               the length of each complex transform to be performed
 !
-!               N MUST BE GREATER THAN 1 AND CONTAIN NO PRIME
-!               FACTORS GREATER THAN 5.
+!               n must be greater than 1 and contain no prime
+!               factors greater than 5.
 !
-! ON OUTPUT    IFAX
-!               IFAX(1)
-!                 THE NUMBER OF FACTORS CHOSEN OR -99 IN CASE OF ERROR
-!               IFAX(2) THRU IFAX( IFAX(1)+1 )
-!                 THE FACTORS OF N IN THE FOLLOWIN ORDER:  APPEARING
-!                 FIRST ARE AS MANY FACTORS OF 4 AS CAN BE OBTAINED.
-!                 SUBSEQUENT FACTORS ARE PRIMES, AND APPEAR IN
-!                 ASCENDING ORDER, EXCEPT FOR MULTIPLE FACTORS.
+! on output    ifax
+!               ifax(1)
+!                 the number of factors chosen or -99 in case of error
+!               ifax(2) thru ifax( ifax(1)+1 )
+!                 the factors of n in the followin order:  appearing
+!                 first are as many factors of 4 as can be obtained.
+!                 subsequent factors are primes, and appear in
+!                 ascending order, except for multiple factors.
 !
-!              TRIGS
-!               2N SIN AND COS VALUES FOR USE BY THE TRANSFORM ROUTINE
+!              trigs
+!               2n sin and cos values for use by the transform routine
 !
-      CALL FACT(N,IFAX)
-      K = IFAX(1)
-      IF (K .LT. 1 .OR. IFAX(K+1) .GT. 5) IFAX(1) = -99
-      IF (IFAX(1) .LE. 0 )THEN
-        WRITE(*,1900)N
-1900  FORMAT(' FFTFAX - Invalid N=',I20)
-        RETURN
-        ENDIF
-      CALL CFTRIG (N, TRIGS)
-      RETURN
-      END
+      call fact(n,ifax)
+      k = ifax(1)
+      if (k .lt. 1 .or. ifax(k+1) .gt. 5) ifax(1) = -99
+      if (ifax(1) .le. 0 )then
+        write(*,1900)n
+1900  format(' fftfax - invalid n=',i20)
+        return
+        endif
+      call cftrig (n, trigs)
+      return
+      end
 !
 !=======================================================================
 !
-      SUBROUTINE CFTRIG(N,TRIGS)
+      subroutine cftrig(n,trigs)
 
-      DIMENSION TRIGS(1)
-      PI=2.0*ASIN(1.0)
-      DEL=(PI+PI)/FLOAT(N)
-      L=N+N
-      DO 10 I=1,L,2
-      ANGLE=0.5*FLOAT(I-1)*DEL
-      TRIGS(I)=COS(ANGLE)
-      TRIGS(I+1)=SIN(ANGLE)
-   10 CONTINUE
-      RETURN
-      END
+      dimension trigs(1)
+      pi=2.0*asin(1.0)
+      del=(pi+pi)/float(n)
+      l=n+n
+      do 10 i=1,l,2
+      angle=0.5*float(i-1)*del
+      trigs(i)=cos(angle)
+      trigs(i+1)=sin(angle)
+   10 continue
+      return
+      end
 !
 !=======================================================================
 !
-      SUBROUTINE RFFTMLT(A,WORK,TRIGS,IFAX,INC,JUMP,N,LOT,ISGN)
+      subroutine rfftmlt(a,work,trigs,ifax,inc,jump,n,lot,isgn)
 
 !
-!     "RFFTMLT" - MULTIPLE REAL/HALF-COMPLEX PERIODIC
-!     FAST FOURIER TRANSFORM
+!     "rfftmlt" - multiple real/half-complex periodic
+!     fast fourier transform
 !
-!     PROCEDURE USED TO CONVERT TO HALF-LENGTH COMPLEX TRANSFORM
-!     IS GIVEN BY COOLEY, LEWIS AND WELCH (J. SOUND VIB., VOL. 12
+!     procedure used to convert to half-length complex transform
+!     is given by cooley, lewis and welch (j. sound vib., vol. 12
 !     (1970), 315-337)
 !
-!     A IS THE ARRAY CONTAINING INPUT AND OUTPUT DATA
-!     WORK IS AN AREA OF SIZE (N+1)*LOT
-!     TRIGS IS A PREVIOUSLY PREPARED LIST OF TRIG FUNCTION VALUES
-!     IFAX IS A PREVIOUSLY PREPARED LIST OF FACTORS OF N/2
-!     INC IS THE INCREMENT WITHIN EACH DATA 'VECTOR'
-!         (E.G. INC=1 FOR CONSECUTIVELY STORED DATA)
-!     JUMP IS THE INCREMENT BETWEEN THE START OF EACH DATA VECTOR
-!     N IS THE LENGTH OF THE DATA VECTORS
-!     LOT IS THE NUMBER OF DATA VECTORS
-!     ISGN = +1 FOR TRANSFORM FROM SPECTRAL TO GRIDPOINT
-!           = -1 FOR TRANSFORM FROM GRIDPOINT TO SPECTRAL
+!     a is the array containing input and output data
+!     work is an area of size (n+1)*lot
+!     trigs is a previously prepared list of trig function values
+!     ifax is a previously prepared list of factors of n/2
+!     inc is the increment within each data 'vector'
+!         (e.g. inc=1 for consecutively stored data)
+!     jump is the increment between the start of each data vector
+!     n is the length of the data vectors
+!     lot is the number of data vectors
+!     isgn = +1 for transform from spectral to gridpoint
+!           = -1 for transform from gridpoint to spectral
 !
-!     ORDERING OF COEFFICIENTS:
-!         A(0),B(0),A(1),B(1),A(2),B(2),...,A(N/2),B(N/2)
-!         WHERE B(0)=B(N/2)=0; (N+2) LOCATIONS REQUIRED
+!     ordering of coefficients:
+!         a(0),b(0),a(1),b(1),a(2),b(2),...,a(n/2),b(n/2)
+!         where b(0)=b(n/2)=0; (n+2) locations required
 !
-!     ORDERING OF DATA:
-!         X(0),X(1),X(2),...,X(N-1)
+!     ordering of data:
+!         x(0),x(1),x(2),...,x(n-1)
 !
-!     VECTORIZATION IS ACHIEVED ON CRAY BY DOING THE TRANSFORMS IN
-!     PARALLEL
+!     vectorization is achieved on cray by doing the transforms in
+!     parallel
 !
-!     *** N.B. N IS ASSUMED TO BE AN EVEN NUMBER
+!     *** n.b. n is assumed to be an even number
 !
-!     DEFINITION OF TRANSFORMS:
+!     definition of transforms:
 !     -------------------------
 !
-!     ISGN=+1: X(J)=SUM(K=0,...,N-1)(C(K)*EXP(2*I*J*K*PI/N))
-!         WHERE C(K)=A(K)+I*B(K) AND C(N-K)=A(K)-I*B(K)
+!     isgn=+1: x(j)=sum(k=0,...,n-1)(c(k)*exp(2*i*j*k*pi/n))
+!         where c(k)=a(k)+i*b(k) and c(n-k)=a(k)-i*b(k)
 !
-!     ISGN=-1: A(K)=(1/N)*SUM(J=0,...,N-1)(X(J)*COS(2*J*K*PI/N))
-!               B(K)=-(1/N)*SUM(J=0,...,N-1)(X(J)*SIN(2*J*K*PI/N))
+!     isgn=-1: a(k)=(1/n)*sum(j=0,...,n-1)(x(j)*cos(2*j*k*pi/n))
+!               b(k)=-(1/n)*sum(j=0,...,n-1)(x(j)*sin(2*j*k*pi/n))
 !
-      DIMENSION A(N),WORK(N),TRIGS(N),IFAX(1)
-      NFAX=IFAX(1)
-      NX=N+1
-      NH=N/2
-      INK=INC+INC
-      IF (ISGN.EQ.+1) GO TO 30
+      dimension a(n),work(n),trigs(n),ifax(1)
+      nfax=ifax(1)
+      nx=n+1
+      nh=n/2
+      ink=inc+inc
+      if (isgn.eq.+1) go to 30
 !
-!     IF NECESSARY, TRANSFER DATA TO WORK AREA
-      IGO=50
-      IF (MOD(NFAX,2).EQ.1) GOTO 40
-      IBASE=1
-      JBASE=1
-      DO 20 L=1,LOT
-      I=IBASE
-      J=JBASE
+!     if necessary, transfer data to work area
+      igo=50
+      if (mod(nfax,2).eq.1) goto 40
+      ibase=1
+      jbase=1
+      do 20 l=1,lot
+      i=ibase
+      j=jbase
 ! 
-      DO 10 M=1,N
-      WORK(J)=A(I)
-      I=I+INC
-      J=J+1
-   10 CONTINUE
-      IBASE=IBASE+JUMP
-      JBASE=JBASE+NX
-   20 CONTINUE
+      do 10 m=1,n
+      work(j)=a(i)
+      i=i+inc
+      j=j+1
+   10 continue
+      ibase=ibase+jump
+      jbase=jbase+nx
+   20 continue
 !
-      IGO=60
-      GO TO 40
+      igo=60
+      go to 40
 !
-!     PREPROCESSING (ISGN=+1)
+!     preprocessing (isgn=+1)
 !     ------------------------
 !
-   30 CONTINUE
-      CALL FFT99A(A,WORK,TRIGS,INC,JUMP,N,LOT)
-      IGO=60
+   30 continue
+      call fft99a(a,work,trigs,inc,jump,n,lot)
+      igo=60
 !
-!     COMPLEX TRANSFORM
+!     complex transform
 !     -----------------
 !
-   40 CONTINUE
-      IA=1
-      LA=1
-      DO 80 K=1,NFAX
-      IF (IGO.EQ.60) GO TO 60
-   50 CONTINUE
-      CALL VPASSM(A(IA),A(IA+INC),WORK(1),WORK(2),TRIGS,INK,2,JUMP,NX,LOT,NH,IFAX(K+1),LA)
-      IGO=60
-      GO TO 70
-   60 CONTINUE
-      CALL VPASSM(WORK(1),WORK(2),A(IA),A(IA+INC),TRIGS,2,INK,NX,JUMP,LOT,NH,IFAX(K+1),LA)
-      IGO=50
-   70 CONTINUE
-      LA=LA*IFAX(K+1)
-   80 CONTINUE
+   40 continue
+      ia=1
+      la=1
+      do 80 k=1,nfax
+      if (igo.eq.60) go to 60
+   50 continue
+      call vpassm(a(ia),a(ia+inc),work(1),work(2),trigs,ink,2,jump,nx,lot,nh,ifax(k+1),la)
+      igo=60
+      go to 70
+   60 continue
+      call vpassm(work(1),work(2),a(ia),a(ia+inc),trigs,2,ink,nx,jump,lot,nh,ifax(k+1),la)
+      igo=50
+   70 continue
+      la=la*ifax(k+1)
+   80 continue
 !
-      IF (ISGN.EQ.-1) GO TO 130
+      if (isgn.eq.-1) go to 130
 !
-!     IF NECESSARY, TRANSFER DATA FROM WORK AREA
-      IF (MOD(NFAX,2).EQ.1) GO TO 110
-      IBASE=1
-      JBASE=1
-      DO 100 L=1,LOT
-      I=IBASE
-      J=JBASE
+!     if necessary, transfer data from work area
+      if (mod(nfax,2).eq.1) go to 110
+      ibase=1
+      jbase=1
+      do 100 l=1,lot
+      i=ibase
+      j=jbase
 ! 
-      DO 90 M=1,N
-      A(J)=WORK(I)
-      I=I+1
-      J=J+INC
-   90 CONTINUE
-      IBASE=IBASE+NX
-      JBASE=JBASE+JUMP
-  100 CONTINUE
+      do 90 m=1,n
+      a(j)=work(i)
+      i=i+1
+      j=j+inc
+   90 continue
+      ibase=ibase+nx
+      jbase=jbase+jump
+  100 continue
 !
-!     FILL IN ZEROS AT END
-  110 CONTINUE
-      IB=N*INC+1
+!     fill in zeros at end
+  110 continue
+      ib=n*inc+1
 ! 
-      DO 120 L=1,LOT
-      A(IB)=0.0
-      A(IB+INC)=0.0
-      IB=IB+JUMP
-  120 CONTINUE
-      GO TO 140
+      do 120 l=1,lot
+      a(ib)=0.0
+      a(ib+inc)=0.0
+      ib=ib+jump
+  120 continue
+      go to 140
 !
-!     POSTPROCESSING (ISGN=-1):
+!     postprocessing (isgn=-1):
 !     --------------------------
 !
-  130 CONTINUE
-      CALL FFT99B(WORK,A,TRIGS,INC,JUMP,N,LOT)
+  130 continue
+      call fft99b(work,a,trigs,inc,jump,n,lot)
 !
-  140 CONTINUE
-      RETURN
-      END
-!
-!=======================================================================
-!
-      SUBROUTINE FFTFAX(N,IFAX,TRIGS)
-
-      DIMENSION IFAX(13),TRIGS(1)
-!
-! MODE 3 IS USED FOR REAL/HALF-COMPLEX TRANSFORMS.  IT IS POSSIBLE
-! TO DO COMPLEX/COMPLEX TRANSFORMS WITH OTHER VALUES OF MODE, BUT
-! DOCUMENTATION OF THE DETAILS WERE NOT AVAILABLE WHEN THIS ROUTINE
-! WAS WRITTEN.
-!
-      DATA MODE /3/
-
-      CALL FAX (IFAX, N, MODE)
-      I = IFAX(1)
-      IF (IFAX(I+1) .GT. 5 .OR. N .LE. 4) IFAX(1) = -99
-      IF (IFAX(1) .LE. 0 )THEN
-        WRITE(*,1900)N
-1900    FORMAT(' FFTFAX - Invalid N=',I20)
-        RETURN
-        ENDIF
-      CALL FFTRIG (TRIGS, N, MODE)
-      RETURN
-      END
+  140 continue
+      return
+      end
 !
 !=======================================================================
 !
-      SUBROUTINE FFTRIG(TRIGS,N,MODE)
+      subroutine fftfax(n,ifax,trigs)
 
-      DIMENSION TRIGS(1)
-      PI=2.0*ASIN(1.0)
-      IMODE=IABS(MODE)
-      NN=N
-      IF (IMODE.GT.1.AND.IMODE.LT.6) NN=N/2
-      DEL=(PI+PI)/FLOAT(NN)
-      L=NN+NN
-      DO 10 I=1,L,2
-      ANGLE=0.5*FLOAT(I-1)*DEL
-      TRIGS(I)=COS(ANGLE)
-      TRIGS(I+1)=SIN(ANGLE)
-   10 CONTINUE
-      IF (IMODE.EQ.1) RETURN
-      IF (IMODE.EQ.8) RETURN
-      DEL=0.5*DEL
-      NH=(NN+1)/2
-      L=NH+NH
-      LA=NN+NN
-      DO 20 I=1,L,2
-      ANGLE=0.5*FLOAT(I-1)*DEL
-      TRIGS(LA+I)=COS(ANGLE)
-      TRIGS(LA+I+1)=SIN(ANGLE)
-   20 CONTINUE
-      IF (IMODE.LE.3) RETURN
-      DEL=0.5*DEL
-      LA=LA+NN
-      IF (MODE.EQ.5) GO TO 40
-      DO 30 I=2,NN
-      ANGLE=FLOAT(I-1)*DEL
-      TRIGS(LA+I)=2.0*SIN(ANGLE)
-   30 CONTINUE
-      RETURN
-   40 CONTINUE
-      DEL=0.5*DEL
-      DO 50 I=2,N
-      ANGLE=FLOAT(I-1)*DEL
-      TRIGS(LA+I)=SIN(ANGLE)
-   50 CONTINUE
-      RETURN
-      END
+      dimension ifax(13),trigs(1)
+!
+! mode 3 is used for real/half-complex transforms.  it is possible
+! to do complex/complex transforms with other values of mode, but
+! documentation of the details were not available when this routine
+! was written.
+!
+      data mode /3/
+
+      call fax (ifax, n, mode)
+      i = ifax(1)
+      if (ifax(i+1) .gt. 5 .or. n .le. 4) ifax(1) = -99
+      if (ifax(1) .le. 0 )then
+        write(*,1900)n
+1900    format(' fftfax - invalid n=',i20)
+        return
+        endif
+      call fftrig (trigs, n, mode)
+      return
+      end
 !
 !=======================================================================
 !
-      SUBROUTINE CFFTMLT(AR,AI,WORK,TRIGS,IFAX,INC,JUMP,N,LOT,ISGN)
+      subroutine fftrig(trigs,n,mode)
+
+      dimension trigs(1)
+      pi=2.0*asin(1.0)
+      imode=iabs(mode)
+      nn=n
+      if (imode.gt.1.and.imode.lt.6) nn=n/2
+      del=(pi+pi)/float(nn)
+      l=nn+nn
+      do 10 i=1,l,2
+      angle=0.5*float(i-1)*del
+      trigs(i)=cos(angle)
+      trigs(i+1)=sin(angle)
+   10 continue
+      if (imode.eq.1) return
+      if (imode.eq.8) return
+      del=0.5*del
+      nh=(nn+1)/2
+      l=nh+nh
+      la=nn+nn
+      do 20 i=1,l,2
+      angle=0.5*float(i-1)*del
+      trigs(la+i)=cos(angle)
+      trigs(la+i+1)=sin(angle)
+   20 continue
+      if (imode.le.3) return
+      del=0.5*del
+      la=la+nn
+      if (mode.eq.5) go to 40
+      do 30 i=2,nn
+      angle=float(i-1)*del
+      trigs(la+i)=2.0*sin(angle)
+   30 continue
+      return
+   40 continue
+      del=0.5*del
+      do 50 i=2,n
+      angle=float(i-1)*del
+      trigs(la+i)=sin(angle)
+   50 continue
+      return
+      end
+!
+!=======================================================================
+!
+      subroutine cfftmlt(ar,ai,work,trigs,ifax,inc,jump,n,lot,isgn)
 
 !
-! PURPOSE      PERFORMS MULTIPLE FAST FOURIER TRANSFORMS.  THIS PACKAGE
-!              WILL PERFORM A NUMBER OF SIMULTANEOUS COMPLEX PERIODIC
-!              FOURIER TRANSFORMS OR CORRESPONDING INVERSE TRANSFORMS.
-!              THAT IS, GIVEN A SET OF COMPLEX GRIDPOINT VECTORS, THE
-!              PACKAGE RETURNS A SET OF COMPLEX FOURIER
-!              COEFFICIENT VECTORS, OR VICE VERSA.  THE LENGTH OF THE
-!              TRANSFORMS MUST BE A NUMBER GREATER THAN 1 THAT HAS
-!              NO PRIME FACTORS OTHER THAN 2, 3, AND 5.
+! purpose      performs multiple fast fourier transforms.  this package
+!              will perform a number of simultaneous complex periodic
+!              fourier transforms or corresponding inverse transforms.
+!              that is, given a set of complex gridpoint vectors, the
+!              package returns a set of complex fourier
+!              coefficient vectors, or vice versa.  the length of the
+!              transforms must be a number greater than 1 that has
+!              no prime factors other than 2, 3, and 5.
 !
-!              THE PACKAGE CFFT99 CONTAINS SEVERAL USER-LEVEL ROUTINES:
+!              the package cfft99 contains several user-level routines:
 !
-!            SUBROUTINE CFTFAX
-!                AN INITIALIZATION ROUTINE THAT MUST BE CALLED ONCE
-!                BEFORE A SEQUENCE OF CALLS TO CFFT99
-!                (PROVIDED THAT N IS NOT CHANGED).
+!            subroutine cftfax
+!                an initialization routine that must be called once
+!                before a sequence of calls to cfft99
+!                (provided that n is not changed).
 !
-!            SUBROUTINE CFFT99
-!                THE ACTUAL TRANSFORM ROUTINE ROUTINE, CABABLE OF
-!                PERFORMING BOTH THE TRANSFORM AND ITS INVERSE.
-!                HOWEVER, AS THE TRANSFORMS ARE NOT NORMALIZED,
-!                THE APPLICATION OF A TRANSFORM FOLLOWED BY ITS
-!                INVERSE WILL YIELD THE ORIGINAL VALUES MULTIPLIED
-!                BY N.
-!
-!
-! ACCESS       *FORTRAN,P=XLIB,SN=CFFT99
+!            subroutine cfft99
+!                the actual transform routine routine, cabable of
+!                performing both the transform and its inverse.
+!                however, as the transforms are not normalized,
+!                the application of a transform followed by its
+!                inverse will yield the original values multiplied
+!                by n.
 !
 !
-! USAGE        LET N BE OF THE FORM 2**P * 3**Q * 5**R, WHERE P .GE. 0,
-!              Q .GE. 0, AND R .GE. 0.  THEN A TYPICAL SEQUENCE OF
-!              CALLS TO TRANSFORM A GIVEN SET OF COMPLEX VECTORS OF
-!              LENGTH N TO A SET OF (UNSCALED) COMPLEX FOURIER
-!              COEFFICIENT VECTORS OF LENGTH N IS
+! access       *fortran,p=xlib,sn=cfft99
 !
-!                   DIMENSION IFAX(13),TRIGS(2*N)
-!                   COMPLEX A(...), WORK(...)
 !
-!                   CALL CFTFAX (N, IFAX, TRIGS)
-!                   CALL CFFT99 (A,WORK,TRIGS,IFAX,INC,JUMP,N,LOT,ISGN)
+! usage        let n be of the form 2**p * 3**q * 5**r, where p .ge. 0,
+!              q .ge. 0, and r .ge. 0.  then a typical sequence of
+!              calls to transform a given set of complex vectors of
+!              length n to a set of (unscaled) complex fourier
+!              coefficient vectors of length n is
 !
-!              THE OUTPUT VECTORS OVERWRITE THE INPUT VECTORS, AND
-!              THESE ARE STORED IN A.  WITH APPROPRIATE CHOICES FOR
-!              THE OTHER ARGUMENTS, THESE VECTORS MAY BE CONSIDERED
-!              EITHER THE ROWS OR THE COLUMNS OF THE ARRAY A.
-!              SEE THE INDIVIDUAL WRITE-UPS FOR CFTFAX AND
-!              CFFT99 BELOW, FOR A DETAILED DESCRIPTION OF THE
-!              ARGUMENTS.
+!                   dimension ifax(13),trigs(2*n)
+!                   complex a(...), work(...)
 !
-! HISTORY      THE PACKAGE WAS WRITTEN BY CLIVE TEMPERTON AT ECMWF IN
-!              NOVEMBER, 1978.  IT WAS MODIFIED, DOCUMENTED, AND TESTED
-!              FOR NCAR BY RUSS REW IN SEPTEMBER, 1980.  IT WAS
-!              FURTHER MODIFIED FOR THE FULLY COMPLEX CASE BY DAVE
-!              FULKER IN NOVEMBER, 1980.
+!                   call cftfax (n, ifax, trigs)
+!                   call cfft99 (a,work,trigs,ifax,inc,jump,n,lot,isgn)
+!
+!              the output vectors overwrite the input vectors, and
+!              these are stored in a.  with appropriate choices for
+!              the other arguments, these vectors may be considered
+!              either the rows or the columns of the array a.
+!              see the individual write-ups for cftfax and
+!              cfft99 below, for a detailed description of the
+!              arguments.
+!
+! history      the package was written by clive temperton at ecmwf in
+!              november, 1978.  it was modified, documented, and tested
+!              for ncar by russ rew in september, 1980.  it was
+!              further modified for the fully complex case by dave
+!              fulker in november, 1980.
 !
 !-----------------------------------------------------------------------
 !
-! SUBROUTINE CFTFAX (N,IFAX,TRIGS)
+! subroutine cftfax (n,ifax,trigs)
 !
-! PURPOSE      A SET-UP ROUTINE FOR CFFT99.  IT NEED ONLY BE
-!              CALLED ONCE BEFORE A SEQUENCE OF CALLS TO CFFT99,
-!              PROVIDED THAT N IS NOT CHANGED.
+! purpose      a set-up routine for cfft99.  it need only be
+!              called once before a sequence of calls to cfft99,
+!              provided that n is not changed.
 !
-! ARGUMENT     IFAX(13),TRIGS(2*N)
-! DIMENSIONS
+! argument     ifax(13),trigs(2*n)
+! dimensions
 !
-! ARGUMENTS
+! arguments
 !
-! ON INPUT     N
-!               AN EVEN NUMBER GREATER THAN 1 THAT HAS NO PRIME FACTOR
-!               GREATER THAN 5.  N IS THE LENGTH OF THE TRANSFORMS (SEE
-!               THE DOCUMENTATION FOR CFFT99 FOR THE DEFINITION OF
-!               THE TRANSFORMS).
+! on input     n
+!               an even number greater than 1 that has no prime factor
+!               greater than 5.  n is the length of the transforms (see
+!               the documentation for cfft99 for the definition of
+!               the transforms).
 !
-!              IFAX
-!               AN INTEGER ARRAY.  THE NUMBER OF ELEMENTS ACTUALLY USED
-!               WILL DEPEND ON THE FACTORIZATION OF N.  DIMENSIONING
-!               IFAX FOR 13 SUFFICES FOR ALL N LESS THAN 1 MILLION.
+!              ifax
+!               an integer array.  the number of elements actually used
+!               will depend on the factorization of n.  dimensioning
+!               ifax for 13 suffices for all n less than 1 million.
 !
-!              TRIGS
-!               A REAL ARRAY OF DIMENSION 2*N
+!              trigs
+!               a real array of dimension 2*n
 !
-! ON OUTPUT    IFAX
-!               CONTAINS THE FACTORIZATION OF N.  IFAX(1) IS THE
-!               NUMBER OF FACTORS, AND THE FACTORS THEMSELVES ARE STORED
-!               IN IFAX(2),IFAX(3),...  IF N HAS ANY PRIME FACTORS
-!               GREATER THAN 5, IFAX(1) IS SET TO -99.
+! on output    ifax
+!               contains the factorization of n.  ifax(1) is the
+!               number of factors, and the factors themselves are stored
+!               in ifax(2),ifax(3),...  if n has any prime factors
+!               greater than 5, ifax(1) is set to -99.
 !
-!              TRIGS
-!               AN ARRAY OF TRIGONOMETRI! FUNCTION VALUES SUBSEQUENTLY
-!               USED BY THE CFT ROUTINES.
+!              trigs
+!               an array of trigonometri! function values subsequently
+!               used by the cft routines.
 !
 !-----------------------------------------------------------------------
 !
-! SUBROUTINE CFFT99 (A,WORK,TRIGS,IFAX,INC,JUMP,N,LOT,ISGN)
+! subroutine cfft99 (a,work,trigs,ifax,inc,jump,n,lot,isgn)
 !
-! PURPOSE      PERFORM A NUMBER OF SIMULTANEOUS (UNNORMALIZED) COMPLEX
-!              PERIODIC FOURIER TRANSFORMS OR CORRESPONDING INVERSE
-!              TRANSFORMS.  GIVEN A SET OF COMPLEX GRIDPOINT
-!              VECTORS, THE PACKAGE RETURNS A SET OF
-!              COMPLEX FOURIER COEFFICIENT VECTORS, OR VICE
-!              VERSA.  THE LENGTH OF THE TRANSFORMS MUST BE A
-!              NUMBER HAVING NO PRIME FACTORS OTHER THAN
-!              2, 3, AND 5.  THIS ROUTINE IS
-!              OPTIMIZED FOR USE ON THE CRAY-1.
+! purpose      perform a number of simultaneous (unnormalized) complex
+!              periodic fourier transforms or corresponding inverse
+!              transforms.  given a set of complex gridpoint
+!              vectors, the package returns a set of
+!              complex fourier coefficient vectors, or vice
+!              versa.  the length of the transforms must be a
+!              number having no prime factors other than
+!              2, 3, and 5.  this routine is
+!              optimized for use on the cray-1.
 !
-! ARGUMENT     COMPLEX A(N*INC+(LOT-1)*JUMP), WORK(N*LOT)
-! DIMENSIONS   REAL TRIGS(2*N), INTEGER IFAX(13)
+! argument     complex a(n*inc+(lot-1)*jump), work(n*lot)
+! dimensions   real trigs(2*n), integer ifax(13)
 !
-! ARGUMENTS
+! arguments
 !
-! ON INPUT     A
-!               A COMPLEX ARRAY OF LENGTH N*INC+(LOT-1)*JUMP CONTAINING
-!               THE INPUT GRIDPOINT OR COEFFICIENT VECTORS.  THIS ARRAY
-!               OVERWRITTEN BY THE RESULTS.
+! on input     a
+!               a complex array of length n*inc+(lot-1)*jump containing
+!               the input gridpoint or coefficient vectors.  this array
+!               overwritten by the results.
 !
-!               N.B. ALTHOUGH THE ARRAY A IS USUALLY CONSIDERED TO BE OF
-!               TYPE COMPLEX IN THE CALLING PROGRAM, IT IS TREATED AS
-!               REAL WITHIN THE TRANSFORM PACKAGE.  THIS REQUIRES THAT
-!               SUCH TYPE CONFLICTS ARE PERMITTED IN THE USER"S
-!               ENVIRONMENT, AND THAT THE STORAGE OF COMPLEX NUMBERS
-!               MATCHES THE ASSUMPTIONS OF THIS ROUTINE.  THIS ROUTINE
-!               ASSUMES THAT THE REAL AND IMAGINARY PORTIONS OF A
-!               COMPLEX NUMBER OCCUPY ADJACENT ELEMENTS OF MEMORY.  IF
-!               THESE CONDITIONS ARE NOT MET, THE USER MUST TREAT THE
-!               ARRAY A AS REAL (AND OF TWICE THE ABOVE LENGTH), AND
-!               WRITE THE CALLING PROGRAM TO TREAT THE REAL AND
-!               IMAGINARY PORTIONS EXPLICITLY.
+!               n.b. although the array a is usually considered to be of
+!               type complex in the calling program, it is treated as
+!               real within the transform package.  this requires that
+!               such type conflicts are permitted in the user"s
+!               environment, and that the storage of complex numbers
+!               matches the assumptions of this routine.  this routine
+!               assumes that the real and imaginary portions of a
+!               complex number occupy adjacent elements of memory.  if
+!               these conditions are not met, the user must treat the
+!               array a as real (and of twice the above length), and
+!               write the calling program to treat the real and
+!               imaginary portions explicitly.
 !
-!              WORK
-!               A COMPLEX WORK ARRAY OF LENGTH N*LOT OR A REAL ARRAY
-!               OF LENGTH 2*N*LOT.  SEE N.B. ABOVE.
+!              work
+!               a complex work array of length n*lot or a real array
+!               of length 2*n*lot.  see n.b. above.
 !
-!              TRIGS
-!               AN ARRAY SET UP BY CFTFAX, WHICH MUST BE CALLED FIRST.
+!              trigs
+!               an array set up by cftfax, which must be called first.
 !
-!              IFAX
-!               AN ARRAY SET UP BY CFTFAX, WHICH MUST BE CALLED FIRST.
-!
-!
-!               N.B. IN THE FOLLOWING ARGUMENTS, INCREMENTS ARE MEASURED
-!               IN WORD PAIRS, BECAUSE EACH COMPLEX ELEMENT IS ASSUMED
-!               TO OCCUPY AN ADJACENT PAIR OF WORDS IN MEMORY.
-!
-!              INC
-!               THE INCREMENT (IN WORD PAIRS) BETWEEN SUCCESSIVE ELEMENT
-!               OF EACH (COMPLEX) GRIDPOINT OR COEFFICIENT VECTOR
-!               (E.G.  INC=1 FOR CONSECUTIVELY STORED DATA).
-!
-!              JUMP
-!               THE INCREMENT (IN WORD PAIRS) BETWEEN THE FIRST ELEMENTS
-!               OF SUCCESSIVE DATA OR COEFFICIENT VECTORS.  ON THE CRAY-
-!               TRY TO ARRANGE DATA SO THAT JUMP IS NOT A MULTIPLE OF 8
-!               (TO AVOID MEMORY BANK CONFLICTS).  FOR CLARIFICATION OF
-!               INC AND JUMP, SEE THE EXAMPLES BELOW.
-!
-!              N
-!               THE LENGTH OF EACH TRANSFORM (SEE DEFINITION OF
-!               TRANSFORMS, BELOW).
-!
-!              LOT
-!               THE NUMBER OF TRANSFORMS TO BE DONE SIMULTANEOUSLY.
-!
-!              ISGN
-!               = -1 FOR A TRANSFORM FROM GRIDPOINT VALUES TO FOURIER
-!                    COEFFICIENTS.
-!               = +1 FOR A TRANSFORM FROM FOURIER COEFFICIENTS TO
-!                    GRIDPOINT VALUES.
-!
-! ON OUTPUT    A
-!               IF ISGN = -1, AND LOT GRIDPOINT VECTORS ARE SUPPLIED,
-!               EACH CONTAINING THE COMPLEX SEQUENCE:
-!
-!               G(0),G(1), ... ,G(N-1)  (N COMPLEX VALUES)
-!
-!               THEN THE RESULT CONSISTS OF LOT COMPLEX VECTORS EACH
-!               CONTAINING THE CORRESPONDING N COEFFICIENT VALUES:
-!
-!               C(0),C(1), ... ,C(N-1)  (N COMPLEX VALUES)
-!
-!               DEFINED BY:
-!                 C(K) = SUM(J=0,...,N-1)( G(J)*EXP(-2*I*J*K*PI/N) )
-!                 WHERE I = SQRT(-1)
+!              ifax
+!               an array set up by cftfax, which must be called first.
 !
 !
-!               IF ISGN = +1, AND LOT COEFFICIENT VECTORS ARE SUPPLIED,
-!               EACH CONTAINING THE COMPLEX SEQUENCE:
+!               n.b. in the following arguments, increments are measured
+!               in word pairs, because each complex element is assumed
+!               to occupy an adjacent pair of words in memory.
 !
-!               C(0),C(1), ... ,C(N-1)  (N COMPLEX VALUES)
+!              inc
+!               the increment (in word pairs) between successive element
+!               of each (complex) gridpoint or coefficient vector
+!               (e.g.  inc=1 for consecutively stored data).
 !
-!               THEN THE RESULT CONSISTS OF LOT COMPLEX VECTORS EACH
-!               CONTAINING THE CORRESPONDING N GRIDPOINT VALUES:
+!              jump
+!               the increment (in word pairs) between the first elements
+!               of successive data or coefficient vectors.  on the cray-
+!               try to arrange data so that jump is not a multiple of 8
+!               (to avoid memory bank conflicts).  for clarification of
+!               inc and jump, see the examples below.
 !
-!               G(0),G(1), ... ,G(N-1)  (N COMPLEX VALUES)
+!              n
+!               the length of each transform (see definition of
+!               transforms, below).
 !
-!               DEFINED BY:
-!                 G(J) = SUM(K=0,...,N-1)( G(K)*EXP(+2*I*J*K*PI/N) )
-!                 WHERE I = SQRT(-1)
+!              lot
+!               the number of transforms to be done simultaneously.
+!
+!              isgn
+!               = -1 for a transform from gridpoint values to fourier
+!                    coefficients.
+!               = +1 for a transform from fourier coefficients to
+!                    gridpoint values.
+!
+! on output    a
+!               if isgn = -1, and lot gridpoint vectors are supplied,
+!               each containing the complex sequence:
+!
+!               g(0),g(1), ... ,g(n-1)  (n complex values)
+!
+!               then the result consists of lot complex vectors each
+!               containing the corresponding n coefficient values:
+!
+!               c(0),c(1), ... ,c(n-1)  (n complex values)
+!
+!               defined by:
+!                 c(k) = sum(j=0,...,n-1)( g(j)*exp(-2*i*j*k*pi/n) )
+!                 where i = sqrt(-1)
 !
 !
-!               A CALL WITH ISGN=-1 FOLLOWED BY A CALL WITH ISGN=+1
-!               (OR VICE VERSA) RETURNS THE ORIGINAL DATA, MULTIPLIED
-!               BY THE FACTOR N.
+!               if isgn = +1, and lot coefficient vectors are supplied,
+!               each containing the complex sequence:
+!
+!               c(0),c(1), ... ,c(n-1)  (n complex values)
+!
+!               then the result consists of lot complex vectors each
+!               containing the corresponding n gridpoint values:
+!
+!               g(0),g(1), ... ,g(n-1)  (n complex values)
+!
+!               defined by:
+!                 g(j) = sum(k=0,...,n-1)( g(k)*exp(+2*i*j*k*pi/n) )
+!                 where i = sqrt(-1)
 !
 !
-! EXAMPLE       GIVEN A 64 BY 9 GRID OF COMPLEX VALUES, STORED IN
-!               A 66 BY 9 COMPLEX ARRAY, A, COMPUTE THE TWO DIMENSIONAL
-!               FOURIER TRANSFORM OF THE GRID.  FROM TRANSFORM THEORY,
-!               IT IS KNOWN THAT A TWO DIMENSIONAL TRANSFORM CAN BE
-!               OBTAINED BY FIRST TRANSFORMING THE GRID ALONG ONE
-!               DIRECTION, THEN TRANSFORMING THESE RESULTS ALONG THE
-!               ORTHOGONAL DIRECTION.
+!               a call with isgn=-1 followed by a call with isgn=+1
+!               (or vice versa) returns the original data, multiplied
+!               by the factor n.
 !
-!               COMPLEX A(66,9), WORK(64,9)
-!               REAL TRIGS1(128), TRIGS2(18)
-!               INTEGER IFAX1(13), IFAX2(13)
 !
-!               SET UP THE IFAX AND TRIGS ARRAYS FOR EACH DIRECTION:
+! example       given a 64 by 9 grid of complex values, stored in
+!               a 66 by 9 complex array, a, compute the two dimensional
+!               fourier transform of the grid.  from transform theory,
+!               it is known that a two dimensional transform can be
+!               obtained by first transforming the grid along one
+!               direction, then transforming these results along the
+!               orthogonal direction.
 !
-!               CALL CFTFAX(64, IFAX1, TRIGS1)
-!               CALL CFTFAX( 9, IFAX2, TRIGS2)
+!               complex a(66,9), work(64,9)
+!               real trigs1(128), trigs2(18)
+!               integer ifax1(13), ifax2(13)
 !
-!               IN THIS CASE, THE COMPLEX VALUES OF THE GRID ARE
-!               STORED IN MEMORY AS FOLLOWS (USING U AND V TO
-!               DENOTE THE REAL AND IMAGINARY COMPONENTS, AND
-!               ASSUMING CONVENTIONAL FORTRAN STORAGE):
+!               set up the ifax and trigs arrays for each direction:
 !
-!   U(1,1), V(1,1), U(2,1), V(2,1),  ...  U(64,1), V(64,1), 4 NULLS,
+!               call cftfax(64, ifax1, trigs1)
+!               call cftfax( 9, ifax2, trigs2)
 !
-!   U(1,2), V(1,2), U(2,2), V(2,2),  ...  U(64,2), V(64,2), 4 NULLS,
+!               in this case, the complex values of the grid are
+!               stored in memory as follows (using u and v to
+!               denote the real and imaginary components, and
+!               assuming conventional fortran storage):
+!
+!   u(1,1), v(1,1), u(2,1), v(2,1),  ...  u(64,1), v(64,1), 4 nulls,
+!
+!   u(1,2), v(1,2), u(2,2), v(2,2),  ...  u(64,2), v(64,2), 4 nulls,
 !
 !   .       .       .       .         .   .        .        .
 !   .       .       .       .         .   .        .        .
 !   .       .       .       .         .   .        .        .
 !
-!   U(1,9), V(1,9), U(2,9), V(2,9),  ...  U(64,9), V(64,9), 4 NULLS.
+!   u(1,9), v(1,9), u(2,9), v(2,9),  ...  u(64,9), v(64,9), 4 nulls.
 !
-!               WE CHOOSE (ARBITRARILY) TO TRANSORM FIRST ALONG THE
-!               DIRECTION OF THE FIRST SUBSCRIPT.  THUS WE DEFINE
-!               THE LENGTH OF THE TRANSFORMS, N, TO BE 64, THE
-!               NUMBER OF TRANSFORMS, LOT, TO BE 9, THE INCREMENT
-!               BETWEEN ELEMENTS OF EACH TRANSFORM, INC, TO BE 1,
-!               AND THE INCREMENT BETWEEN THE STARTING POINTS
-!               FOR EACH TRANSFORM, JUMP, TO BE 66 (THE FIRST
-!               DIMENSION OF A).
+!               we choose (arbitrarily) to transorm first along the
+!               direction of the first subscript.  thus we define
+!               the length of the transforms, n, to be 64, the
+!               number of transforms, lot, to be 9, the increment
+!               between elements of each transform, inc, to be 1,
+!               and the increment between the starting points
+!               for each transform, jump, to be 66 (the first
+!               dimension of a).
 !
-!               CALL CFFT99( A, WORK, TRIGS1, IFAX1, 1, 66, 64, 9, -1)
+!               call cfft99( a, work, trigs1, ifax1, 1, 66, 64, 9, -1)
 !
-!               TO TRANSFORM ALONG THE DIRECTION OF THE SECOND SUBSCRIPT
-!               THE ROLES OF THE INCREMENTS ARE REVERSED.  THUS WE DEFIN
-!               THE LENGTH OF THE TRANSFORMS, N, TO BE 9, THE
-!               NUMBER OF TRANSFORMS, LOT, TO BE 64, THE INCREMENT
-!               BETWEEN ELEMENTS OF EACH TRANSFORM, INC, TO BE 66,
-!               AND THE INCREMENT BETWEEN THE STARTING POINTS
-!               FOR EACH TRANSFORM, JUMP, TO BE 1
+!               to transform along the direction of the second subscript
+!               the roles of the increments are reversed.  thus we defin
+!               the length of the transforms, n, to be 9, the
+!               number of transforms, lot, to be 64, the increment
+!               between elements of each transform, inc, to be 66,
+!               and the increment between the starting points
+!               for each transform, jump, to be 1
 !
-!               CALL CFFT99( A, WORK, TRIGS2, IFAX2, 66, 1, 9, 64, -1)
+!               call cfft99( a, work, trigs2, ifax2, 66, 1, 9, 64, -1)
 !
-!               THESE TWO SEQUENTIAL STEPS RESULTS IN THE TWO-DIMENSIONA
-!               FOURIER COEFFICIENT ARRAY OVERWRITING THE INPUT
-!               GRIDPOINT ARRAY, A.  THE SAME TWO STEPS APPLIED AGAIN
-!               WITH ISGN = +1 WOULD RESULT IN THE RECONSTRUCTION OF
-!               THE GRIDPOINT ARRAY (MULTIPLIED BY A FACTOR OF 64*9).
+!               these two sequential steps results in the two-dimensiona
+!               fourier coefficient array overwriting the input
+!               gridpoint array, a.  the same two steps applied again
+!               with isgn = +1 would result in the reconstruction of
+!               the gridpoint array (multiplied by a factor of 64*9).
 !
 !
 !-----------------------------------------------------------------------
-      DIMENSION AR(N),AI(N),WORK(N),TRIGS(N),IFAX(N)
+      dimension ar(n),ai(n),work(n),trigs(n),ifax(n)
 !
-!     SUBROUTINE "CFFT99" - MULTIPLE FAST COMPLEX FOURIER TRANSFORM
+!     subroutine "cfft99" - multiple fast complex fourier transform
 !
-!     A IS THE ARRAY CONTAINING INPUT AND OUTPUT DATA
-!     WORK IS AN AREA OF SIZE N*LOT
-!     TRIGS IS A PREVIOUSLY PREPARED LIST OF TRIG FUNCTION VALUES
-!     IFAX IS A PREVIOUSLY PREPARED LIST OF FACTORS OF N
-!     INC IS THE INCREMENT WITHIN EACH DATA 'VECTOR'
-!         (E.G. INC=1 FOR CONSECUTIVELY STORED DATA)
-!     JUMP IS THE INCREMENT BETWEEN THE START OF EACH DATA VECTOR
-!     N IS THE LENGTH OF THE DATA VECTORS
-!     LOT IS THE NUMBER OF DATA VECTORS
-!     ISGN = +1 FOR TRANSFORM FROM SPECTRAL TO GRIDPOINT
-!           = -1 FOR TRANSFORM FROM GRIDPOINT TO SPECTRAL
+!     a is the array containing input and output data
+!     work is an area of size n*lot
+!     trigs is a previously prepared list of trig function values
+!     ifax is a previously prepared list of factors of n
+!     inc is the increment within each data 'vector'
+!         (e.g. inc=1 for consecutively stored data)
+!     jump is the increment between the start of each data vector
+!     n is the length of the data vectors
+!     lot is the number of data vectors
+!     isgn = +1 for transform from spectral to gridpoint
+!           = -1 for transform from gridpoint to spectral
 !
 !
-!     VECTORIZATION IS ACHIEVED ON CRAY BY DOING THE TRANSFORMS IN
-!     PARALLEL.
+!     vectorization is achieved on cray by doing the transforms in
+!     parallel.
 !
-      NN = N+N
-      INK=INC+INC
-      JUM = JUMP+JUMP
-      NFAX=IFAX(1)
-      JNK = 2
-      JST = 2
-      IF (ISGN.GE.0) GO TO 30
+      nn = n+n
+      ink=inc+inc
+      jum = jump+jump
+      nfax=ifax(1)
+      jnk = 2
+      jst = 2
+      if (isgn.ge.0) go to 30
 !
-!     THE INNERMOST TEMPERTON ROUTINES HAVE NO FACILITY FOR THE
-!     FORWARD (ISGN = -1) TRANSFORM.  THEREFORE, THE INPUT MUST BE
-!     REARRANGED AS FOLLOWS:
+!     the innermost temperton routines have no facility for the
+!     forward (isgn = -1) transform.  therefore, the input must be
+!     rearranged as follows:
 !
-!     THE ORDER OF EACH INPUT VECTOR,
+!     the order of each input vector,
 !
-!     G(0), G(1), G(2), ... , G(N-2), G(N-1)
+!     g(0), g(1), g(2), ... , g(n-2), g(n-1)
 !
-!     IS REVERSED (EXCLUDING G(0)) TO YIELD
+!     is reversed (excluding g(0)) to yield
 !
-!     G(0), G(N-1), G(N-2), ... , G(2), G(1).
+!     g(0), g(n-1), g(n-2), ... , g(2), g(1).
 !
-!     WITHIN THE TRANSFORM, THE CORRESPONDING EXPONENTIAL MULTIPLIER
-!     IS THEN PRECISELY THE CONJUGATE OF THAT FOR THE NORMAL
-!     ORDERING.  THUS THE FORWARD (ISGN = -1) TRANSFORM IS
-!     ACCOMPLISHED
+!     within the transform, the corresponding exponential multiplier
+!     is then precisely the conjugate of that for the normal
+!     ordering.  thus the forward (isgn = -1) transform is
+!     accomplished
 !
-!     FOR NFAX ODD, THE INPUT MUST BE TRANSFERRED TO THE WORK ARRAY,
-!     AND THE REARRANGEMENT CAN BE DONE DURING THE MOVE.
+!     for nfax odd, the input must be transferred to the work array,
+!     and the rearrangement can be done during the move.
 !
-      JNK = -2
-      JST = NN-2
-      IF (MOD(NFAX,2).EQ.1) GOTO 40
+      jnk = -2
+      jst = nn-2
+      if (mod(nfax,2).eq.1) goto 40
 !
-!     FOR NFAX EVEN, THE REARRANGEMENT MUST BE APPLIED DIRECTLY TO
-!     THE INPUT ARRAY.  THIS CAN BE DONE BY SWAPPING ELEMENTS.
+!     for nfax even, the rearrangement must be applied directly to
+!     the input array.  this can be done by swapping elements.
 !
-      IBASE = 1
-      ILAST = (N-1)*INC
-      NH = N/2
-      DO 20 L=1,LOT
-      I1 = IBASE+INC
-      I2 = IBASE+ILAST
+      ibase = 1
+      ilast = (n-1)*inc
+      nh = n/2
+      do 20 l=1,lot
+      i1 = ibase+inc
+      i2 = ibase+ilast
 ! 
-      DO 10 M=1,NH
-!     SWAP REAL AND IMAGINARY PORTIONS
-      HREAL = AR(I1)
-      HIMAG = AI(I1)
-      AR(I1) = AR(I2)
-      AI(I1) = AI(I2)
-      AR(I2) = HREAL
-      AI(I2) = HIMAG
-      I1 = I1+INC
-      I2 = I2-INC
-   10 CONTINUE
-      IBASE = IBASE+JUMP
-   20 CONTINUE
-      GOTO 100
+      do 10 m=1,nh
+!     swap real and imaginary portions
+      hreal = ar(i1)
+      himag = ai(i1)
+      ar(i1) = ar(i2)
+      ai(i1) = ai(i2)
+      ar(i2) = hreal
+      ai(i2) = himag
+      i1 = i1+inc
+      i2 = i2-inc
+   10 continue
+      ibase = ibase+jump
+   20 continue
+      goto 100
 !
-   30 CONTINUE
-      IF (MOD(NFAX,2).EQ.0) GOTO 100
+   30 continue
+      if (mod(nfax,2).eq.0) goto 100
 !
-   40 CONTINUE
+   40 continue
 !
-!     DURING THE TRANSFORM PROCESS, NFAX STEPS ARE TAKEN, AND THE
-!     RESULTS ARE STORED ALTERNATELY IN WORK AND IN A.  IF NFAX IS
-!     ODD, THE INPUT DATA ARE FIRST MOVED TO WORK SO THAT THE FINAL
-!     RESULT (AFTER NFAX STEPS) IS STORED IN ARRAY A.
+!     during the transform process, nfax steps are taken, and the
+!     results are stored alternately in work and in a.  if nfax is
+!     odd, the input data are first moved to work so that the final
+!     result (after nfax steps) is stored in array a.
 !
-      IBASE=1
-      JBASE=1
-      DO 60 L=1,LOT
-!     MOVE REAL AND IMAGINARY PORTIONS OF ELEMENT ZERO
-      WORK(JBASE) = AR(IBASE)
-      WORK(JBASE+1) = AI(IBASE)
-      I=IBASE+INC
-      J=JBASE+JST
+      ibase=1
+      jbase=1
+      do 60 l=1,lot
+!     move real and imaginary portions of element zero
+      work(jbase) = ar(ibase)
+      work(jbase+1) = ai(ibase)
+      i=ibase+inc
+      j=jbase+jst
 ! 
-      DO 50 M=2,N
-!     MOVE REAL AND IMAGINARY PORTIONS OF OTHER ELEMENTS (POSSIBLY IN
-!     REVERSE ORDER, DEPENDING ON JST AND JNK)
-      WORK(J) = AR(I)
-      WORK(J+1) = AI(I)
-      I=I+INC
-      J=J+JNK
-   50 CONTINUE
-      IBASE=IBASE+JUMP
-      JBASE=JBASE+NN
-   60 CONTINUE
+      do 50 m=2,n
+!     move real and imaginary portions of other elements (possibly in
+!     reverse order, depending on jst and jnk)
+      work(j) = ar(i)
+      work(j+1) = ai(i)
+      i=i+inc
+      j=j+jnk
+   50 continue
+      ibase=ibase+jump
+      jbase=jbase+nn
+   60 continue
 !
-  100 CONTINUE
+  100 continue
 !
-!     PERFORM THE TRANSFORM PASSES, ONE PASS FOR EACH FACTOR.  DURING
-!     EACH PASS THE DATA ARE MOVED FROM A TO WORK OR FROM WORK TO A.
+!     perform the transform passes, one pass for each factor.  during
+!     each pass the data are moved from a to work or from work to a.
 !
-!     FOR NFAX EVEN, THE FIRST PASS MOVES FROM A TO WORK
-      IGO = 110
-!     FOR NFAX ODD, THE FIRST PASS MOVES FROM WORK TO A
-      IF (MOD(NFAX,2).EQ.1) IGO = 120
-      LA=1
-      DO 140 K=1,NFAX
-      IF (IGO.EQ.120) GO TO 120
-  110 CONTINUE
-      CALL VPASSM(AR,AI,WORK(1),WORK(2),TRIGS,INC,2,JUMP,NN,LOT,N,IFAX(K+1),LA)
-      IGO=120
-      GO TO 130
-  120 CONTINUE
-      CALL VPASSM(WORK(1),WORK(2),AR,AI,TRIGS,2,INC,NN,JUMP,LOT,N,IFAX(K+1),LA)
-      IGO=110
-  130 CONTINUE
-      LA=LA*IFAX(K+1)
-  140 CONTINUE
+!     for nfax even, the first pass moves from a to work
+      igo = 110
+!     for nfax odd, the first pass moves from work to a
+      if (mod(nfax,2).eq.1) igo = 120
+      la=1
+      do 140 k=1,nfax
+      if (igo.eq.120) go to 120
+  110 continue
+      call vpassm(ar,ai,work(1),work(2),trigs,inc,2,jump,nn,lot,n,ifax(k+1),la)
+      igo=120
+      go to 130
+  120 continue
+      call vpassm(work(1),work(2),ar,ai,trigs,2,inc,nn,jump,lot,n,ifax(k+1),la)
+      igo=110
+  130 continue
+      la=la*ifax(k+1)
+  140 continue
 !
-!     AT THIS POINT THE FINAL TRANSFORM RESULT IS STORED IN A.
+!     at this point the final transform result is stored in a.
 !
-      RETURN
-      END
+      return
+      end
 !
 !=======================================================================
 !
-      SUBROUTINE  SCOPY(N,SX,INCX,SY,INCY)
+      subroutine  scopy(n,sx,incx,sy,incy)
 
 !
-!     COPIES A VECTOR, X, TO A VECTOR, Y.
-!     USES UNROLLED LOOPS FOR INCREMENTS EQUAL TO 1.
-!     JACK DONGARRA, LINPACK, 3/11/78.
+!     copies a vector, x, to a vector, y.
+!     uses unrolled loops for increments equal to 1.
+!     jack dongarra, linpack, 3/11/78.
 !
-      REAL SX(1),SY(1)
-      INTEGER I,INCX,INCY,IX,IY,M,MP1,N
+      real sx(1),sy(1)
+      integer i,incx,incy,ix,iy,m,mp1,n
 !
-      IF(N.LE.0)RETURN
-      IF(INCX.EQ.1.AND.INCY.EQ.1)GO TO 20
+      if(n.le.0)return
+      if(incx.eq.1.and.incy.eq.1)go to 20
 !
-!        CODE FOR UNEQUAL INCREMENTS OR EQUAL INCREMENTS
-!          NOT EQUAL TO 1
+!        code for unequal increments or equal increments
+!          not equal to 1
 !
-      IX = 1
-      IY = 1
-      IF(INCX.LT.0)IX = (-N+1)*INCX + 1
-      IF(INCY.LT.0)IY = (-N+1)*INCY + 1
-      DO 10 I = 1,N
-        SY(IY) = SX(IX)
-        IX = IX + INCX
-        IY = IY + INCY
-   10 CONTINUE
-      RETURN
+      ix = 1
+      iy = 1
+      if(incx.lt.0)ix = (-n+1)*incx + 1
+      if(incy.lt.0)iy = (-n+1)*incy + 1
+      do 10 i = 1,n
+        sy(iy) = sx(ix)
+        ix = ix + incx
+        iy = iy + incy
+   10 continue
+      return
 !
-!        CODE FOR BOTH INCREMENTS EQUAL TO 1
+!        code for both increments equal to 1
 !
 !
-!        CLEAN-UP LOOP
+!        clean-up loop
 !
-   20 M = MOD(N,7)
-      IF( M .EQ. 0 ) GO TO 40
-      DO 30 I = 1,M
-        SY(I) = SX(I)
-   30 CONTINUE
-      IF( N .LT. 7 ) RETURN
-   40 MP1 = M + 1
-      DO 50 I = MP1,N,7
-        SY(I) = SX(I)
-        SY(I + 1) = SX(I + 1)
-        SY(I + 2) = SX(I + 2)
-        SY(I + 3) = SX(I + 3)
-        SY(I + 4) = SX(I + 4)
-        SY(I + 5) = SX(I + 5)
-        SY(I + 6) = SX(I + 6)
-   50 CONTINUE
-      RETURN
-      END
-!
-!=======================================================================
-!
-      REAL FUNCTION SSUM(N,SX,INCX)
-!
-!        TAKES THE SUM OF THE VALUES OF A VECTOR.
-!        USES UNROLLED LOOPS FOR INCREMENT EQUAL TO ONE.
-!        JACK DONGARRA, LINPACK, 3/11/78.
-!
-      REAL SX(1),STEMP
-      INTEGER I,INCX,M,MP1,N,IX
-!
-      SSUM = 0.0E0
-      STEMP = 0.0E0
-      IF (N .LT. 0) STOP
-      IF (N .EQ. 0) RETURN
-      IF (INCX .EQ. 1) GO TO 20
-!
-!        CODE FOR INCREMENT NOT EQUAL TO 1
-!
-      IX = 1
-      IF (INCX .LE. 0) IX = (-N+1)*INCX + 1
-      DO 10 I = 1,N
-        STEMP = STEMP + SX(IX)
-        IX = IX + INCX
-   10 CONTINUE
-      SSUM = STEMP
-      RETURN
-!
-!        CODE FOR INCREMENT EQUAL TO 1
-!
-!        CLEAN-UP LOOP
-!
-   20 M = MOD(N,6)
-      IF (M .EQ. 0) GO TO 40
-      DO 30 I = 1,M
-        STEMP = STEMP + SX(I)
-   30 CONTINUE
-      IF (N .LT. 6) GO TO 60
-   40 MP1 = M + 1
-      DO 50 I = MP1,N,6
-        STEMP = STEMP + SX(I) + SX(I+1) + SX(I+2) + SX(I+3) + SX(I+4) + SX(I+5)
-   50 CONTINUE
-   60 SSUM = STEMP
-      RETURN
-      END
+   20 m = mod(n,7)
+      if( m .eq. 0 ) go to 40
+      do 30 i = 1,m
+        sy(i) = sx(i)
+   30 continue
+      if( n .lt. 7 ) return
+   40 mp1 = m + 1
+      do 50 i = mp1,n,7
+        sy(i) = sx(i)
+        sy(i + 1) = sx(i + 1)
+        sy(i + 2) = sx(i + 2)
+        sy(i + 3) = sx(i + 3)
+        sy(i + 4) = sx(i + 4)
+        sy(i + 5) = sx(i + 5)
+        sy(i + 6) = sx(i + 6)
+   50 continue
+      return
+      end
 !
 !=======================================================================
 !
-      SUBROUTINE CCOPY(N,CX,INCX,CY,INCY)
+      real function ssum(n,sx,incx)
+!
+!        takes the sum of the values of a vector.
+!        uses unrolled loops for increment equal to one.
+!        jack dongarra, linpack, 3/11/78.
+!
+      real sx(1),stemp
+      integer i,incx,m,mp1,n,ix
+!
+      ssum = 0.0e0
+      stemp = 0.0e0
+      if (n .lt. 0) stop
+      if (n .eq. 0) return
+      if (incx .eq. 1) go to 20
+!
+!        code for increment not equal to 1
+!
+      ix = 1
+      if (incx .le. 0) ix = (-n+1)*incx + 1
+      do 10 i = 1,n
+        stemp = stemp + sx(ix)
+        ix = ix + incx
+   10 continue
+      ssum = stemp
+      return
+!
+!        code for increment equal to 1
+!
+!        clean-up loop
+!
+   20 m = mod(n,6)
+      if (m .eq. 0) go to 40
+      do 30 i = 1,m
+        stemp = stemp + sx(i)
+   30 continue
+      if (n .lt. 6) go to 60
+   40 mp1 = m + 1
+      do 50 i = mp1,n,6
+        stemp = stemp + sx(i) + sx(i+1) + sx(i+2) + sx(i+3) + sx(i+4) + sx(i+5)
+   50 continue
+   60 ssum = stemp
+      return
+      end
+!
+!=======================================================================
+!
+      subroutine ccopy(n,cx,incx,cy,incy)
 
 !
-!     COPIES A VECTOR, X, TO A VECTOR, Y.
-!     JACK DONGARRA, LINPACK, 3/11/78.
+!     copies a vector, x, to a vector, y.
+!     jack dongarra, linpack, 3/11/78.
 !
-      COMPLEX CX(1),CY(1)
-      INTEGER I,INCX,INCY,IX,IY,N
+      complex cx(1),cy(1)
+      integer i,incx,incy,ix,iy,n
 !
-      IF(N.LE.0)RETURN
-      IF(INCX.EQ.1.AND.INCY.EQ.1)GO TO 20
+      if(n.le.0)return
+      if(incx.eq.1.and.incy.eq.1)go to 20
 !
-!        CODE FOR UNEQUAL INCREMENTS OR EQUAL INCREMENTS
-!          NOT EQUAL TO 1
+!        code for unequal increments or equal increments
+!          not equal to 1
 !
-      IX = 1
-      IY = 1
-      IF(INCX.LT.0)IX = (-N+1)*INCX + 1
-      IF(INCY.LT.0)IY = (-N+1)*INCY + 1
-      DO 10 I = 1,N
-        CY(IY) = CX(IX)
-        IX = IX + INCX
-        IY = IY + INCY
-   10 CONTINUE
-      RETURN
+      ix = 1
+      iy = 1
+      if(incx.lt.0)ix = (-n+1)*incx + 1
+      if(incy.lt.0)iy = (-n+1)*incy + 1
+      do 10 i = 1,n
+        cy(iy) = cx(ix)
+        ix = ix + incx
+        iy = iy + incy
+   10 continue
+      return
 !
-!        CODE FOR BOTH INCREMENTS EQUAL TO 1
+!        code for both increments equal to 1
 !
-   20 DO 30 I = 1,N
-        CY(I) = CX(I)
-   30 CONTINUE
-      RETURN
-      END
-!
-!=======================================================================
-!
-      REAL FUNCTION SNRM2 ( N, SX, INCX)
-      INTEGER          NEXT
-      REAL   SX(1),  CUTLO, CUTHI, HITEST, SUM, XMAX, ZERO, ONE
-      DATA   ZERO, ONE /0.0E0, 1.0E0/
-!
-!     EUCLIDEAN NORM OF THE N-VECTOR STORED IN SX() WITH STORAGE
-!     INCREMENT INCX .
-!     IF    N .LE. 0 RETURN WITH RESULT = 0.
-!     IF N .GE. 1 THEN INCX MUST BE .GE. 1
-!
-!           C.L.LAWSON, 1978 JAN 08
-!
-!     FOUR PHASE METHOD     USING TWO BUILT-IN CONSTANTS THAT ARE
-!     HOPEFULLY APPLICABLE TO ALL MACHINES.
-!         CUTLO = MAXIMUM OF  SQRT(U/EPS)  OVER ALL KNOWN MACHINES.
-!         CUTHI = MINIMUM OF  SQRT(V)      OVER ALL KNOWN MACHINES.
-!     WHERE
-!         EPS = SMALLEST NO. SUCH THAT EPS + 1. .GT. 1.
-!         U   = SMALLEST POSITIVE NO.   (UNDERFLOW LIMIT)
-!         V   = LARGEST  NO.            (OVERFLOW  LIMIT)
-!
-!     BRIEF OUTLINE OF ALGORITHM..
-!
-!     PHASE 1    SCANS ZERO COMPONENTS.
-!     MOVE TO PHASE 2 WHEN A COMPONENT IS NONZERO AND .LE. CUTLO
-!     MOVE TO PHASE 3 WHEN A COMPONENT IS .GT. CUTLO
-!     MOVE TO PHASE 4 WHEN A COMPONENT IS .GE. CUTHI/M
-!     WHERE M = N FOR X() REAL AND M = 2*N FOR COMPLEX.
-!
-!     VALUES FOR CUTLO AND CUTHI..
-!     FROM THE ENVIRONMENTAL PARAMETERS LISTED IN THE IMSL CONVERTER
-!     DOCUMENT THE LIMITING VALUES ARE AS FOLLOWS..
-!     CUTLO, S.P.   U/EPS = 2**(-102) FOR  HONEYWELL.  CLOSE SECONDS ARE
-!                   UNIVAC AND DEC AT 2**(-103)
-!                   THUS CUTLO = 2**(-51) = 4.44089E-16
-!     CUTHI, S.P.   V = 2**127 FOR UNIVAC, HONEYWELL, AND DEC.
-!                   THUS CUTHI = 2**(63.5) = 1.30438E19
-!     CUTLO, D.P.   U/EPS = 2**(-67) FOR HONEYWELL AND DEC.
-!                   THUS CUTLO = 2**(-33.5) = 8.23181D-11
-!     CUTHI, D.P.   SAME AS S.P.  CUTHI = 1.30438D19
-!     DATA CUTLO, CUTHI / 8.232D-11,  1.304D19 /
-!     DATA CUTLO, CUTHI / 4.441E-16,  1.304E19 /
-      DATA CUTLO, CUTHI / 4.441E-16,  1.304E19 /
-!
-      IF(N .GT. 0) GO TO 10
-         SNRM2  = ZERO
-         GO TO 300
-!
-   10 ASSIGN 30 TO NEXT
-      SUM = ZERO
-      NN = N * INCX
-!                                                 BEGIN MAIN LOOP
-      I = 1
-   20    GO TO NEXT,(30, 50, 70, 110)
-   30 IF( ABS(SX(I)) .GT. CUTLO) GO TO 85
-      ASSIGN 50 TO NEXT
-      XMAX = ZERO
-!
-!                        PHASE 1.  SUM IS ZERO
-!
-   50 IF( SX(I) .EQ. ZERO) GO TO 200
-      IF( ABS(SX(I)) .GT. CUTLO) GO TO 85
-!
-!                                PREPARE FOR PHASE 2.
-      ASSIGN 70 TO NEXT
-      GO TO 105
-!
-!                                PREPARE FOR PHASE 4.
-!
-  100 I = J
-      ASSIGN 110 TO NEXT
-      SUM = (SUM / SX(I)) / SX(I)
-  105 XMAX = ABS(SX(I))
-      GO TO 115
-!
-!                   PHASE 2.  SUM IS SMALL.
-!                             SCALE TO AVOID DESTRUCTIVE UNDERFLOW.
-!
-   70 IF( ABS(SX(I)) .GT. CUTLO ) GO TO 75
-!
-!                     COMMON CODE FOR PHASES 2 AND 4.
-!                     IN PHASE 4 SUM IS LARGE.  SCALE TO AVOID OVERFLOW.
-!
-  110 IF( ABS(SX(I)) .LE. XMAX ) GO TO 115
-         SUM = ONE + SUM * (XMAX / SX(I))**2
-         XMAX = ABS(SX(I))
-         GO TO 200
-!
-  115 SUM = SUM + (SX(I)/XMAX)**2
-      GO TO 200
-!
-!
-!                  PREPARE FOR PHASE 3.
-!
-   75 SUM = (SUM * XMAX) * XMAX
-!
-!
-!     FOR REAL OR D.P. SET HITEST = CUTHI/N
-!     FOR COMPLEX      SET HITEST = CUTHI/(2*N)
-!
-   85 HITEST = CUTHI/FLOAT( N )
-!
-!                   PHASE 3.  SUM IS MID-RANGE.  NO SCALING.
-!
-      DO 95 J =I,NN,INCX
-      IF(ABS(SX(J)) .GE. HITEST) GO TO 100
-   95    SUM = SUM + SX(J)**2
-      SNRM2 = SQRT( SUM )
-      GO TO 300
-!
-  200 CONTINUE
-      I = I + INCX
-      IF ( I .LE. NN ) GO TO 20
-!
-!              END OF MAIN LOOP.
-!
-!              COMPUTE SQUARE ROOT AND ADJUST FOR SCALING.
-!
-      SNRM2 = XMAX * SQRT(SUM)
-  300 CONTINUE
-      RETURN
-      END
+   20 do 30 i = 1,n
+        cy(i) = cx(i)
+   30 continue
+      return
+      end
 !
 !=======================================================================
 !
-      SUBROUTINE FACT(N,IFAX)
+      real function snrm2 ( n, sx, incx)
+      integer          next
+      real   sx(1),  cutlo, cuthi, hitest, sum, xmax, zero, one
+      data   zero, one /0.0e0, 1.0e0/
+!
+!     euclidean norm of the n-vector stored in sx() with storage
+!     increment incx .
+!     if    n .le. 0 return with result = 0.
+!     if n .ge. 1 then incx must be .ge. 1
+!
+!           c.l.lawson, 1978 jan 08
+!
+!     four phase method     using two built-in constants that are
+!     hopefully applicable to all machines.
+!         cutlo = maximum of  sqrt(u/eps)  over all known machines.
+!         cuthi = minimum of  sqrt(v)      over all known machines.
+!     where
+!         eps = smallest no. such that eps + 1. .gt. 1.
+!         u   = smallest positive no.   (underflow limit)
+!         v   = largest  no.            (overflow  limit)
+!
+!     brief outline of algorithm..
+!
+!     phase 1    scans zero components.
+!     move to phase 2 when a component is nonzero and .le. cutlo
+!     move to phase 3 when a component is .gt. cutlo
+!     move to phase 4 when a component is .ge. cuthi/m
+!     where m = n for x() real and m = 2*n for complex.
+!
+!     values for cutlo and cuthi..
+!     from the environmental parameters listed in the imsl converter
+!     document the limiting values are as follows..
+!     cutlo, s.p.   u/eps = 2**(-102) for  honeywell.  close seconds are
+!                   univac and dec at 2**(-103)
+!                   thus cutlo = 2**(-51) = 4.44089e-16
+!     cuthi, s.p.   v = 2**127 for univac, honeywell, and dec.
+!                   thus cuthi = 2**(63.5) = 1.30438e19
+!     cutlo, d.p.   u/eps = 2**(-67) for honeywell and dec.
+!                   thus cutlo = 2**(-33.5) = 8.23181d-11
+!     cuthi, d.p.   same as s.p.  cuthi = 1.30438d19
+!     data cutlo, cuthi / 8.232d-11,  1.304d19 /
+!     data cutlo, cuthi / 4.441e-16,  1.304e19 /
+      data cutlo, cuthi / 4.441e-16,  1.304e19 /
+!
+      if(n .gt. 0) go to 10
+         snrm2  = zero
+         go to 300
+!
+   10 assign 30 to next
+      sum = zero
+      nn = n * incx
+!                                                 begin main loop
+      i = 1
+   20    go to next,(30, 50, 70, 110)
+   30 if( abs(sx(i)) .gt. cutlo) go to 85
+      assign 50 to next
+      xmax = zero
+!
+!                        phase 1.  sum is zero
+!
+   50 if( sx(i) .eq. zero) go to 200
+      if( abs(sx(i)) .gt. cutlo) go to 85
+!
+!                                prepare for phase 2.
+      assign 70 to next
+      go to 105
+!
+!                                prepare for phase 4.
+!
+  100 i = j
+      assign 110 to next
+      sum = (sum / sx(i)) / sx(i)
+  105 xmax = abs(sx(i))
+      go to 115
+!
+!                   phase 2.  sum is small.
+!                             scale to avoid destructive underflow.
+!
+   70 if( abs(sx(i)) .gt. cutlo ) go to 75
+!
+!                     common code for phases 2 and 4.
+!                     in phase 4 sum is large.  scale to avoid overflow.
+!
+  110 if( abs(sx(i)) .le. xmax ) go to 115
+         sum = one + sum * (xmax / sx(i))**2
+         xmax = abs(sx(i))
+         go to 200
+!
+  115 sum = sum + (sx(i)/xmax)**2
+      go to 200
+!
+!
+!                  prepare for phase 3.
+!
+   75 sum = (sum * xmax) * xmax
+!
+!
+!     for real or d.p. set hitest = cuthi/n
+!     for complex      set hitest = cuthi/(2*n)
+!
+   85 hitest = cuthi/float( n )
+!
+!                   phase 3.  sum is mid-range.  no scaling.
+!
+      do 95 j =i,nn,incx
+      if(abs(sx(j)) .ge. hitest) go to 100
+   95    sum = sum + sx(j)**2
+      snrm2 = sqrt( sum )
+      go to 300
+!
+  200 continue
+      i = i + incx
+      if ( i .le. nn ) go to 20
+!
+!              end of main loop.
+!
+!              compute square root and adjust for scaling.
+!
+      snrm2 = xmax * sqrt(sum)
+  300 continue
+      return
+      end
+!
+!=======================================================================
+!
+      subroutine fact(n,ifax)
 
-!     FACTORIZATION ROUTINE THAT FIRST EXTRACTS ALL FACTORS OF 4
-      DIMENSION IFAX(13)
-      IF (N.GT.1) GO TO 10
-      IFAX(1) = 0
-      IF (N.LT.1) IFAX(1) = -99
-      RETURN
-   10 NN=N
-      K=1
-!     TEST FOR FACTORS OF 4
-   20 IF (MOD(NN,4).NE.0) GO TO 30
-      K=K+1
-      IFAX(K)=4
-      NN=NN/4
-      IF (NN.EQ.1) GO TO 80
-      GO TO 20
-!     TEST FOR EXTRA FACTOR OF 2
-   30 IF (MOD(NN,2).NE.0) GO TO 40
-      K=K+1
-      IFAX(K)=2
-      NN=NN/2
-      IF (NN.EQ.1) GO TO 80
-!     TEST FOR FACTORS OF 3
-   40 IF (MOD(NN,3).NE.0) GO TO 50
-      K=K+1
-      IFAX(K)=3
-      NN=NN/3
-      IF (NN.EQ.1) GO TO 80
-      GO TO 40
-!     NOW FIND REMAINING FACTORS
-   50 L=5
-      MAX = SQRT(FLOAT(NN))
-      INC=2
-!     INC ALTERNATELY TAKES ON VALUES 2 AND 4
-   60 IF (MOD(NN,L).NE.0) GO TO 70
-      K=K+1
-      IFAX(K)=L
-      NN=NN/L
-      IF (NN.EQ.1) GO TO 80
-      GO TO 60
-   70 IF (L.GT.MAX) GO TO 75
-      L=L+INC
-      INC=6-INC
-      GO TO 60
-   75 K = K+1
-      IFAX(K) = NN
-   80 IFAX(1)=K-1
-!     IFAX(1) NOW CONTAINS NUMBER OF FACTORS
-      RETURN
-      END
+!     factorization routine that first extracts all factors of 4
+      dimension ifax(13)
+      if (n.gt.1) go to 10
+      ifax(1) = 0
+      if (n.lt.1) ifax(1) = -99
+      return
+   10 nn=n
+      k=1
+!     test for factors of 4
+   20 if (mod(nn,4).ne.0) go to 30
+      k=k+1
+      ifax(k)=4
+      nn=nn/4
+      if (nn.eq.1) go to 80
+      go to 20
+!     test for extra factor of 2
+   30 if (mod(nn,2).ne.0) go to 40
+      k=k+1
+      ifax(k)=2
+      nn=nn/2
+      if (nn.eq.1) go to 80
+!     test for factors of 3
+   40 if (mod(nn,3).ne.0) go to 50
+      k=k+1
+      ifax(k)=3
+      nn=nn/3
+      if (nn.eq.1) go to 80
+      go to 40
+!     now find remaining factors
+   50 l=5
+      max = sqrt(float(nn))
+      inc=2
+!     inc alternately takes on values 2 and 4
+   60 if (mod(nn,l).ne.0) go to 70
+      k=k+1
+      ifax(k)=l
+      nn=nn/l
+      if (nn.eq.1) go to 80
+      go to 60
+   70 if (l.gt.max) go to 75
+      l=l+inc
+      inc=6-inc
+      go to 60
+   75 k = k+1
+      ifax(k) = nn
+   80 ifax(1)=k-1
+!     ifax(1) now contains number of factors
+      return
+      end
 !
 !=======================================================================
 !
-      SUBROUTINE FAX(IFAX,N,MODE)
+      subroutine fax(ifax,n,mode)
 
-      DIMENSION IFAX(10)
-      NN=N
-      IF (IABS(MODE).EQ.1) GO TO 10
-      IF (IABS(MODE).EQ.8) GO TO 10
-      NN=N/2
-      IF ((NN+NN).EQ.N) GO TO 10
-      IFAX(1)=-99
-      RETURN
-   10 K=1
-!     TEST FOR FACTORS OF 4
-   20 IF (MOD(NN,4).NE.0) GO TO 30
-      K=K+1
-      IFAX(K)=4
-      NN=NN/4
-      IF (NN.EQ.1) GO TO 80
-      GO TO 20
-!     TEST FOR EXTRA FACTOR OF 2
-   30 IF (MOD(NN,2).NE.0) GO TO 40
-      K=K+1
-      IFAX(K)=2
-      NN=NN/2
-      IF (NN.EQ.1) GO TO 80
-!     TEST FOR FACTORS OF 3
-   40 IF (MOD(NN,3).NE.0) GO TO 50
-      K=K+1
-      IFAX(K)=3
-      NN=NN/3
-      IF (NN.EQ.1) GO TO 80
-      GO TO 40
-!     NOW FIND REMAINING FACTORS
-   50 L=5
-      INC=2
-!     INC ALTERNATELY TAKES ON VALUES 2 AND 4
-   60 IF (MOD(NN,L).NE.0) GO TO 70
-      K=K+1
-      IFAX(K)=L
-      NN=NN/L
-      IF (NN.EQ.1) GO TO 80
-      GO TO 60
-   70 L=L+INC
-      INC=6-INC
-      GO TO 60
-   80 IFAX(1)=K-1
-!     IFAX(1) CONTAINS NUMBER OF FACTORS
-      NFAX=IFAX(1)
-!     SORT FACTORS INTO ASCENDING ORDER
-      IF (NFAX.EQ.1) GO TO 110
-      DO 100 II=2,NFAX
-      ISTOP=NFAX+2-II
-      DO 90 I=2,ISTOP
-      IF (IFAX(I+1).GE.IFAX(I)) GO TO 90
-      ITEM=IFAX(I)
-      IFAX(I)=IFAX(I+1)
-      IFAX(I+1)=ITEM
-   90 CONTINUE
-  100 CONTINUE
-  110 CONTINUE
-      RETURN
-      END
+      dimension ifax(10)
+      nn=n
+      if (iabs(mode).eq.1) go to 10
+      if (iabs(mode).eq.8) go to 10
+      nn=n/2
+      if ((nn+nn).eq.n) go to 10
+      ifax(1)=-99
+      return
+   10 k=1
+!     test for factors of 4
+   20 if (mod(nn,4).ne.0) go to 30
+      k=k+1
+      ifax(k)=4
+      nn=nn/4
+      if (nn.eq.1) go to 80
+      go to 20
+!     test for extra factor of 2
+   30 if (mod(nn,2).ne.0) go to 40
+      k=k+1
+      ifax(k)=2
+      nn=nn/2
+      if (nn.eq.1) go to 80
+!     test for factors of 3
+   40 if (mod(nn,3).ne.0) go to 50
+      k=k+1
+      ifax(k)=3
+      nn=nn/3
+      if (nn.eq.1) go to 80
+      go to 40
+!     now find remaining factors
+   50 l=5
+      inc=2
+!     inc alternately takes on values 2 and 4
+   60 if (mod(nn,l).ne.0) go to 70
+      k=k+1
+      ifax(k)=l
+      nn=nn/l
+      if (nn.eq.1) go to 80
+      go to 60
+   70 l=l+inc
+      inc=6-inc
+      go to 60
+   80 ifax(1)=k-1
+!     ifax(1) contains number of factors
+      nfax=ifax(1)
+!     sort factors into ascending order
+      if (nfax.eq.1) go to 110
+      do 100 ii=2,nfax
+      istop=nfax+2-ii
+      do 90 i=2,istop
+      if (ifax(i+1).ge.ifax(i)) go to 90
+      item=ifax(i)
+      ifax(i)=ifax(i+1)
+      ifax(i+1)=item
+   90 continue
+  100 continue
+  110 continue
+      return
+      end
 !
 !=======================================================================
 !
-      SUBROUTINE FFT99A(A,WORK,TRIGS,INC,JUMP,N,LOT)
+      subroutine fft99a(a,work,trigs,inc,jump,n,lot)
 
-      DIMENSION A(N),WORK(N),TRIGS(N)
+      dimension a(n),work(n),trigs(n)
 !
-!     FFT99A - PREPROCESSING STEP, ISGN=+1
-!     (SPECTRAL TO GRIDPOINT TRANSFORM)
+!     fft99a - preprocessing step, isgn=+1
+!     (spectral to gridpoint transform)
 !
-      NH=N/2
-      NX=N+1
-      INK=INC+INC
+      nh=n/2
+      nx=n+1
+      ink=inc+inc
 !
-!     A(0) AND A(N/2)
-      IA=1
-      IB=N*INC+1
-      JA=1
-      JB=2
+!     a(0) and a(n/2)
+      ia=1
+      ib=n*inc+1
+      ja=1
+      jb=2
 ! 
-      DO 10 L=1,LOT
-      WORK(JA)=A(IA)+A(IB)
-      WORK(JB)=A(IA)-A(IB)
-      IA=IA+JUMP
-      IB=IB+JUMP
-      JA=JA+NX
-      JB=JB+NX
-   10 CONTINUE
+      do 10 l=1,lot
+      work(ja)=a(ia)+a(ib)
+      work(jb)=a(ia)-a(ib)
+      ia=ia+jump
+      ib=ib+jump
+      ja=ja+nx
+      jb=jb+nx
+   10 continue
 !
-!     REMAINING WAVENUMBERS
-      IABASE=2*INC+1
-      IBBASE=(N-2)*INC+1
-      JABASE=3
-      JBBASE=N-1
+!     remaining wavenumbers
+      iabase=2*inc+1
+      ibbase=(n-2)*inc+1
+      jabase=3
+      jbbase=n-1
 !
-      DO 30 K=3,NH,2
-      IA=IABASE
-      IB=IBBASE
-      JA=JABASE
-      JB=JBBASE
-      C=TRIGS(N+K)
-      S=TRIGS(N+K+1)
+      do 30 k=3,nh,2
+      ia=iabase
+      ib=ibbase
+      ja=jabase
+      jb=jbbase
+      c=trigs(n+k)
+      s=trigs(n+k+1)
 ! 
-      DO 20 L=1,LOT
-      WORK(JA)=(A(IA)+A(IB))-(S*(A(IA)-A(IB))+C*(A(IA+INC)+A(IB+INC)))
-      WORK(JB)=(A(IA)+A(IB))+(S*(A(IA)-A(IB))+C*(A(IA+INC)+A(IB+INC)))
-      WORK(JA+1)=(C*(A(IA)-A(IB))-S*(A(IA+INC)+A(IB+INC)))+(A(IA+INC)-A(IB+INC))
-      WORK(JB+1)=(C*(A(IA)-A(IB))-S*(A(IA+INC)+A(IB+INC)))-(A(IA+INC)-A(IB+INC))
-      IA=IA+JUMP
-      IB=IB+JUMP
-      JA=JA+NX
-      JB=JB+NX
-   20 CONTINUE
-      IABASE=IABASE+INK
-      IBBASE=IBBASE-INK
-      JABASE=JABASE+2
-      JBBASE=JBBASE-2
-   30 CONTINUE
+      do 20 l=1,lot
+      work(ja)=(a(ia)+a(ib))-(s*(a(ia)-a(ib))+c*(a(ia+inc)+a(ib+inc)))
+      work(jb)=(a(ia)+a(ib))+(s*(a(ia)-a(ib))+c*(a(ia+inc)+a(ib+inc)))
+      work(ja+1)=(c*(a(ia)-a(ib))-s*(a(ia+inc)+a(ib+inc)))+(a(ia+inc)-a(ib+inc))
+      work(jb+1)=(c*(a(ia)-a(ib))-s*(a(ia+inc)+a(ib+inc)))-(a(ia+inc)-a(ib+inc))
+      ia=ia+jump
+      ib=ib+jump
+      ja=ja+nx
+      jb=jb+nx
+   20 continue
+      iabase=iabase+ink
+      ibbase=ibbase-ink
+      jabase=jabase+2
+      jbbase=jbbase-2
+   30 continue
 !
-      IF (IABASE.NE.IBBASE) GO TO 50
-!     WAVENUMBER N/4 (IF IT EXISTS)
-      IA=IABASE
-      JA=JABASE
+      if (iabase.ne.ibbase) go to 50
+!     wavenumber n/4 (if it exists)
+      ia=iabase
+      ja=jabase
 ! 
-      DO 40 L=1,LOT
-      WORK(JA)=2.0*A(IA)
-      WORK(JA+1)=-2.0*A(IA+INC)
-      IA=IA+JUMP
-      JA=JA+NX
-   40 CONTINUE
+      do 40 l=1,lot
+      work(ja)=2.0*a(ia)
+      work(ja+1)=-2.0*a(ia+inc)
+      ia=ia+jump
+      ja=ja+nx
+   40 continue
 !
-   50 CONTINUE
-      RETURN
-      END
+   50 continue
+      return
+      end
 !
 !=======================================================================
 !
-      SUBROUTINE FFT99B(WORK,A,TRIGS,INC,JUMP,N,LOT)
+      subroutine fft99b(work,a,trigs,inc,jump,n,lot)
 
-      DIMENSION WORK(N),A(N),TRIGS(N)
+      dimension work(n),a(n),trigs(n)
 !
-!     FFT99B - POSTPROCESSING STEP, ISGN=-1
-!     (GRIDPOINT TO SPECTRAL TRANSFORM)
+!     fft99b - postprocessing step, isgn=-1
+!     (gridpoint to spectral transform)
 !
-      NH=N/2
-      NX=N+1
-      INK=INC+INC
+      nh=n/2
+      nx=n+1
+      ink=inc+inc
 !
-!     A(0) AND A(N/2)
-      SCALE=1.0/FLOAT(N)
-      IA=1
-      IB=2
-      JA=1
-      JB=N*INC+1
+!     a(0) and a(n/2)
+      scale=1.0/float(n)
+      ia=1
+      ib=2
+      ja=1
+      jb=n*inc+1
 ! 
-      DO 10 L=1,LOT
-      A(JA)=SCALE*(WORK(IA)+WORK(IB))
-      A(JB)=SCALE*(WORK(IA)-WORK(IB))
-      A(JA+INC)=0.0
-      A(JB+INC)=0.0
-      IA=IA+NX
-      IB=IB+NX
-      JA=JA+JUMP
-      JB=JB+JUMP
-   10 CONTINUE
+      do 10 l=1,lot
+      a(ja)=scale*(work(ia)+work(ib))
+      a(jb)=scale*(work(ia)-work(ib))
+      a(ja+inc)=0.0
+      a(jb+inc)=0.0
+      ia=ia+nx
+      ib=ib+nx
+      ja=ja+jump
+      jb=jb+jump
+   10 continue
 !
-!     REMAINING WAVENUMBERS
-      SCALE=0.5*SCALE
-      IABASE=3
-      IBBASE=N-1
-      JABASE=2*INC+1
-      JBBASE=(N-2)*INC+1
+!     remaining wavenumbers
+      scale=0.5*scale
+      iabase=3
+      ibbase=n-1
+      jabase=2*inc+1
+      jbbase=(n-2)*inc+1
 !
-      DO 30 K=3,NH,2
-      IA=IABASE
-      IB=IBBASE
-      JA=JABASE
-      JB=JBBASE
-      C=TRIGS(N+K)
-      S=TRIGS(N+K+1)
+      do 30 k=3,nh,2
+      ia=iabase
+      ib=ibbase
+      ja=jabase
+      jb=jbbase
+      c=trigs(n+k)
+      s=trigs(n+k+1)
 ! 
-      DO 20 L=1,LOT
-      A(JA)=SCALE*((WORK(IA)+WORK(IB))+(C*(WORK(IA+1)+WORK(IB+1))+S*(WORK(IA)-WORK(IB))))
-      A(JB)=SCALE*((WORK(IA)+WORK(IB))-(C*(WORK(IA+1)+WORK(IB+1))+S*(WORK(IA)-WORK(IB))))
-      A(JA+INC)=SCALE*((C*(WORK(IA)-WORK(IB))-S*(WORK(IA+1)+WORK(IB+1)))+(WORK(IB+1)-WORK(IA+1)))
-      A(JB+INC)=SCALE*((C*(WORK(IA)-WORK(IB))-S*(WORK(IA+1)+WORK(IB+1)))-(WORK(IB+1)-WORK(IA+1)))
-      IA=IA+NX
-      IB=IB+NX
-      JA=JA+JUMP
-      JB=JB+JUMP
-   20 CONTINUE
-      IABASE=IABASE+2
-      IBBASE=IBBASE-2
-      JABASE=JABASE+INK
-      JBBASE=JBBASE-INK
-   30 CONTINUE
+      do 20 l=1,lot
+      a(ja)=scale*((work(ia)+work(ib))+(c*(work(ia+1)+work(ib+1))+s*(work(ia)-work(ib))))
+      a(jb)=scale*((work(ia)+work(ib))-(c*(work(ia+1)+work(ib+1))+s*(work(ia)-work(ib))))
+      a(ja+inc)=scale*((c*(work(ia)-work(ib))-s*(work(ia+1)+work(ib+1)))+(work(ib+1)-work(ia+1)))
+      a(jb+inc)=scale*((c*(work(ia)-work(ib))-s*(work(ia+1)+work(ib+1)))-(work(ib+1)-work(ia+1)))
+      ia=ia+nx
+      ib=ib+nx
+      ja=ja+jump
+      jb=jb+jump
+   20 continue
+      iabase=iabase+2
+      ibbase=ibbase-2
+      jabase=jabase+ink
+      jbbase=jbbase-ink
+   30 continue
 !
-      IF (IABASE.NE.IBBASE) GO TO 50
-!     WAVENUMBER N/4 (IF IT EXISTS)
-      IA=IABASE
-      JA=JABASE
-      SCALE=2.0*SCALE
+      if (iabase.ne.ibbase) go to 50
+!     wavenumber n/4 (if it exists)
+      ia=iabase
+      ja=jabase
+      scale=2.0*scale
 ! 
-      DO 40 L=1,LOT
-      A(JA)=SCALE*WORK(IA)
-      A(JA+INC)=-SCALE*WORK(IA+1)
-      IA=IA+NX
-      JA=JA+JUMP
-   40 CONTINUE
+      do 40 l=1,lot
+      a(ja)=scale*work(ia)
+      a(ja+inc)=-scale*work(ia+1)
+      ia=ia+nx
+      ja=ja+jump
+   40 continue
 !
-   50 CONTINUE
-      RETURN
-      END
+   50 continue
+      return
+      end
 !
 !=======================================================================
 !
-      SUBROUTINE VPASSM(A,B,C,D,TRIGS,INC1,INC2,INC3,INC4,LOT,N,IFAC,LA)
+      subroutine vpassm(a,b,c,d,trigs,inc1,inc2,inc3,inc4,lot,n,ifac,la)
 
-      DIMENSION A(N),B(N),C(N),D(N),TRIGS(N)
+      dimension a(n),b(n),c(n),d(n),trigs(n)
 !
-!     "VPASSM" - MULTIPLE VERSION OF "VPASSA"
-!     PERFORMS ONE PASS THROUGH DATA
-!     AS PART OF MULTIPLE COMPLEX FFT ROUTINE
-!     A IS FIRST REAL INPUT VECTOR
-!     B IS FIRST IMAGINARY INPUT VECTOR
-!     C IS FIRST REAL OUTPUT VECTOR
-!     D IS FIRST IMAGINARY OUTPUT VECTOR
-!     TRIGS IS PRECALCULATED TABLE OF SINES " COSINES
-!     INC1 IS ADDRESSING INCREMENT FOR A AND B
-!     INC2 IS ADDRESSING INCREMENT FOR C AND D
-!     INC3 IS ADDRESSING INCREMENT BETWEEN A"S & B"S
-!     INC4 IS ADDRESSING INCREMENT BETWEEN C"S & D"S
-!     LOT IS THE NUMBER OF VECTORS
-!     N IS LENGTH OF VECTORS
-!     IFAC IS CURRENT FACTOR OF N
-!     LA IS PRODUCT OF PREVIOUS FACTORS
+!     "vpassm" - multiple version of "vpassa"
+!     performs one pass through data
+!     as part of multiple complex fft routine
+!     a is first real input vector
+!     b is first imaginary input vector
+!     c is first real output vector
+!     d is first imaginary output vector
+!     trigs is precalculated table of sines " cosines
+!     inc1 is addressing increment for a and b
+!     inc2 is addressing increment for c and d
+!     inc3 is addressing increment between a"s & b"s
+!     inc4 is addressing increment between c"s & d"s
+!     lot is the number of vectors
+!     n is length of vectors
+!     ifac is current factor of n
+!     la is product of previous factors
 !
-      DATA SIN36/0.587785252292473/,COS36/0.809016994374947/,SIN72/0.951056516295154/,COS72/0.309016994374947/,   &
-           SIN60/0.866025403784437/
+      data sin36/0.587785252292473/,cos36/0.809016994374947/,sin72/0.951056516295154/,cos72/0.309016994374947/,   &
+           sin60/0.866025403784437/
 !
-      M=N/IFAC
-      IINK=M*INC1
-      JINK=LA*INC2
-      JUMP=(IFAC-1)*JINK
-      IBASE=0
-      JBASE=0
-      IGO=IFAC-1
-      IF (IGO.GT.4) RETURN
-      GO TO (10,50,90,130),IGO
+      m=n/ifac
+      iink=m*inc1
+      jink=la*inc2
+      jump=(ifac-1)*jink
+      ibase=0
+      jbase=0
+      igo=ifac-1
+      if (igo.gt.4) return
+      go to (10,50,90,130),igo
 !
-!     CODING FOR FACTOR 2
+!     coding for factor 2
 !
-   10 IA=1
-      JA=1
-      IB=IA+IINK
-      JB=JA+JINK
-      DO 20 L=1,LA
-      I=IBASE
-      J=JBASE
+   10 ia=1
+      ja=1
+      ib=ia+iink
+      jb=ja+jink
+      do 20 l=1,la
+      i=ibase
+      j=jbase
 ! 
-      DO 15 IJK=1,LOT
-      C(JA+J)=A(IA+I)+A(IB+I)
-      D(JA+J)=B(IA+I)+B(IB+I)
-      C(JB+J)=A(IA+I)-A(IB+I)
-      D(JB+J)=B(IA+I)-B(IB+I)
-      I=I+INC3
-      J=J+INC4
-   15 CONTINUE
-      IBASE=IBASE+INC1
-      JBASE=JBASE+INC2
-   20 CONTINUE
-      IF (LA.EQ.M) RETURN
-      LA1=LA+1
-      JBASE=JBASE+JUMP
-      DO 40 K=LA1,M,LA
-      KB=K+K-2
-      C1=TRIGS(KB+1)
-      S1=TRIGS(KB+2)
-      DO 30 L=1,LA
-      I=IBASE
-      J=JBASE
+      do 15 ijk=1,lot
+      c(ja+j)=a(ia+i)+a(ib+i)
+      d(ja+j)=b(ia+i)+b(ib+i)
+      c(jb+j)=a(ia+i)-a(ib+i)
+      d(jb+j)=b(ia+i)-b(ib+i)
+      i=i+inc3
+      j=j+inc4
+   15 continue
+      ibase=ibase+inc1
+      jbase=jbase+inc2
+   20 continue
+      if (la.eq.m) return
+      la1=la+1
+      jbase=jbase+jump
+      do 40 k=la1,m,la
+      kb=k+k-2
+      c1=trigs(kb+1)
+      s1=trigs(kb+2)
+      do 30 l=1,la
+      i=ibase
+      j=jbase
 ! 
-      DO 25 IJK=1,LOT
-      C(JA+J)=A(IA+I)+A(IB+I)
-      D(JA+J)=B(IA+I)+B(IB+I)
-      C(JB+J)=C1*(A(IA+I)-A(IB+I))-S1*(B(IA+I)-B(IB+I))
-      D(JB+J)=S1*(A(IA+I)-A(IB+I))+C1*(B(IA+I)-B(IB+I))
-      I=I+INC3
-      J=J+INC4
-   25 CONTINUE
-      IBASE=IBASE+INC1
-      JBASE=JBASE+INC2
-   30 CONTINUE
-      JBASE=JBASE+JUMP
-   40 CONTINUE
-      RETURN
+      do 25 ijk=1,lot
+      c(ja+j)=a(ia+i)+a(ib+i)
+      d(ja+j)=b(ia+i)+b(ib+i)
+      c(jb+j)=c1*(a(ia+i)-a(ib+i))-s1*(b(ia+i)-b(ib+i))
+      d(jb+j)=s1*(a(ia+i)-a(ib+i))+c1*(b(ia+i)-b(ib+i))
+      i=i+inc3
+      j=j+inc4
+   25 continue
+      ibase=ibase+inc1
+      jbase=jbase+inc2
+   30 continue
+      jbase=jbase+jump
+   40 continue
+      return
 !
-!     CODING FOR FACTOR 3
+!     coding for factor 3
 !
-   50 IA=1
-      JA=1
-      IB=IA+IINK
-      JB=JA+JINK
-      IC=IB+IINK
-      JC=JB+JINK
-      DO 60 L=1,LA
-      I=IBASE
-      J=JBASE
+   50 ia=1
+      ja=1
+      ib=ia+iink
+      jb=ja+jink
+      ic=ib+iink
+      jc=jb+jink
+      do 60 l=1,la
+      i=ibase
+      j=jbase
 ! 
-      DO 55 IJK=1,LOT
-      C(JA+J)=A(IA+I)+(A(IB+I)+A(IC+I))
-      D(JA+J)=B(IA+I)+(B(IB+I)+B(IC+I))
-      C(JB+J)=(A(IA+I)-0.5*(A(IB+I)+A(IC+I)))-(SIN60*(B(IB+I)-B(IC+I)))
-      C(JC+J)=(A(IA+I)-0.5*(A(IB+I)+A(IC+I)))+(SIN60*(B(IB+I)-B(IC+I)))
-      D(JB+J)=(B(IA+I)-0.5*(B(IB+I)+B(IC+I)))+(SIN60*(A(IB+I)-A(IC+I)))
-      D(JC+J)=(B(IA+I)-0.5*(B(IB+I)+B(IC+I)))-(SIN60*(A(IB+I)-A(IC+I)))
-      I=I+INC3
-      J=J+INC4
-   55 CONTINUE
-      IBASE=IBASE+INC1
-      JBASE=JBASE+INC2
-   60 CONTINUE
-      IF (LA.EQ.M) RETURN
-      LA1=LA+1
-      JBASE=JBASE+JUMP
-      DO 80 K=LA1,M,LA
-      KB=K+K-2
-      KC=KB+KB
-      C1=TRIGS(KB+1)
-      S1=TRIGS(KB+2)
-      C2=TRIGS(KC+1)
-      S2=TRIGS(KC+2)
-      DO 70 L=1,LA
-      I=IBASE
-      J=JBASE
+      do 55 ijk=1,lot
+      c(ja+j)=a(ia+i)+(a(ib+i)+a(ic+i))
+      d(ja+j)=b(ia+i)+(b(ib+i)+b(ic+i))
+      c(jb+j)=(a(ia+i)-0.5*(a(ib+i)+a(ic+i)))-(sin60*(b(ib+i)-b(ic+i)))
+      c(jc+j)=(a(ia+i)-0.5*(a(ib+i)+a(ic+i)))+(sin60*(b(ib+i)-b(ic+i)))
+      d(jb+j)=(b(ia+i)-0.5*(b(ib+i)+b(ic+i)))+(sin60*(a(ib+i)-a(ic+i)))
+      d(jc+j)=(b(ia+i)-0.5*(b(ib+i)+b(ic+i)))-(sin60*(a(ib+i)-a(ic+i)))
+      i=i+inc3
+      j=j+inc4
+   55 continue
+      ibase=ibase+inc1
+      jbase=jbase+inc2
+   60 continue
+      if (la.eq.m) return
+      la1=la+1
+      jbase=jbase+jump
+      do 80 k=la1,m,la
+      kb=k+k-2
+      kc=kb+kb
+      c1=trigs(kb+1)
+      s1=trigs(kb+2)
+      c2=trigs(kc+1)
+      s2=trigs(kc+2)
+      do 70 l=1,la
+      i=ibase
+      j=jbase
 ! 
-      DO 65 IJK=1,LOT
-      C(JA+J)=A(IA+I)+(A(IB+I)+A(IC+I))
-      D(JA+J)=B(IA+I)+(B(IB+I)+B(IC+I))
-      C(JB+J)=C1*((A(IA+I)-0.5*(A(IB+I)+A(IC+I)))-(SIN60*(B(IB+I)-B(IC+I))))   &
-         -S1*((B(IA+I)-0.5*(B(IB+I)+B(IC+I)))+(SIN60*(A(IB+I)-A(IC+I))))
-      D(JB+J)=S1*((A(IA+I)-0.5*(A(IB+I)+A(IC+I)))-(SIN60*(B(IB+I)-B(IC+I))))   &
-         +C1*((B(IA+I)-0.5*(B(IB+I)+B(IC+I)))+(SIN60*(A(IB+I)-A(IC+I))))
-      C(JC+J)=C2*((A(IA+I)-0.5*(A(IB+I)+A(IC+I)))+(SIN60*(B(IB+I)-B(IC+I))))   &
-         -S2*((B(IA+I)-0.5*(B(IB+I)+B(IC+I)))-(SIN60*(A(IB+I)-A(IC+I))))
-      D(JC+J)=S2*((A(IA+I)-0.5*(A(IB+I)+A(IC+I)))+(SIN60*(B(IB+I)-B(IC+I))))   &
-         +C2*((B(IA+I)-0.5*(B(IB+I)+B(IC+I)))-(SIN60*(A(IB+I)-A(IC+I))))
-      I=I+INC3
-      J=J+INC4
-   65 CONTINUE
-      IBASE=IBASE+INC1
-      JBASE=JBASE+INC2
-   70 CONTINUE
-      JBASE=JBASE+JUMP
-   80 CONTINUE
-      RETURN
+      do 65 ijk=1,lot
+      c(ja+j)=a(ia+i)+(a(ib+i)+a(ic+i))
+      d(ja+j)=b(ia+i)+(b(ib+i)+b(ic+i))
+      c(jb+j)=c1*((a(ia+i)-0.5*(a(ib+i)+a(ic+i)))-(sin60*(b(ib+i)-b(ic+i))))   &
+         -s1*((b(ia+i)-0.5*(b(ib+i)+b(ic+i)))+(sin60*(a(ib+i)-a(ic+i))))
+      d(jb+j)=s1*((a(ia+i)-0.5*(a(ib+i)+a(ic+i)))-(sin60*(b(ib+i)-b(ic+i))))   &
+         +c1*((b(ia+i)-0.5*(b(ib+i)+b(ic+i)))+(sin60*(a(ib+i)-a(ic+i))))
+      c(jc+j)=c2*((a(ia+i)-0.5*(a(ib+i)+a(ic+i)))+(sin60*(b(ib+i)-b(ic+i))))   &
+         -s2*((b(ia+i)-0.5*(b(ib+i)+b(ic+i)))-(sin60*(a(ib+i)-a(ic+i))))
+      d(jc+j)=s2*((a(ia+i)-0.5*(a(ib+i)+a(ic+i)))+(sin60*(b(ib+i)-b(ic+i))))   &
+         +c2*((b(ia+i)-0.5*(b(ib+i)+b(ic+i)))-(sin60*(a(ib+i)-a(ic+i))))
+      i=i+inc3
+      j=j+inc4
+   65 continue
+      ibase=ibase+inc1
+      jbase=jbase+inc2
+   70 continue
+      jbase=jbase+jump
+   80 continue
+      return
 !
-!     CODING FOR FACTOR 4
+!     coding for factor 4
 !
-   90 IA=1
-      JA=1
-      IB=IA+IINK
-      JB=JA+JINK
-      IC=IB+IINK
-      JC=JB+JINK
-      ID=IC+IINK
-      JD=JC+JINK
-      DO 100 L=1,LA
-      I=IBASE
-      J=JBASE
+   90 ia=1
+      ja=1
+      ib=ia+iink
+      jb=ja+jink
+      ic=ib+iink
+      jc=jb+jink
+      id=ic+iink
+      jd=jc+jink
+      do 100 l=1,la
+      i=ibase
+      j=jbase
 ! 
-      DO 95 IJK=1,LOT
-      C(JA+J)=(A(IA+I)+A(IC+I))+(A(IB+I)+A(ID+I))
-      C(JC+J)=(A(IA+I)+A(IC+I))-(A(IB+I)+A(ID+I))
-      D(JA+J)=(B(IA+I)+B(IC+I))+(B(IB+I)+B(ID+I))
-      D(JC+J)=(B(IA+I)+B(IC+I))-(B(IB+I)+B(ID+I))
-      C(JB+J)=(A(IA+I)-A(IC+I))-(B(IB+I)-B(ID+I))
-      C(JD+J)=(A(IA+I)-A(IC+I))+(B(IB+I)-B(ID+I))
-      D(JB+J)=(B(IA+I)-B(IC+I))+(A(IB+I)-A(ID+I))
-      D(JD+J)=(B(IA+I)-B(IC+I))-(A(IB+I)-A(ID+I))
-      I=I+INC3
-      J=J+INC4
-   95 CONTINUE
-      IBASE=IBASE+INC1
-      JBASE=JBASE+INC2
-  100 CONTINUE
-      IF (LA.EQ.M) RETURN
-      LA1=LA+1
-      JBASE=JBASE+JUMP
-      DO 120 K=LA1,M,LA
-      KB=K+K-2
-      KC=KB+KB
-      KD=KC+KB
-      C1=TRIGS(KB+1)
-      S1=TRIGS(KB+2)
-      C2=TRIGS(KC+1)
-      S2=TRIGS(KC+2)
-      C3=TRIGS(KD+1)
-      S3=TRIGS(KD+2)
-      DO 110 L=1,LA
-      I=IBASE
-      J=JBASE
+      do 95 ijk=1,lot
+      c(ja+j)=(a(ia+i)+a(ic+i))+(a(ib+i)+a(id+i))
+      c(jc+j)=(a(ia+i)+a(ic+i))-(a(ib+i)+a(id+i))
+      d(ja+j)=(b(ia+i)+b(ic+i))+(b(ib+i)+b(id+i))
+      d(jc+j)=(b(ia+i)+b(ic+i))-(b(ib+i)+b(id+i))
+      c(jb+j)=(a(ia+i)-a(ic+i))-(b(ib+i)-b(id+i))
+      c(jd+j)=(a(ia+i)-a(ic+i))+(b(ib+i)-b(id+i))
+      d(jb+j)=(b(ia+i)-b(ic+i))+(a(ib+i)-a(id+i))
+      d(jd+j)=(b(ia+i)-b(ic+i))-(a(ib+i)-a(id+i))
+      i=i+inc3
+      j=j+inc4
+   95 continue
+      ibase=ibase+inc1
+      jbase=jbase+inc2
+  100 continue
+      if (la.eq.m) return
+      la1=la+1
+      jbase=jbase+jump
+      do 120 k=la1,m,la
+      kb=k+k-2
+      kc=kb+kb
+      kd=kc+kb
+      c1=trigs(kb+1)
+      s1=trigs(kb+2)
+      c2=trigs(kc+1)
+      s2=trigs(kc+2)
+      c3=trigs(kd+1)
+      s3=trigs(kd+2)
+      do 110 l=1,la
+      i=ibase
+      j=jbase
 ! 
-      DO 105 IJK=1,LOT
-      C(JA+J)=(A(IA+I)+A(IC+I))+(A(IB+I)+A(ID+I))
-      D(JA+J)=(B(IA+I)+B(IC+I))+(B(IB+I)+B(ID+I))
-      C(JC+J)=C2*((A(IA+I)+A(IC+I))-(A(IB+I)+A(ID+I)))   &
-         -S2*((B(IA+I)+B(IC+I))-(B(IB+I)+B(ID+I)))
-      D(JC+J)=S2*((A(IA+I)+A(IC+I))-(A(IB+I)+A(ID+I)))   &
-         +C2*((B(IA+I)+B(IC+I))-(B(IB+I)+B(ID+I)))
-      C(JB+J)=C1*((A(IA+I)-A(IC+I))-(B(IB+I)-B(ID+I)))   &
-         -S1*((B(IA+I)-B(IC+I))+(A(IB+I)-A(ID+I)))
-      D(JB+J)=S1*((A(IA+I)-A(IC+I))-(B(IB+I)-B(ID+I)))   &
-         +C1*((B(IA+I)-B(IC+I))+(A(IB+I)-A(ID+I)))
-      C(JD+J)=C3*((A(IA+I)-A(IC+I))+(B(IB+I)-B(ID+I)))   &
-         -S3*((B(IA+I)-B(IC+I))-(A(IB+I)-A(ID+I)))
-      D(JD+J)=S3*((A(IA+I)-A(IC+I))+(B(IB+I)-B(ID+I)))   &
-         +C3*((B(IA+I)-B(IC+I))-(A(IB+I)-A(ID+I)))
-      I=I+INC3
-      J=J+INC4
-  105 CONTINUE
-      IBASE=IBASE+INC1
-      JBASE=JBASE+INC2
-  110 CONTINUE
-      JBASE=JBASE+JUMP
-  120 CONTINUE
-      RETURN
+      do 105 ijk=1,lot
+      c(ja+j)=(a(ia+i)+a(ic+i))+(a(ib+i)+a(id+i))
+      d(ja+j)=(b(ia+i)+b(ic+i))+(b(ib+i)+b(id+i))
+      c(jc+j)=c2*((a(ia+i)+a(ic+i))-(a(ib+i)+a(id+i)))   &
+         -s2*((b(ia+i)+b(ic+i))-(b(ib+i)+b(id+i)))
+      d(jc+j)=s2*((a(ia+i)+a(ic+i))-(a(ib+i)+a(id+i)))   &
+         +c2*((b(ia+i)+b(ic+i))-(b(ib+i)+b(id+i)))
+      c(jb+j)=c1*((a(ia+i)-a(ic+i))-(b(ib+i)-b(id+i)))   &
+         -s1*((b(ia+i)-b(ic+i))+(a(ib+i)-a(id+i)))
+      d(jb+j)=s1*((a(ia+i)-a(ic+i))-(b(ib+i)-b(id+i)))   &
+         +c1*((b(ia+i)-b(ic+i))+(a(ib+i)-a(id+i)))
+      c(jd+j)=c3*((a(ia+i)-a(ic+i))+(b(ib+i)-b(id+i)))   &
+         -s3*((b(ia+i)-b(ic+i))-(a(ib+i)-a(id+i)))
+      d(jd+j)=s3*((a(ia+i)-a(ic+i))+(b(ib+i)-b(id+i)))   &
+         +c3*((b(ia+i)-b(ic+i))-(a(ib+i)-a(id+i)))
+      i=i+inc3
+      j=j+inc4
+  105 continue
+      ibase=ibase+inc1
+      jbase=jbase+inc2
+  110 continue
+      jbase=jbase+jump
+  120 continue
+      return
 !
-!     CODING FOR FACTOR 5
+!     coding for factor 5
 !
-  130 IA=1
-      JA=1
-      IB=IA+IINK
-      JB=JA+JINK
-      IC=IB+IINK
-      JC=JB+JINK
-      ID=IC+IINK
-      JD=JC+JINK
-      IE=ID+IINK
-      JE=JD+JINK
-      DO 140 L=1,LA
-      I=IBASE
-      J=JBASE
+  130 ia=1
+      ja=1
+      ib=ia+iink
+      jb=ja+jink
+      ic=ib+iink
+      jc=jb+jink
+      id=ic+iink
+      jd=jc+jink
+      ie=id+iink
+      je=jd+jink
+      do 140 l=1,la
+      i=ibase
+      j=jbase
 ! 
-      DO 135 IJK=1,LOT
-      C(JA+J)=A(IA+I)+(A(IB+I)+A(IE+I))+(A(IC+I)+A(ID+I))
-      D(JA+J)=B(IA+I)+(B(IB+I)+B(IE+I))+(B(IC+I)+B(ID+I))
-      C(JB+J)=(A(IA+I)+COS72*(A(IB+I)+A(IE+I))-COS36*(A(IC+I)+A(ID+I)))   &
-        -(SIN72*(B(IB+I)-B(IE+I))+SIN36*(B(IC+I)-B(ID+I)))
-      C(JE+J)=(A(IA+I)+COS72*(A(IB+I)+A(IE+I))-COS36*(A(IC+I)+A(ID+I)))   &
-        +(SIN72*(B(IB+I)-B(IE+I))+SIN36*(B(IC+I)-B(ID+I)))
-      D(JB+J)=(B(IA+I)+COS72*(B(IB+I)+B(IE+I))-COS36*(B(IC+I)+B(ID+I)))   &
-        +(SIN72*(A(IB+I)-A(IE+I))+SIN36*(A(IC+I)-A(ID+I)))
-      D(JE+J)=(B(IA+I)+COS72*(B(IB+I)+B(IE+I))-COS36*(B(IC+I)+B(ID+I)))   &
-        -(SIN72*(A(IB+I)-A(IE+I))+SIN36*(A(IC+I)-A(ID+I)))
-      C(JC+J)=(A(IA+I)-COS36*(A(IB+I)+A(IE+I))+COS72*(A(IC+I)+A(ID+I)))   &
-        -(SIN36*(B(IB+I)-B(IE+I))-SIN72*(B(IC+I)-B(ID+I)))
-      C(JD+J)=(A(IA+I)-COS36*(A(IB+I)+A(IE+I))+COS72*(A(IC+I)+A(ID+I)))   &
-        +(SIN36*(B(IB+I)-B(IE+I))-SIN72*(B(IC+I)-B(ID+I)))
-      D(JC+J)=(B(IA+I)-COS36*(B(IB+I)+B(IE+I))+COS72*(B(IC+I)+B(ID+I)))   &
-        +(SIN36*(A(IB+I)-A(IE+I))-SIN72*(A(IC+I)-A(ID+I)))
-      D(JD+J)=(B(IA+I)-COS36*(B(IB+I)+B(IE+I))+COS72*(B(IC+I)+B(ID+I)))   &
-        -(SIN36*(A(IB+I)-A(IE+I))-SIN72*(A(IC+I)-A(ID+I)))
-      I=I+INC3
-      J=J+INC4
-  135 CONTINUE
-      IBASE=IBASE+INC1
-      JBASE=JBASE+INC2
-  140 CONTINUE
-      IF (LA.EQ.M) RETURN
-      LA1=LA+1
-      JBASE=JBASE+JUMP
-      DO 160 K=LA1,M,LA
-      KB=K+K-2
-      KC=KB+KB
-      KD=KC+KB
-      KE=KD+KB
-      C1=TRIGS(KB+1)
-      S1=TRIGS(KB+2)
-      C2=TRIGS(KC+1)
-      S2=TRIGS(KC+2)
-      C3=TRIGS(KD+1)
-      S3=TRIGS(KD+2)
-      C4=TRIGS(KE+1)
-      S4=TRIGS(KE+2)
-      DO 150 L=1,LA
-      I=IBASE
-      J=JBASE
+      do 135 ijk=1,lot
+      c(ja+j)=a(ia+i)+(a(ib+i)+a(ie+i))+(a(ic+i)+a(id+i))
+      d(ja+j)=b(ia+i)+(b(ib+i)+b(ie+i))+(b(ic+i)+b(id+i))
+      c(jb+j)=(a(ia+i)+cos72*(a(ib+i)+a(ie+i))-cos36*(a(ic+i)+a(id+i)))   &
+        -(sin72*(b(ib+i)-b(ie+i))+sin36*(b(ic+i)-b(id+i)))
+      c(je+j)=(a(ia+i)+cos72*(a(ib+i)+a(ie+i))-cos36*(a(ic+i)+a(id+i)))   &
+        +(sin72*(b(ib+i)-b(ie+i))+sin36*(b(ic+i)-b(id+i)))
+      d(jb+j)=(b(ia+i)+cos72*(b(ib+i)+b(ie+i))-cos36*(b(ic+i)+b(id+i)))   &
+        +(sin72*(a(ib+i)-a(ie+i))+sin36*(a(ic+i)-a(id+i)))
+      d(je+j)=(b(ia+i)+cos72*(b(ib+i)+b(ie+i))-cos36*(b(ic+i)+b(id+i)))   &
+        -(sin72*(a(ib+i)-a(ie+i))+sin36*(a(ic+i)-a(id+i)))
+      c(jc+j)=(a(ia+i)-cos36*(a(ib+i)+a(ie+i))+cos72*(a(ic+i)+a(id+i)))   &
+        -(sin36*(b(ib+i)-b(ie+i))-sin72*(b(ic+i)-b(id+i)))
+      c(jd+j)=(a(ia+i)-cos36*(a(ib+i)+a(ie+i))+cos72*(a(ic+i)+a(id+i)))   &
+        +(sin36*(b(ib+i)-b(ie+i))-sin72*(b(ic+i)-b(id+i)))
+      d(jc+j)=(b(ia+i)-cos36*(b(ib+i)+b(ie+i))+cos72*(b(ic+i)+b(id+i)))   &
+        +(sin36*(a(ib+i)-a(ie+i))-sin72*(a(ic+i)-a(id+i)))
+      d(jd+j)=(b(ia+i)-cos36*(b(ib+i)+b(ie+i))+cos72*(b(ic+i)+b(id+i)))   &
+        -(sin36*(a(ib+i)-a(ie+i))-sin72*(a(ic+i)-a(id+i)))
+      i=i+inc3
+      j=j+inc4
+  135 continue
+      ibase=ibase+inc1
+      jbase=jbase+inc2
+  140 continue
+      if (la.eq.m) return
+      la1=la+1
+      jbase=jbase+jump
+      do 160 k=la1,m,la
+      kb=k+k-2
+      kc=kb+kb
+      kd=kc+kb
+      ke=kd+kb
+      c1=trigs(kb+1)
+      s1=trigs(kb+2)
+      c2=trigs(kc+1)
+      s2=trigs(kc+2)
+      c3=trigs(kd+1)
+      s3=trigs(kd+2)
+      c4=trigs(ke+1)
+      s4=trigs(ke+2)
+      do 150 l=1,la
+      i=ibase
+      j=jbase
 ! 
-      DO 145 IJK=1,LOT
-      C(JA+J)=A(IA+I)+(A(IB+I)+A(IE+I))+(A(IC+I)+A(ID+I))
-      D(JA+J)=B(IA+I)+(B(IB+I)+B(IE+I))+(B(IC+I)+B(ID+I))
-      C(JB+J)=C1*((A(IA+I)+COS72*(A(IB+I)+A(IE+I))-COS36*(A(IC+I)+A(ID+I)))   &
-            -(SIN72*(B(IB+I)-B(IE+I))+SIN36*(B(IC+I)-B(ID+I))))               &
-         -S1*((B(IA+I)+COS72*(B(IB+I)+B(IE+I))-COS36*(B(IC+I)+B(ID+I)))       &
-            +(SIN72*(A(IB+I)-A(IE+I))+SIN36*(A(IC+I)-A(ID+I))))
-      D(JB+J)=S1*((A(IA+I)+COS72*(A(IB+I)+A(IE+I))-COS36*(A(IC+I)+A(ID+I)))   &
-            -(SIN72*(B(IB+I)-B(IE+I))+SIN36*(B(IC+I)-B(ID+I))))               & 
-         +C1*((B(IA+I)+COS72*(B(IB+I)+B(IE+I))-COS36*(B(IC+I)+B(ID+I)))       & 
-            +(SIN72*(A(IB+I)-A(IE+I))+SIN36*(A(IC+I)-A(ID+I))))
-      C(JE+J)=C4*((A(IA+I)+COS72*(A(IB+I)+A(IE+I))-COS36*(A(IC+I)+A(ID+I)))   &
-            +(SIN72*(B(IB+I)-B(IE+I))+SIN36*(B(IC+I)-B(ID+I))))               &
-         -S4*((B(IA+I)+COS72*(B(IB+I)+B(IE+I))-COS36*(B(IC+I)+B(ID+I)))       &
-            -(SIN72*(A(IB+I)-A(IE+I))+SIN36*(A(IC+I)-A(ID+I))))
-      D(JE+J)=S4*((A(IA+I)+COS72*(A(IB+I)+A(IE+I))-COS36*(A(IC+I)+A(ID+I)))   &
-            +(SIN72*(B(IB+I)-B(IE+I))+SIN36*(B(IC+I)-B(ID+I))))               &
-         +C4*((B(IA+I)+COS72*(B(IB+I)+B(IE+I))-COS36*(B(IC+I)+B(ID+I)))       &
-            -(SIN72*(A(IB+I)-A(IE+I))+SIN36*(A(IC+I)-A(ID+I))))
-      C(JC+J)=C2*((A(IA+I)-COS36*(A(IB+I)+A(IE+I))+COS72*(A(IC+I)+A(ID+I)))   &
-            -(SIN36*(B(IB+I)-B(IE+I))-SIN72*(B(IC+I)-B(ID+I))))               &
-         -S2*((B(IA+I)-COS36*(B(IB+I)+B(IE+I))+COS72*(B(IC+I)+B(ID+I)))       &
-            +(SIN36*(A(IB+I)-A(IE+I))-SIN72*(A(IC+I)-A(ID+I))))
-      D(JC+J)=S2*((A(IA+I)-COS36*(A(IB+I)+A(IE+I))+COS72*(A(IC+I)+A(ID+I)))   &
-            -(SIN36*(B(IB+I)-B(IE+I))-SIN72*(B(IC+I)-B(ID+I))))               &
-         +C2*((B(IA+I)-COS36*(B(IB+I)+B(IE+I))+COS72*(B(IC+I)+B(ID+I)))       &
-            +(SIN36*(A(IB+I)-A(IE+I))-SIN72*(A(IC+I)-A(ID+I))))
-      C(JD+J)=C3*((A(IA+I)-COS36*(A(IB+I)+A(IE+I))+COS72*(A(IC+I)+A(ID+I)))   &
-            +(SIN36*(B(IB+I)-B(IE+I))-SIN72*(B(IC+I)-B(ID+I))))               &  
-         -S3*((B(IA+I)-COS36*(B(IB+I)+B(IE+I))+COS72*(B(IC+I)+B(ID+I)))       &
-            -(SIN36*(A(IB+I)-A(IE+I))-SIN72*(A(IC+I)-A(ID+I))))
-      D(JD+J)=S3*((A(IA+I)-COS36*(A(IB+I)+A(IE+I))+COS72*(A(IC+I)+A(ID+I)))   &
-            +(SIN36*(B(IB+I)-B(IE+I))-SIN72*(B(IC+I)-B(ID+I))))               &
-         +C3*((B(IA+I)-COS36*(B(IB+I)+B(IE+I))+COS72*(B(IC+I)+B(ID+I)))       &
-            -(SIN36*(A(IB+I)-A(IE+I))-SIN72*(A(IC+I)-A(ID+I))))
-      I=I+INC3
-      J=J+INC4
-  145 CONTINUE
-      IBASE=IBASE+INC1
-      JBASE=JBASE+INC2
-  150 CONTINUE
-      JBASE=JBASE+JUMP
-  160 CONTINUE
-      RETURN
-      END
+      do 145 ijk=1,lot
+      c(ja+j)=a(ia+i)+(a(ib+i)+a(ie+i))+(a(ic+i)+a(id+i))
+      d(ja+j)=b(ia+i)+(b(ib+i)+b(ie+i))+(b(ic+i)+b(id+i))
+      c(jb+j)=c1*((a(ia+i)+cos72*(a(ib+i)+a(ie+i))-cos36*(a(ic+i)+a(id+i)))   &
+            -(sin72*(b(ib+i)-b(ie+i))+sin36*(b(ic+i)-b(id+i))))               &
+         -s1*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))-cos36*(b(ic+i)+b(id+i)))       &
+            +(sin72*(a(ib+i)-a(ie+i))+sin36*(a(ic+i)-a(id+i))))
+      d(jb+j)=s1*((a(ia+i)+cos72*(a(ib+i)+a(ie+i))-cos36*(a(ic+i)+a(id+i)))   &
+            -(sin72*(b(ib+i)-b(ie+i))+sin36*(b(ic+i)-b(id+i))))               & 
+         +c1*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))-cos36*(b(ic+i)+b(id+i)))       & 
+            +(sin72*(a(ib+i)-a(ie+i))+sin36*(a(ic+i)-a(id+i))))
+      c(je+j)=c4*((a(ia+i)+cos72*(a(ib+i)+a(ie+i))-cos36*(a(ic+i)+a(id+i)))   &
+            +(sin72*(b(ib+i)-b(ie+i))+sin36*(b(ic+i)-b(id+i))))               &
+         -s4*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))-cos36*(b(ic+i)+b(id+i)))       &
+            -(sin72*(a(ib+i)-a(ie+i))+sin36*(a(ic+i)-a(id+i))))
+      d(je+j)=s4*((a(ia+i)+cos72*(a(ib+i)+a(ie+i))-cos36*(a(ic+i)+a(id+i)))   &
+            +(sin72*(b(ib+i)-b(ie+i))+sin36*(b(ic+i)-b(id+i))))               &
+         +c4*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))-cos36*(b(ic+i)+b(id+i)))       &
+            -(sin72*(a(ib+i)-a(ie+i))+sin36*(a(ic+i)-a(id+i))))
+      c(jc+j)=c2*((a(ia+i)-cos36*(a(ib+i)+a(ie+i))+cos72*(a(ic+i)+a(id+i)))   &
+            -(sin36*(b(ib+i)-b(ie+i))-sin72*(b(ic+i)-b(id+i))))               &
+         -s2*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))+cos72*(b(ic+i)+b(id+i)))       &
+            +(sin36*(a(ib+i)-a(ie+i))-sin72*(a(ic+i)-a(id+i))))
+      d(jc+j)=s2*((a(ia+i)-cos36*(a(ib+i)+a(ie+i))+cos72*(a(ic+i)+a(id+i)))   &
+            -(sin36*(b(ib+i)-b(ie+i))-sin72*(b(ic+i)-b(id+i))))               &
+         +c2*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))+cos72*(b(ic+i)+b(id+i)))       &
+            +(sin36*(a(ib+i)-a(ie+i))-sin72*(a(ic+i)-a(id+i))))
+      c(jd+j)=c3*((a(ia+i)-cos36*(a(ib+i)+a(ie+i))+cos72*(a(ic+i)+a(id+i)))   &
+            +(sin36*(b(ib+i)-b(ie+i))-sin72*(b(ic+i)-b(id+i))))               &  
+         -s3*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))+cos72*(b(ic+i)+b(id+i)))       &
+            -(sin36*(a(ib+i)-a(ie+i))-sin72*(a(ic+i)-a(id+i))))
+      d(jd+j)=s3*((a(ia+i)-cos36*(a(ib+i)+a(ie+i))+cos72*(a(ic+i)+a(id+i)))   &
+            +(sin36*(b(ib+i)-b(ie+i))-sin72*(b(ic+i)-b(id+i))))               &
+         +c3*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))+cos72*(b(ic+i)+b(id+i)))       &
+            -(sin36*(a(ib+i)-a(ie+i))-sin72*(a(ic+i)-a(id+i))))
+      i=i+inc3
+      j=j+inc4
+  145 continue
+      ibase=ibase+inc1
+      jbase=jbase+inc2
+  150 continue
+      jbase=jbase+jump
+  160 continue
+      return
+      end
 
       subroutine rcsexp(lfft,ifax,trig)
       dimension trig(1)
@@ -1653,10 +1653,10 @@
       integer ifax(1)
       dimension trig(1)
 !cccccccccc   symmetric complex to real  fft  
-!     Note: lfft must be even. n is the number of ffts to be 
-!     performed. The input , a , is a packed array and the 
+!     note: lfft must be even. n is the number of ffts to be 
+!     performed. the input , a , is a packed array and the 
 !     output is returned in packed form to a . 
-!       The inverse of csr is rcs. IS = +1 always for csr. 
+!       the inverse of csr is rcs. is = +1 always for csr. 
 !ccccccc    first , unpack the data  cccccccccccccccccccccccccccc
 
       do k=1,n 
@@ -1707,11 +1707,11 @@
       integer ifax(1)
       dimension trig(1)
 !cccccccccc  complex to complex fft  
-!    Note: lfft must be even and designates the fft length in (complex)
-!    word pairs. N is the number of ffts to be performed.
+!    note: lfft must be even and designates the fft length in (complex)
+!    word pairs. n is the number of ffts to be performed.
 !    performed. 
-!    IS = -1 or +1 for forward or inverse . 
-!ccccccc    Must avoid jump being a multiple of 2 ccccccccccccccccccc
+!    is = -1 or +1 for forward or inverse . 
+!ccccccc    must avoid jump being a multiple of 2 ccccccccccccccccccc
               lfft2 = 2*lfft
               
               
@@ -1757,101 +1757,101 @@
          end do
         
       end subroutine 
+
       subroutine ccheb(a,b,br,bi,work,sumre,sumim,lfft,n,is,ifax,trig,sine,cosine)
-      dimension a(1),b(1),br(1),bi(1),work(1)
-      dimension trig(1),sine(1),cosine(1)
-      dimension sumre(1),sumim(1)
-      integer ifax(1) 
-!           is = -1 real to Chebyshev
-!           is = +1 Chebyshev to real                    
-           lfftd2 = lfft/2
-           lfft2  = 2*lfft
-           fac1 = 4.0
-           fac2 = 1./(8.*(float(lfft)))
-!ccccccccc     preprocess the complex Chebyshev coefficients  cc
-             if (is.eq.+1) then 
+        dimension a(1),b(1),br(1),bi(1),work(1)
+        dimension trig(1),sine(1),cosine(1)
+        dimension sumre(1),sumim(1)
+        integer ifax(1) 
 
-                
-                do k=1,n
+!       is = -1 real to chebyshev
+!       is = +1 chebyshev to real                    
+        lfftd2 = lfft/2
+        lfft2  = 2*lfft
+        fac1 = 4.0
+        fac2 = 1./(8.*(float(lfft)))
+!ccccccccc     preprocess the complex chebyshev coefficients  cc
+        if (is.eq.+1) then 
+           
+           do k=1,n
 
-                   loca = (k-1)*(lfft2+2)
+              loca = (k-1)*(lfft2+2)
 
-                   a(loca+1) = 2.0*a(loca+1)
-                   a(loca+2) = 2.0*a(loca+2)
-                   a(loca+lfft2+1) = 2.0*a(loca+lfft2+1)
-                   a(loca+lfft2+2) = 2.0*a(loca+lfft2+2)
+              a(loca+1) = 2.0*a(loca+1)
+              a(loca+2) = 2.0*a(loca+2)
+              a(loca+lfft2+1) = 2.0*a(loca+lfft2+1)
+              a(loca+lfft2+2) = 2.0*a(loca+lfft2+2)
 
-                   do  i=1, lfft+1
+              do  i=1, lfft+1
 
-                      locr =  loca + 2*i-1 
-                      locim = locr+1
+                 locr =  loca + 2*i-1 
+                 locim = locr+1
 
+                 a(locr)= a(locr)*fac2
+                 a(locim) = a(locim)*fac2
 
-                      a(locr)= a(locr)*fac2
-                      a(locim) = a(locim)*fac2
+              end do
+           end do
+        endif
 
-                   end do
-                end do
+!ccccccccc compute complex cosine transform  cccccccccccccccccccccccc
 
-        
-             endif
-!ccccccccc Compute complex cosine transform  cccccccccccccccccccccccc
-                     ! initialize sums 
-             
-             do k=1,n 
-                sumr = 0.0 
-                sumi = 0.0
-                loca = (k-1)*(lfft2+2)  ! locations for a 
-                loc1r = loca +1          ! first real loc for a 
-                loc2r = loca +(lfft2+1) ! last real location for a   
-                loc1i = loca +2          ! first imag. loc for a 
-                loc2i = loca +(lfft2+2) ! last imag loc for a
+        ! initialize sums 
+        do k=1,n 
+           sumr = 0.0 
+           sumi = 0.0
+           loca = (k-1)*(lfft2+2)  ! locations for a 
+           loc1r = loca +1          ! first real loc for a 
+           loc2r = loca +(lfft2+1) ! last real location for a   
+           loc1i = loca +2          ! first imag. loc for a 
+           loc2i = loca +(lfft2+2) ! last imag loc for a
 
-                do i=2,lfft
+           do i=2,lfft
 
-                   locar = loca + (2*i-1)  ! real locs for a 
-                   locai = locar +1        ! imag locs for a 
+              locar = loca + (2*i-1)  ! real locs for a 
+              locai = locar +1        ! imag locs for a 
 
-                   sumr = sumr + a(locar)*cosine(i)
-                   sumi = sumi + a(locai)*cosine(i)
-                end do
+              sumr = sumr + a(locar)*cosine(i)
+              sumi = sumi + a(locai)*cosine(i)
+           end do
 
-                sumre(k) = sumr + a(loc1r)/2. - a(loc2r)/2. 
-                sumim(k) = sumi + a(loc1i)/2. - a(loc2i)/2. 
-             end do
+           sumre(k) = sumr + a(loc1r)/2. - a(loc2r)/2. 
+           sumim(k) = sumi + a(loc1i)/2. - a(loc2i)/2. 
+        end do
 
-             !  pre-processing 
+        !  pre-processing 
 
-             do k=1,n 
+        do k=1,n 
 
-                loca = (k-1)*(lfft2+2)    ! locs for a 
-                locb = (k-1)*(lfft+1)    ! locs for br and bi 
+           loca = (k-1)*(lfft2+2)    ! locs for a 
+           locb = (k-1)*(lfft+1)    ! locs for br and bi 
 
-                do i=1,lfft
-                   ir = 2*i-1
-                   im = ir+1
+           do i=1,lfft
+              ir = 2*i-1
+              im = ir+1
 
-                   ilowr  =  loca +ir                  ! 1:2l-1
-                   iupr   =  loca +(lfft2+2) - ir     ! 2l+1:3
-                   ilowim =  loca + im                 ! 2:2l
-                   iupim  =  loca +(lfft2+2) - (im-2) ! 2l+2:4
+              ilowr  =  loca +ir                  ! 1:2l-1
+              iupr   =  loca +(lfft2+2) - ir     ! 2l+1:3
+              ilowim =  loca + im                 ! 2:2l
+              iupim  =  loca +(lfft2+2) - (im-2) ! 2l+2:4
 
 
-                   br(locb +i) = (a(ilowr)+a(iupr))-2.0*sine(i)*(a(ilowr)-a(iupr))
+              br(locb +i) = (a(ilowr)+a(iupr))-2.0*sine(i)*(a(ilowr)-a(iupr))
 
-                   bi(locb +i) = (a(ilowim)+a(iupim))-2.0*sine(i)*(a(ilowim)-a(iupim))
+              bi(locb +i) = (a(ilowim)+a(iupim))-2.0*sine(i)*(a(ilowim)-a(iupim))
 
-                end do
-             end do
+           end do
+        end do
 
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-              ! complex to complex transform 
 
-                       isign = -1
-                       inc = 1 
-                       jump = lfft +1 
-                       lot = n
-       call cfftmlt(br,bi,work,trig,ifax,inc,jump,lfft,lot,isign)    
+        ! complex to complex transform 
+        isign = -1
+        inc = 1 
+        jump = lfft +1 
+        lot = n
+
+        call cfftmlt(br,bi,work,trig,ifax,inc,jump,lfft,lot,isign)    
 
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccc
        
@@ -1869,16 +1869,12 @@
        end do
 
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-                        ! post-processing 
 
+       ! post-processing 
        do k=1,n 
-
-
 
           loca = (k-1)*(lfft2+2)
           locb = (k-1)*(lfft2+2)
-
-
 
           ! fill real part of a 
 
@@ -1893,31 +1889,18 @@
           a(loca+(lfft2+2)) = 2.*b(locb+lfft+2)
        end do
 
-               ! fill rest of a 
-
-
-
-
+       ! fill rest of a 
 
        do i=2,lfftd2
           ir = 2*i-1
           im = ir+1
-
 
           ir1 = 2*ir-1    ! 5:2l-3
           im1 = ir1+2     ! 7:2l-1
           ir2 = 2*ir      ! 6:2l-2
           im2 = ir2+2     ! 8:2l
 
-
-
-          
-
-
-
           do k=1,n 
-
-
 
              loca = (k-1)*(lfft2+2)
              locb = (k-1)*(lfft2+2)
@@ -1935,8 +1918,7 @@
           end do
        end do
 
-!cccccccccccccc  postprocessing on the cosine coefficients to get 
-!ccccccccccccccc Chebyshev coefficients 
+!cccccc postprocessing on the cosine coefficients to get chebyshev coefficients 
 
        if (is.eq.-1) then 
 
@@ -1961,10 +1943,10 @@
       integer ifax(1)
       dimension trig(1) 
 !ccccccc      real to symmetric complex fft  
-!     Note: lfft must be even. n is the number of ffts to be 
-!     performed. The input , a , is a packed array and the 
+!     note: lfft must be even. n is the number of ffts to be 
+!     performed. the input , a , is a packed array and the 
 !     output is returned in packed form to a . 
-!       The inverse of rcs is csr. IS = -1 always for rcs.  
+!       the inverse of rcs is csr. is = -1 always for rcs.  
 !ccccccc    first , unpack the data  cccccccccccccccccccccccccccc
 
       do k=1,n 

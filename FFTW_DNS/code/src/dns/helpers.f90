@@ -2,300 +2,172 @@ module helpers
 implicit none
 ! This module contains miscellaneous helper functions used in the dns code
 contains
-    subroutine yfft(a,wfft1,wfft2,wfft3,wfft4,is)
-    !---------------------------------------------------------------------!
-    !  Fast Fourier Transform into spectral space:                        !
-    !      is = 1  ==> spectral -> physical                               !
-    !      is = -1 ==> physical -> spectral                               !
-    !---------------------------------------------------------------------!
-    
-    ! =================================================================== !
-    !                           Declare Modules                           !
-    ! =================================================================== !
+
+    subroutine xyzfft(a,b,is)
+    ! Plans and performs a full 3D transform (3-steps) on a either 
+    !   is = -1: physical --> spectral
+    !   is = +1: spectral --> physical
+
+    use,intrinsic :: iso_c_binding
     use grid_size
-    !---------------------------------------------------------------------!
-    
-    ! =================================================================== !
-    !                   Declare all variables explicitly                  !
-    ! =================================================================== !
+    use omp_lib
+
     implicit none
-    
-    ! Passed variables
-    complex, dimension(nyp,nz,nxh) :: a
-    real :: wfft1(1),wfft2(1),wfft3(1),wfft4(1)
-    integer :: is
-    
-    ! FFT variables
-    real :: trigx(2*nx),trigz(2*nz),trigy(2*ny),sine(ny),cosine(ny)
-    integer, dimension(19) :: ixfax,iyfax,izfax,ixfax32,izfax32
-    real, dimension(16000) :: trigx32
-    real, dimension(4000)  :: trigz32 
-    
-    ! Calculation variables
-    real, dimension(nz) :: sumre,sumim
-    real    :: fac
+
+    include 'fftw3.f03'
+
+    complex(C_DOUBLE_COMPLEX),dimension(nyp,nz,nxh) :: a
+    complex(C_DOUBLE_COMPLEX),dimension(nyp,nz,nx) :: aplan
+    real(C_DOUBLE),dimension(nyp,nz,nx) :: b,bplan
+
+    integer :: is,ierr
+
     integer :: i,j,k
-    
-    !---------------------------------------------------------------------!
-    
-    ! =================================================================== !
-    !                            Common Blocks                            !
-    ! =================================================================== !
-    common/trig/ trigx,trigy,trigz,sine,cosine,trigx32,trigz32
-    common/ifax/ ixfax,iyfax,izfax,ixfax32,izfax32
-    !---------------------------------------------------------------------!
-    
-    ! =================================================================== !
-    !                         Begin Calculations                          !
-    ! =================================================================== !
-    
-    ! Physical to spectral
-    if (is .eq. -1) then
-        fac = 1.0/(2.0*float(ny))
-    
-        do k = 1,nxh
+
+    type(C_PTR) :: plan1,plan2,plan3
+
+    real,dimension(nxh) :: wavx
+    real,dimension(nz)  :: wavz
+    real,dimension(nyp) :: c
+
+    common/waves/ wavx,wavz,c
+
+! ------------------------------------------------------------------------------- !
+
+    open(1,status='replace')
+    write(1,*) b
+    close(1)
+
+    open(1)
+    read(1,*) b
+    close(1)
+
+!    ierr = fftw_init_threads() ! Initialize threaded FFTW
+!    call fftw_plan_with_nthreads(OMP_GET_NUM_THREADS())
+
+    ! Physical --> Spectral
+    if (is .eq. -1) then 
+        plan1 = fftw_plan_r2r_1d(nyp,bplan,bplan,FFTW_REDFT00,FFTW_ESTIMATE)
+        plan2 = fftw_plan_dft_r2c_1d(nx,bplan,aplan,FFTW_ESTIMATE)
+        plan3 = fftw_plan_dft_1d(nz,aplan,aplan,is,FFTW_ESTIMATE)
+   
+!        write(102,*) b
+            ! y-transform
+            !omp parallel do shared(b,plan1)
+            do k = 1,nx
+                do j = 1,nz
+                    call fftw_execute_r2r(plan1,b(:,j,k),b(:,j,k))
+                    b(:,j,k) = b(:,j,k)/float(ny)
+                end do
+            end do
+            b(1,:,:) = b(1,:,:)/2.0
+            b(nyp,:,:) = b(nyp,:,:)/2.0
+            !omp end parallel do
+        
+!        write(202,*) b
+            ! x-transform | OpenMP threading does't work for this one, idk why
+            !omp parallel do shared(a,b,plan2)
             do j = 1,nz
                 do i = 1,nyp
-                    a(i,j,k) = a(i,j,k)*fac
+                    call fftw_execute_dft_r2c(plan2,b(i,j,:),aplan(i,j,:))
+                    aplan(i,j,:) = aplan(i,j,:)/float(nx)
                 end do
             end do
-        end do
-    
-        ! y transform
-        do k = 1,nxh
-            call ccheb(a(1,1,k),wfft1,wfft3,wfft4,wfft2,sumre,sumim,ny,nz,-1,iyfax,trigy,sine,cosine)
-        end do
-    
-    else if (is .eq. 1) then ! Spectral to physical
-    
-        do k = 1,nxh
-            call ccheb(a(1,1,k),wfft1,wfft3,wfft4,wfft2,sumre,sumim,ny,nz,1,iyfax,trigy,sine,cosine)
-        end do
-    
-        fac = 2.0*float(ny)
-    
-        do k = 1,nxh
-            do j = 1,nz
+            !omp end parallel do
+        
+!        write(302,*) aplan
+            ! z-transform
+            !omp parallel do shared(a,plan3)
+            do k = 1,nxh
                 do i = 1,nyp
-                    a(i,j,k) = a(i,j,k)*fac
+                    call fftw_execute_dft(plan3,aplan(i,:,k),aplan(i,:,k))
+                    aplan(i,:,k) = aplan(i,:,k)/float(nz)
                 end do
             end do
-        end do
-    
-    else ! error check
-        write(*,*) ' Error! is = ',is
-        stop
-    end if
-    
-    end subroutine yfft
-    
-    !---------------------------------------------------------------------!
-    
-    subroutine xyzfft(a,wfft1,wfft2,wfft3,wfft4,is)
-    !---------------------------------------------------------------------!
-    !  Fast Fourier Transform into spectral space:                        !
-    !      is = 1  ==> spectral -> physical                               !
-    !      is = -1 ==> physical -> spectral                               !
-    !---------------------------------------------------------------------!
-    
-    ! =================================================================== !
-    !                           Declare Modules                           !
-    ! =================================================================== !
-    use grid_size
-    !---------------------------------------------------------------------!
-    
-    ! =================================================================== !
-    !                   Declare all variables explicitly                  !
-    ! =================================================================== !
-    implicit none
-    
-    ! Passed variables
-    complex, dimension(nyp,nz,nxh) :: a
-    real    :: wfft1(1),wfft2(1),wfft3(1),wfft4(1) ! these were dimension(nmax) in original, but only ever used as a scalar
-    integer :: is
-    
-    ! FFT variables
-    real :: trigx(2*nx),trigz(2*nz),trigy(2*ny),sine(ny),cosine(ny)
-    integer, dimension(19) :: ixfax,iyfax,izfax,ixfax32,izfax32
-    real, dimension(16000) :: trigx32
-    real, dimension(4000)  :: trigz32 
-    
-    ! Calculation variables
-    complex, dimension(nxh,nz)     :: c
-    complex, dimension(nz,nxh)     :: d
-    real, dimension(nz) :: sumre,sumim
-    real    :: fac
-    integer :: i,j,k
-    
-    !---------------------------------------------------------------------!
-    
-    ! =================================================================== !
-    !                            Common Blocks                            !
-    ! =================================================================== !
-    common/trig/       trigx,trigy,trigz,sine,cosine,trigx32,trigz32
-    common/ifax/        ixfax,iyfax,izfax,ixfax32,izfax32
-    !---------------------------------------------------------------------!
-    
-    ! =================================================================== !
-    !                         Begin Calculations                          !
-    ! =================================================================== !
-    
-    ! Physical to spectral
-    if (is .eq. -1) then
-    
-        ! Do x-z planes, looping on y
-        do j = 1,nyp
-    
-            do k = 1,nz
-                do i = 1,nxh
-                    c(i,k) = a(j,k,i)
-                end do
-            end do
-    
-            ! x transform
-            call rcs(c,wfft1,wfft2,nx,nz,ixfax,trigx)
-            do i = 1,nxh
-                do k = 1,nz
-                    d(k,i) = c(i,k)
-                end do
-            end do
-    
-            ! z transform
-            call ccfft(d,wfft3,wfft4,wfft2,nz,nxh,-1,izfax,trigz)
-            fac = 1.0/(2.0*float(ny)*float(nz))
-    
-    
-            do i = 1,nxh
-                do k = 1,nz
-                    a(j,k,i) = d(k,i)*fac
-                end do
-            end do
-        end do
-    
-        ! y transform
+            !omp end parallel do
+   
+!        write(402,*) aplan
         do k = 1,nxh
-            call ccheb(a(1,1,k),wfft1,wfft2,wfft3,wfft4,sumre,sumim,ny,nz,-1,iyfax,trigy,sine,cosine)
+        do j = 1,nz
+        do i = 1,nyp 
+        a(i,j,k) = aplan(i,j,k)
         end do
-    
-    else if (is .eq. 1) then ! Spectral to physical
-    
-        do k = 1,nxh
-            call ccheb(a(1,1,k),wfft1,wfft2,wfft3,wfft4,sumre,sumim,ny,nz,1,iyfax,trigy,sine,cosine)
         end do
-    
+        end do
+         
+!        write(502,*) a
+!        ! y-transform
+!        do k = 1,nx
+!            do j = 1,nz
+!                call fftw_execute_r2r(plan1,b(:,j,k),b(:,j,k))
+!            end do
+!        end do
+!        b = b/float(2*ny)
+!    
+!        ! x-transform
+!        do j = 1,nz
+!            do i = 1,nyp
+!                call fftw_execute_dft_r2c(plan2,b(i,j,:),a(i,j,:))
+!            end do
+!        end do
+!        a = a/float(nx)
+!    
+!        ! z-transform
+!        do k = 1,nxh
+!            do i = 1,nyp
+!                call fftw_execute_dft(plan3,a(i,:,k),a(i,:,k))
+!            end do
+!        end do
+!        a = a/float(nz)
+!
+    ! Spectral --> Physical
+    else if (is .eq. +1) then
+        plan1 = fftw_plan_dft_1d(nz,a,a,is,FFTW_ESTIMATE)
+        plan2 = fftw_plan_dft_c2r_1d(nx,a,b,FFTW_ESTIMATE)
+        plan3 = fftw_plan_r2r_1d(nyp,b,b,FFTW_REDFT00,FFTW_ESTIMATE)
+   
         do i = 1,nyp
-            fac = 2.0*float(ny)*float(nz)
-    
-            do k = 1,nxh
-                do j = 1,nz
-                    d(j,k) = a(i,j,k)*fac
-                end do
-            end do
-    
-            call ccfft(d,wfft3,wfft4,wfft2,nz,nxh,1,izfax,trigz)
-    
-            do k = 1,nxh
-                do j = 1,nz
-                    c(k,j) = d(j,k)
-                end do
-            end do
-    
-            call csr(c,wfft1,wfft2,nx,nz,ixfax,trigx)
-    
-            do k = 1,nxh
-                do j = 1,nz
-                    a(i,j,k) = c(k,j)
-                end do
+            a(i,:,:) = a(i,:,:)*c(i)/2.0
+        end do
+
+        ! z-transform
+        !$omp parallel do
+        do k = 1,nxh
+            do i = 1,nyp
+                call fftw_execute_dft(plan1,a(i,:,k),a(i,:,k))
             end do
         end do
+        !$omp end parallel do
+
+        ! x-transform
+        !$omp parallel do
+        do j = 1,nz
+            do i = 1,nyp
+                call fftw_execute_dft_c2r(plan2,a(i,j,:),b(i,j,:))
+            end do
+        end do
+        !$omp end parallel do
     
-    else ! error check
-        write(*,*) ' Error! is = ',is
+        ! y-transform
+        !$omp parallel do
+        do k = 1,nx
+            do j = 1,nz
+                call fftw_execute_r2r(plan3,b(:,j,k),b(:,j,k))
+            end do
+        end do
+        !$omp end parallel do
+
+    else
+        print *,'Error! Invalid FFT sign (must be +1 or -1)'
         stop
     end if
-    
+
+    call fftw_destroy_plan(plan1)
+    call fftw_destroy_plan(plan2)
+    call fftw_destroy_plan(plan3)
+
+        
     end subroutine xyzfft
-    
-    !---------------------------------------------------------------------!
-    
-    subroutine scram(a,b)
-    !---------------------------------------------------------------------!
-    !  Fills b with data from a                                           !
-    !---------------------------------------------------------------------!
-    
-    ! =================================================================== !
-    !                           Declare Modules                           !
-    ! =================================================================== !
-    use grid_size
-    !---------------------------------------------------------------------!
-    
-    ! =================================================================== !
-    !                   Declare all variables explicitly                  !
-    ! =================================================================== !
-    implicit none
-    
-    ! Passed variables
-    complex,dimension(nyp,nz,nxh) :: b
-    real,   dimension(nyp,nz,nx)  :: a
-    
-    ! Calculation variables
-    integer :: i,j,k
-    
-    !---------------------------------------------------------------------!
-    
-    ! =================================================================== !
-    !                         Begin Calculations                          !
-    ! =================================================================== !
-    do i = 1,nyp
-        do j = 1,nz
-            do k = 1,nxh
-                b(i,j,k) = cmplx(a(i,j,k*2-1),a(i,j,k*2))
-            end do
-        end do
-    end do
-    
-    end subroutine scram
-    
-    !---------------------------------------------------------------------!
-    
-    subroutine unscram(b,a)
-    !---------------------------------------------------------------------!
-    !  Fills a with data from b                                           !
-    !---------------------------------------------------------------------!
-    
-    ! =================================================================== !
-    !                           Declare Modules                           !
-    ! =================================================================== !
-    use grid_size
-    !---------------------------------------------------------------------!
-    
-    ! =================================================================== !
-    !                   Declare all variables explicitly                  !
-    ! =================================================================== !
-    implicit none
-    
-    ! Passed variables
-    complex,dimension(nyp,nz,nxh) :: b
-    real,   dimension(nyp,nz,nx)  :: a
-    
-    ! Calculation variables
-    integer :: i,j,k
-    
-    !---------------------------------------------------------------------!
-    
-    ! =================================================================== !
-    !                         Begin Calculations                          !
-    ! =================================================================== !
-    do i = 1,nyp
-        do j = 1,nz
-            do k = 1,nxh
-                a(i,j,2*k-1) = real(b(i,j,k))
-                a(i,j,2*k)   = aimag(b(i,j,k))
-            end do
-        end do
-    end do
-    
-    end subroutine unscram
     
     !---------------------------------------------------------------------!
     
@@ -388,7 +260,7 @@ contains
         ! Passed variables  
         real    :: u11r,u12r,u21r,u22r  ! velocity gradients
         complex :: u11,u12,u21,u22  ! velocity gradients
-        complex :: lambda1, lambda2,tmp ! Eigenvalues
+        complex :: lambda1,lambda2 ! Eigenvalues
     
 
         ! Transfer variables to complex data for complex calculations
@@ -713,14 +585,13 @@ contains
 
     ! Solver variables
     real :: wavx(nxh),wavz(nz) 
-    real :: c(nyp)
 
     !---------------------------------------------------------------------!
     
     ! =================================================================== !
     !                            Common Blocks                            !
     ! =================================================================== !
-    common/waves/      wavx,wavz,c
+    common/waves/      wavx,wavz
     !---------------------------------------------------------------------!
     
     ! =================================================================== !
@@ -1165,6 +1036,7 @@ contains
     ! Common blocks
         common/iocontrl/   irstrt
         common/itime/      it
+        common/dtime/      dt
         common/domain/     xl,yl,zl
      
     ! =================================================================== !
@@ -1361,7 +1233,7 @@ contains
 !        Strain = u12*u21 + u13*u31 + u23*u32 ! Strain rate tensor magnitude squared
 
         Strain = u11**2 + u22**2 + u33**2
-        Rot = -2.0*(u12*u21 + u13*u32 + u23*u32)
+        Rot = -2.0*(u12*u21 + u13*u31 + u23*u32)
         Q = 0.5*(Rot - Strain)
          
     end subroutine calcQ
@@ -1508,7 +1380,8 @@ contains
     
         common/iocontrl/ irstrt,nsteps,iprnfrq,print3d
         common/domain/   xl,yl,zl
-        common/itime/    it,dt
+        common/itime/    it
+        common/dtime/    dt
     
         ! Printing in 2D workaround
         if (nz .gt. 10) then
@@ -1606,7 +1479,7 @@ contains
     
         include 'tecio.f90'
     
-        integer :: mz_copy,mx_copy
+        integer(c_int64_t) :: mz_copy,mx_copy
         integer :: irstrt, nsteps,iprnfrq,print3d,crstrt
         real, dimension(nyp,mz,mx) :: u, v, w, wx, wy, wz, swirl, ctp
 #IF DEFINED SCALAR
@@ -1634,7 +1507,8 @@ contains
  
         ! Common blocks
         common/iocontrl/   irstrt,nsteps,iprnfrq,print3d,crstrt
-        common/itime/      it,dt
+        common/itime/      it
+        common/dtime/      dt
         common/domain/     xl,yl,zl
 #IFDEF SCALAR
         common/scl_stuff/  sigmax,sigmay,sigmaz,deltaT,diff,scl_flag
@@ -1656,7 +1530,7 @@ contains
         integer(c_int32_t), allocatable :: valueLocation(:)
         integer(c_int32_t), allocatable :: passiveVarList(:)
         integer(c_int32_t) :: shareFaceNeighborsFromZone = 0
-        integer(c_int32_t) :: numFaceConnections = 0
+        integer(c_int64_t) :: numFaceConnections = 0
         integer(c_int32_t) :: faceNeighborMode = 0
         integer(c_int32_t) :: totalNumFaceNodes = 0
         integer(c_int32_t) :: numConnectedBoundaryFaces = 0
@@ -1664,7 +1538,7 @@ contains
         integer(c_int32_t) :: shareConnectivityFromZone = 0
         integer(c_int32_t) :: isDouble = 0
         integer(c_int32_t) :: zone
-        integer(c_float) :: solutionTime
+        real(c_double) :: solutionTime
         real(c_float), allocatable :: floatValues(:)
         real(c_float), allocatable :: coordinates(:,:,:,:)
         type(c_ptr) :: gridFH = C_NULL_PTR
@@ -1767,7 +1641,7 @@ contains
 #ELIF DEFINED SCALAR
                 "u,v,w,swirl,scalar", &
 #ELSE
-                "u,v,w,swirl", &
+                "u,v,w,swirl"//NULLCHR, &
 #ENDIF
                 1, &
                 2, &
@@ -1783,7 +1657,7 @@ contains
         
         ! Create zone
         i = tecZoneCreateIJK(FH, &
-            "Flowfield", &
+            "Flowfield"//NULLCHR, &
             nyp, &
             mz_copy, &
             mx_copy, &
@@ -1796,7 +1670,7 @@ contains
             faceNeighborMode, &
             zone)
        
-        solutionTime = it
+        solutionTime = float(it)
         i = tecZoneSetUnsteadyOptions(FH, &
             zone, &
             solutionTime, &
@@ -1819,14 +1693,14 @@ contains
         i = tecZoneVarWriteFloatValues(FH,zone,4,1,numValues,floatValues)
    
         ! We can write vorticity if it's important, but Tecplot can calculate it just fine 
-    !    ! Write wx
-    !    floatValues = pack(wx(:,1:mz_copy,1:mx_copy), .true.)
-    !    i = tecZoneVarWriteFloatValues(FH,zone,5,1,numValues,floatValues)
-    !    
-    !    ! Write wy
-    !    floatValues = pack(wy(:,1:mz_copy,1:mx_copy), .true.)
-    !    i = tecZoneVarWriteFloatValues(FH,zone,6,1,numValues,floatValues)
-    !    
+        ! Write wx
+!        floatValues = pack(wx(:,1:mz_copy,1:mx_copy), .true.)
+!        i = tecZoneVarWriteFloatValues(FH,zone,5,1,numValues,floatValues)
+!        
+!        ! Write wy
+!        floatValues = pack(wy(:,1:mz_copy,1:mx_copy), .true.)
+!        i = tecZoneVarWriteFloatValues(FH,zone,6,1,numValues,floatValues)
+        
     !    ! Write wz
     !    floatValues = pack(wz(:,1:mz_copy,1:mx_copy), .true.)
     !    i = tecZoneVarWriteFloatValues(FH,zone,7,1,numValues,floatValues)
@@ -1843,13 +1717,13 @@ contains
     end subroutine
 #endif
 
-    subroutine write_FTLE_output(u,v,w,wx,wy,wz)
+    subroutine write_FTLE_output(u,v,w)
 
         use grid_size   
 
         implicit none
 
-        real,dimension(nyp,mz,mx) :: u,v,w,wx,wy,wz
+        real,dimension(nyp,mz,mx) :: u,v,w
 
         integer :: i,j,k
         integer :: it
@@ -1869,7 +1743,8 @@ contains
 
         ! Common blocks
         common/iocontrl/ irstrt,nsteps,iprnfrq,print3d
-        common/itime/    it,dt
+        common/itime/    it
+        common/dtime/    dt
         common/domain/   xl,yl,zl
 
 
@@ -1916,7 +1791,6 @@ contains
         write(filename,'("FTLE_veloc-",i6.6)')it
         open(124,file="outputs/flowfield/"//filename,form="unformatted")
         write(124) u,v,w
-!        write(124) wx,wy,wz ! Not sure if these are useful/necessary
         close(124)
     end subroutine write_FTLE_output
 

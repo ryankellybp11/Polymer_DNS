@@ -123,15 +123,15 @@ subroutine channel(initu, initv, initw)
     write(*,*) "Reynolds Number equals ",ReyNo
     write(*,*) "dPdx equals ",dPdx
     
-    do k = 1, nyp
+    do k = 1,nx
       do j = 1,nz
-        do i = 1,nx    
-           if (k .le. kwall .or. (nyp-k) .le. kwall) then
-              initu(k,j,i) = 0.0  
+        do i = 1,nyp
+           if (i .le. kwall .or. (nyp-i) .le. kwall) then
+              initu(i,j,k) = 0.0  
            else  
-              initu(k,j,i) = re*dPdx*(0.5*ycoord(k)**2 - yl/2*ycoord(k))
-              initv(k,j,i) = 0.0
-              initw(k,j,i) = 0.0
+              initu(i,j,k) = re*dPdx*(0.5*abs(ycoord(i)-ycoord(nyp))**2 - yl/2*abs(ycoord(i)-ycoord(nyp)))
+              initv(i,j,k) = 0.0
+              initw(i,j,k) = 0.0
           end if
         end do
       end do
@@ -174,15 +174,15 @@ subroutine Couette_2D(initu, initv, initw)
     ! --------------------------------------------------------------- !
     !                        Set Initial Flow                         !
     ! --------------------------------------------------------------- !
-    do k = 1,nyp
-        do j = 1,nz
-            do i = 1,nx
-                initu(k,j,i) = Uinf*(ycoord(k))/ycoord(nyp)
-                initv(k,j,i) = 0.0
-                initw(k,j,i) = 0.0
+        do k = 1,nx
+            do j = 1,nz
+                do i = 1,nyp
+                initu(i,j,k) = Uinf*(abs(ycoord(i)-ycoord(nyp))/abs(ycoord(1)-ycoord(nyp)))
+                initv(i,j,k) = 0.0
+                initw(i,j,k) = 0.0
+                end do
             end do
         end do
-    end do
 end subroutine
 
 ! ------------------------------------------------------------------------- !
@@ -221,12 +221,12 @@ subroutine Couette_3D(initu, initv, initw)
     ! --------------------------------------------------------------- !
     !                        Set Initial Flow                         !
     ! --------------------------------------------------------------- !
-    do k = kwall,(nyp-kwall)
+    do k = 1,nyp
         do j = 1,nz
             do i = 1,nx
-                initu(k,j,i) = Uinf*(ycoord(k-kwall))/ycoord(nyp - kwall)
+                initu(k,j,i) = Uinf*((ycoord(k)-ycoord(nyp))/(ycoord(nyp)-ycoord(nyp)))
                 initv(k,j,i) = 0.0
-                initw(k,j,i) = Uinf*(ycoord(k-kwall))/ycoord(nyp - kwall)
+                initw(k,j,i) = Uinf*((ycoord(k)-ycoord(nyp))/(ycoord(nyp)-ycoord(nyp)))
             end do
         end do
     end do
@@ -260,7 +260,7 @@ subroutine BlasiusBL(initu, initv, initw)
    
     ! Calculation Variables 
     integer :: i,j,k
-    real    :: bconst, eta, U_temp, ytemp
+    real    :: bconst, eta, U_temp
     
     ! Flow setup variables
 	real    :: re,Uinf,R_tau,dPdx
@@ -296,7 +296,7 @@ subroutine BlasiusBL(initu, initv, initw)
         bconst = sqrt(re*Uinf/(2*xstart))
         !omp parallel do 
         do i = 1,nyp
-            eta = ycoord(i)*bconst
+            eta = (ycoord(i)-ycoord(nyp))*bconst
             if (eta .le. 8.0) then
                 call BlasSolver(eta,U_temp)
             end if
@@ -380,7 +380,7 @@ subroutine vortex_only(initu,initv,initw)
     integer :: vNum
     
     ! Calculation variables
-    real    :: pi, y, z, x,r
+    real    :: pi, y, z
     integer :: i, j, k
     
     ! Geometry variables
@@ -540,7 +540,7 @@ subroutine vortex_channel(initu,initv,initw)
     integer :: vNum
     
     ! Calculation variables
-    real    :: ReyNo, Uc
+    real    :: ReyNo
     real    :: pi, y, z
     integer :: i, j, k
     
@@ -663,7 +663,7 @@ subroutine vortex_channel(initu,initv,initw)
     do k = 1, nyp
         do j = 1,nz
             do i = 1,nx
-                  initu(k,j,i) = re*dPdx*(0.5*ycoord(k)**2 - yl/2*ycoord(k))
+                  initu(k,j,i) = re*dPdx*(0.5*(ycoord(k)-ycoord(nyp))**2 - yl/2*(ycoord(k)-ycoord(nyp)))
                   initv(k,j,i) = -vortGamma/(2.0*pi)*vortVi(j,k)
                   initw(k,j,i) =  vortGamma/(2.0*pi)*vortWi(j,k)
             end do
@@ -820,7 +820,7 @@ subroutine vortex_Couette(initu,initv,initw)
     do k = 1, nyp
         do j = 1,nz
             do i = 1,nx
-                  initu(k,j,i) = Uinf*ycoord(k)/ycoord(nyp)
+                  initu(k,j,i) = Uinf*(ycoord(k)-ycoord(nyp))/(ycoord(nyp)-ycoord(nyp))
                   initv(k,j,i) = -vortGamma/(2.0*pi)*vortVi(j,k)
                   initw(k,j,i) =  vortGamma/(2.0*pi)*vortWi(j,k)
             end do

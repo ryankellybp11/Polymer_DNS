@@ -3,6 +3,7 @@ program dns
 ! ============================================================================ !
 !                             Declare Modules                                  !
 ! ============================================================================ !
+    use,intrinsic :: iso_c_binding
     use grid_size
     use omp_lib
     use solvers
@@ -15,6 +16,14 @@ program dns
 ! ============================================================================ !
 
     implicit none
+
+    include 'fftw3.f03'
+
+    ! FFTW Plan variables
+    type(C_PTR) :: planZb,planXb,planY,planXf,planZf
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: aspec
+    real(C_DOUBLE), dimension(nyp,mz,mx) :: aphys
+    integer :: ierr
 
     ! Flow variables
     complex, dimension(nyp,nz,nxh) :: u,v,w,omx,omy,omz
@@ -67,7 +76,6 @@ program dns
     real,    dimension(nyp)        :: w0,h3n,h3nm1
     real,    dimension(nxh)        :: wavx
     real,    dimension(nz)         :: wavz
-    real,    dimension(nyp)        :: c
 
     real :: gain,ugain,theta,alpha,beta,dyde
 
@@ -78,12 +86,13 @@ program dns
 
     ! Calculation variables
     complex, dimension(nyp,nz,nxh) :: wrkc, wrk1
+#IFDEF POLYMER
     real,    dimension(nyp,nz,nx)  :: wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,wrk33
+#ENDIF
     real,    dimension(nyhp,nz,3)  :: a
 
-    real, dimension(nmax) :: wfft1,wfft2,wfft3,wfft4 
     real    :: wn2,x,g,ysmth,zsmth
-    integer :: i,j,k,ib,is,iyt,iyb,jj,uflag
+    integer :: i,j,k,ib,iyt,iyb,jj,uflag
 
     ! Simulation control variables
     integer :: irstrt,nsteps,iprnfrq,print3d,crstrt
@@ -94,6 +103,8 @@ program dns
     real, dimension(nyp,mz,mx) :: fxintg,fyintg,fzintg
     real, dimension(mz2,mx2)   :: fspread
 
+    ! temp
+    real,dimension(nyp,nz,nx) :: initu,initv,initw
 ! ---------------------------------------------------------------------------- !
 
 
@@ -102,11 +113,13 @@ program dns
 ! ============================================================================ !
 
     common/iocontrl/  irstrt,nsteps,iprnfrq,print3d,crstrt
-    common/waves/     wavx,wavz,c
+    common/init/     initu,initv,initw
+    common/waves/     wavx,wavz
     common/u0bcs/     atu,btu,gtu,abu,bbu,gbu
     common/grnfcn/    nt,nb,p1t,p1b,p2t,p2b
     common/solver/    gain,ugain,theta,alpha,beta,dyde
-    common/itime/     it,dt
+    common/itime/     it
+    common/dtime/     dt
     common/ibforce/   fxintg,fyintg,fzintg,fspread
     common/flow/      re,Uinf,R_tau,dPdx
 #IFDEF SCALAR
@@ -131,10 +144,32 @@ program dns
     ! a second-order Adams-Bashforth integrator, so it needs the first     !
     ! time step in order to get start.                                     !
     ! -------------------------------------------------------------------- !
-   
+  
     call setstuff ! Reads setup file to initialize variables
 
 
+    ! Plan FFT routines
+    ierr = fftw_init_threads() ! Initialize threaded FFTW (OpenMP)
+    if (ierr .eq. 0) then
+        print *,'Error! FFTW could not initialize threads!'
+        stop
+    end if
+    call fftw_plan_with_nthreads(OMP_GET_NUM_THREADS())
+
+    ! NOTE:
+    !   With the FFTW_PATIENT option, this process may take a few seconds
+    !   but once the plans are created, they can be used indefinitely.
+    !   The variables aspec and aphys are dummy variables that are
+    !   overwritten during this process, so they can't be used after this.
+    !   It also has the benefit of reducing the number of OpenMP threads
+    !   used if it determines less is better.
+    planZb = fftw_plan_dft_1d(mz,aspec,aspec,FFTW_BACKWARD,FFTW_PATIENT)
+    planXb = fftw_plan_dft_c2r_1d(mx,aspec,aphys,FFTW_PATIENT)
+    planY  = fftw_plan_r2r_1d(nyp,aphys,aphys,FFTW_REDFT00,FFTW_PATIENT)
+    planXf = fftw_plan_dft_r2c_1d(mx,aphys,aspec,FFTW_PATIENT)
+    planZf = fftw_plan_dft_1d(mz,aspec,aspec,FFTW_FORWARD,FFTW_PATIENT)
+
+    
     ! Compute Green's functions for the two systems
     call gfcn(gf1,a,wrkc,wrk1,bctop,bcbot,dnv1b,dnv1t,nb,nt,p1b,p1t)
     call gfcn(gf2,a,wrkc,wrk1,bctop,bcbot,dnv2b,dnv2t,nb,nt,p2b,p2t)
@@ -152,8 +187,7 @@ program dns
 
     ! Compute start-up condition to use Adams-Bashforth later
     call initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, &
-                 wrk1,wrkc,wfft1,wfft2,wfft3,wfft4,   &
-                 u11,u12,u13,u21,u22,u23,u31,u32,u33, &
+                 wrk1,wrkc,u11,u12,u13,u21,u22,u23,u31,u32,u33, &
 #IFDEF SCALAR
                  scalar,sclx,scly,sclz,scn,scnm1,     &
 #ENDIF
@@ -166,7 +200,8 @@ program dns
                  str13n,str22n,str23n,str33n,str11nm1,str12nm1,str13nm1,      &
                  str22nm1,str23nm1,str33nm1,qp11,qp12,qp13,qp22,qp23,qp33,    &
 #ENDIF
-                 Lu,Lv,Lw,Lu_old,Lv_old,Lw_old)
+                 Lu,Lv,Lw,Lu_old,Lv_old,Lw_old, &
+                 planZb,planXb,planY,planXf,planZf) 
                  
 
 ! ---------------------------------------------------------------------------- !
@@ -201,24 +236,15 @@ program dns
                 end do
             end do
 
-            call scram(wrk11,c11)
-            call xyzfft(c11,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk12,c12)
-            call xyzfft(c12,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk13,c13)
-            call xyzfft(c13,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk21,c21)
-            call xyzfft(c21,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk22,c22)
-            call xyzfft(c22,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk23,c23)
-            call xyzfft(c23,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk31,c31)
-            call xyzfft(c31,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk32,c32)
-            call xyzfft(c32,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk33,c33)
-            call xyzfft(c33,wfft1,wfft2,wfft3,wfft4,-1)
+            call xyzfft(c11,wrk11,-1)
+            call xyzfft(c12,wrk12,-1)
+            call xyzfft(c13,wrk13,-1)
+            call xyzfft(c21,wrk21,-1)
+            call xyzfft(c22,wrk22,-1)
+            call xyzfft(c23,wrk23,-1)
+            call xyzfft(c31,wrk31,-1)
+            call xyzfft(c32,wrk32,-1)
+            call xyzfft(c33,wrk33,-1)
         end if
 
         ! -------------------------------------------------------------------- !
@@ -343,6 +369,7 @@ program dns
             call penta(scalar(1,1,k),x,g,dyde,ib,atscl,btscl,bcscltop(1,k),abscl,bbscl,bcsclbot(1,k),a,wrk1)
         end do
 #ENDIF
+
         ! -------------------------------------------------------------------- !
         ! Initial phi field is computed from the laplacian of the v field
         call cderiv(v,wrk1)
@@ -358,6 +385,7 @@ program dns
             end do
         end do
         !$omp end parallel do
+
 
         ! Evaluate RHS of time discrete equation for phi
         call phirhs(v,wrkc,wrk1,fn,fnm1,bcbot,bctop,1.0)
@@ -495,7 +523,7 @@ program dns
         !   For consistency with continuity, the subroutine veloc(...) also 
         !   resets the imaginary component of V(i,kx=0) (i.e., the real part 
         !   of the kmax mode) equal to 0
-        
+      
         call norm(v)
         call norm(omy)
         call veloc(u,v,w,u0,w0,omy,wrkc)
@@ -505,10 +533,10 @@ program dns
         call norm(w)
 
         ! Calculate the other vorticity components
-        call vort(u,v,w,omx,omz,wrkc)
+        call vort(u,v,w,omx,omz)
         call norm(omx)
         call norm(omz)
-       
+
 #IFDEF SCALAR
         ! Calculate scalar gradient
         call norm(scalar)
@@ -580,148 +608,10 @@ program dns
          call norm(dc332) 
          call norm(dc333)                                                 
 #ENDIF
-
-        open(222,file="outputs/v_spectral",form="unformatted")
-        write(222) v
-        close(222)
-
+       
         ! -------------------------------------------------------------------- !
-        ! Transform all data into y-physical
-        is = 1 ! yfft flag: spectral --> physical
-        
-        !$omp parallel sections default(shared) private(wfft1,wfft2,wfft3,wfft4)
-        !$omp section
-        call yfft(u,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section
-        call yfft(v,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(w,wfft1,wfft2,wfft3,wfft4,is)
-        
-        !$omp section   
-        call yfft(omx,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(omy,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(omz,wfft1,wfft2,wfft3,wfft4,is)
-        
-        !$omp section   
-        call yfft(u11,wfft1,wfft2,wfft3,wfft4,is)    
-        !$omp section   
-        call yfft(u12,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(u13,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(u21,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(u22,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(u23,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(u31,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(u32,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(u33,wfft1,wfft2,wfft3,wfft4,is)
-        
-        !$omp section   
-        call yfft(Lu,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(Lv,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(Lw,wfft1,wfft2,wfft3,wfft4,is)
-#IFDEF SCALAR
-        !$omp section
-        call yfft(scalar,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section
-        call yfft(sclx,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section
-        call yfft(scly,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section
-        call yfft(sclz,wfft1,wfft2,wfft3,wfft4,is)
-#ENDIF
-        !$omp end parallel sections
-#IFDEF POLYMER
-        if (it .ge. src_start-1) then
-        !$omp parallel sections default(shared) private(wfft1,wfft2,wfft3,wfft4)
-        call yfft(c11,wfft1,wfft2,wfft3,wfft4,is)    
-        !$omp section   
-        call yfft(c12,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(c13,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(c21,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(c22,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(c23,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(c31,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(c32,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(c33,wfft1,wfft2,wfft3,wfft4,is)
-
-        !$omp section   
-        call yfft(dc111,wfft1,wfft2,wfft3,wfft4,is)    
-        !$omp section   
-        call yfft(dc112,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc113,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc211,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc212,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc213,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc311,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc312,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc313,wfft1,wfft2,wfft3,wfft4,is)
-
-        !$omp section   
-        call yfft(dc121,wfft1,wfft2,wfft3,wfft4,is)    
-        !$omp section   
-        call yfft(dc122,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc123,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc221,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc222,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc223,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc321,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc322,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc323,wfft1,wfft2,wfft3,wfft4,is)
-
-        !$omp section   
-        call yfft(dc131,wfft1,wfft2,wfft3,wfft4,is)    
-        !$omp section   
-        call yfft(dc132,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc133,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc231,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc232,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc233,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc331,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc332,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section   
-        call yfft(dc333,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp end parallel sections
-        end if
-#ENDIF       
-        ! -------------------------------------------------------------------- !
-        ! Compute v x omega in physical space
+        ! Compute v x omega in physical space - FFTs are performed inside subroutine
+        ! Assumes all variables are in 3D spectral space (on input and output)
         call vcw3dp(u,v,w,omx,omy,omz,fn,gn,u11,u12,u13,u21,u22,u23,       &
                     u31,u32,u33,Lu,Lv,Lw, &
 #IFDEF SCALAR
@@ -736,94 +626,10 @@ program dns
                     str11n,str12n,str13n,str22n,str23n,str33n,             &
                     qp11,qp12,qp13,qp22,qp23,qp33,  &
 #ENDIF
-                    Lu_old,Lv_old,Lw_old) 
-       
-        ! -------------------------------------------------------------------- !
-        ! Transform all data into y-spectral
-        is = -1 ! yfft flag: physical --> spectral
-        
-        !$omp parallel sections default(shared) private(wfft1,wfft2,wfft3,wfft4)
-        !$omp section
-        call yfft(v,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section
-        call yfft(omy,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section
-        call yfft(fn,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section
-        call yfft(gn,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section
-        call yfft(omz,wfft1,wfft2,wfft3,wfft4,is)
-#IFDEF SCALAR
-        !$omp section
-        call yfft(scalar,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section
-        call yfft(scn,wfft1,wfft2,wfft3,wfft4,is)
-#ENDIF
-        !$omp end parallel sections
+                    Lu_old,Lv_old,Lw_old, &
+                    planZb,planXb,planY,planXf,planZf) 
 
-#IFDEF POLYMER
-        if (it .ge. src_start-1) then
-        !$omp parallel sections default(shared) private(wfft1,wfft2,wfft3,wfft4)
-        !$omp section     
-            call yfft(c11,wfft1,wfft2,wfft3,wfft4,is)    
-        !$omp section     
-            call yfft(c12,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-            call yfft(c13,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-            call yfft(c21,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-            call yfft(c22,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-            call yfft(c23,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-            call yfft(c31,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-            call yfft(c32,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-            call yfft(c33,wfft1,wfft2,wfft3,wfft4,is)
-
-        !$omp section     
-        call yfft(c11n,wfft1,wfft2,wfft3,wfft4,is)    
-        !$omp section     
-        call yfft(c12n,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-        call yfft(c13n,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-        call yfft(c22n,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-        call yfft(c23n,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-        call yfft(c33n,wfft1,wfft2,wfft3,wfft4,is)
-
-        !$omp section     
-        call yfft(str11n,wfft1,wfft2,wfft3,wfft4,is)    
-        !$omp section     
-        call yfft(str12n,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-        call yfft(str13n,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-        call yfft(str22n,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-        call yfft(str23n,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-        call yfft(str33n,wfft1,wfft2,wfft3,wfft4,is)
-
-        !$omp section     
-        call yfft(qp11,wfft1,wfft2,wfft3,wfft4,is) 
-        !$omp section     
-        call yfft(qp12,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-        call yfft(qp13,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-        call yfft(qp22,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-        call yfft(qp23,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp section     
-        call yfft(qp33,wfft1,wfft2,wfft3,wfft4,is)
-        !$omp end parallel sections
-        end if
-#ENDIF        
+        ! Normalizations
         call norm(v)
         call norm(omy)
         call norm(fn)
@@ -921,7 +727,6 @@ program dns
                     scn(i,j,k) = scn(i,j,k)*ysmth
 #ENDIF
 #IFDEF POLYMER
-                    ! Testing other terms
                     c11n(i,j,k) = c11n(i,j,k)*ysmth
                     c12n(i,j,k) = c12n(i,j,k)*ysmth
                     c13n(i,j,k) = c13n(i,j,k)*ysmth
@@ -956,7 +761,6 @@ program dns
                     scn(i,j,k) = scn(i,j,k)*zsmth
 #ENDIF
 #IFDEF POLYMER
-                    ! Testing other terms
                     c11n(i,j,k) = c11n(i,j,k)*zsmth
                     c12n(i,j,k) = c12n(i,j,k)*zsmth
                     c13n(i,j,k) = c13n(i,j,k)*zsmth
@@ -1036,7 +840,11 @@ program dns
 !                               Post-Processing                                !
 ! ============================================================================ !
 
-    ! Nothing to put here for now...
+    call fftw_destroy_plan(planZb)
+    call fftw_destroy_plan(planZf)
+    call fftw_destroy_plan(planXb)
+    call fftw_destroy_plan(planXf)
+    call fftw_destroy_plan(planY)
 
 ! ---------------------------------------------------------------------------- !
 end program dns
@@ -1064,12 +872,6 @@ subroutine setstuff
 ! ============================================================================ !
     implicit none
 
-    ! FFT variables
-    real :: trigx(2*nx),trigz(2*nz),trigy(2*ny),sine(ny),cosine(ny)
-    integer, dimension(19) :: ixfax,iyfax,izfax,ixfax32,izfax32
-    real, dimension(16000) :: trigx32
-    real, dimension(4000)  :: trigz32 
-
     ! Temporary calculation variables
     real    :: pi
     integer :: i,j,k
@@ -1086,7 +888,7 @@ subroutine setstuff
 
     ! Buffer region
     real, dimension(1200) :: bfgain,bfugain
-    integer :: bfhead,bftail,bfwidth,bfwh,bfcntr
+    integer :: bfhead,bftail,bfwidth
     real    :: vdes(mx)
     real    :: slopelength
 
@@ -1140,9 +942,8 @@ subroutine setstuff
     common/flow/       re,Uinf,R_tau,dPdx
     common/vortexring/ forbeta,xcenter,ycenter,zcenter,L,rad,bdyfx
     common/vort/       vortGamma,vortSigma,vortY,vortZ,vortSpace,vNum
-    common/trig/       trigx,trigy,trigz,sine,cosine,trigx32,trigz32
-    common/ifax/       ixfax,iyfax,izfax,ixfax32,izfax32
-    common/itime/      it,dt
+    common/itime/      it
+    common/dtime/      dt
     common/imat/       imatrix,kwall,kmaxsurf
     common/domain/     xl,yl,zl
     common/buffer/     bfgain,bfugain,vdes,bfhead,bftail,bfwidth,slopelength
@@ -1326,20 +1127,13 @@ subroutine setstuff
 !                        Initialize Variables and FFTs                         !
 ! ============================================================================ !
     ! Set y coordinate vector for easy reference elsewhere
-    ycoord(1) = 0.0
+    ycoord(1) = yl/2.0
     do k = 2,nyp
-        ycoord(k) = (1.0 - cos(float(k-1)*pi/float(ny)))*(yl/2.0) ! [0,YL]
-        seght(k) = ycoord(k) - ycoord(k-1)
+        ycoord(k) = (cos(float(k-1)*pi/float(ny)))*(yl/2.0) ! [-YL/2,+YL/2]
+        seght(k) = abs(ycoord(k) - ycoord(k-1))
     end do
     seght(1) = seght(nyp)
-    
-    ! Initialize fft package
-    call rcsexp(nx,ixfax,trigx)
-    call ccosexp(ny,sine,cosine,iyfax,trigy)
-    call ccexp(nz,izfax,trigz)
-    call rcsexp(nx32,ixfax32,trigx32)
-    call ccexp(nz32,izfax32,trigz32)
-    
+   
     ! Read in geometry matrix
     open(112,file='code/bin/geometry/geometry',form='unformatted')
     read(112) imatrix
@@ -1363,13 +1157,13 @@ subroutine setstuff
         wavz(j) = float(j-nz-1)*beta
     end do
     
-    ! Define coefficients for Chebyshev expansions
+    ! Define Chebyshev coefficients
     do i = 1,nyp
         c(i) = 1.0
     end do
     c(1) = 2.0
     c(nyp) = 2.0
-    
+
     ! -------------------------------------------------------------------- !
     ! Calculate dy/d(eta) scaling factor; see subroutine solve(...)
     !
@@ -1395,10 +1189,6 @@ subroutine setbcs
 ! I added separate variables to handle u and w (I'm not sure why they were the !
 ! same by default in the first place).                                         !
 !
-! One odd note is that all the "top" BCs correspond to our output of y = 0 and !
-! all the "bottom" BCs correspond to y = yl. This is a weird thing with how we !
-! apparently write our 3D data in real space after the transform, but I'm just !
-! rolling with it. - Ryan                                                      !
 ! ---------------------------------------------------------------------------- !
 ! Set data for the calculation of the Green's functions phi1, phi2 in the      !
 ! subroutines gfcn1 & gfcn2. The composite solution ensures that v = 0 on both !
@@ -1507,7 +1297,7 @@ subroutine setbcs
             ! u=0 on y = 0 wall
             atu = 1.0
             btu = 0.0
-            gtu = 0.0
+            gtu = Uinf
 
             ! w=0 on y = 0 wall
             atw = 1.0
@@ -1517,7 +1307,7 @@ subroutine setbcs
             ! u=Uinf on y = yl wall
             abu = 1.0
             bbu = 0.0
-            gbu = Uinf
+            gbu = 0.0
 
             ! w=0 on y = yl wall
             abw = 1.0
@@ -1538,22 +1328,22 @@ subroutine setbcs
             ! u=0 on y = 0 wall
             atu = 1.0
             btu = 0.0
-            gtu = 0.0
+            gtu = Uinf
 
             ! w=0 on y = 0 wall
             atw = 1.0
             btw = 0.0
-            gtw = 0.0
+            gtw = Uinf
 
             ! u=Uinf on y = yl wall
             abu = 1.0
             bbu = 0.0
-            gbu = Uinf
+            gbu = 0.0
 
             ! w=0 on y = yl wall
             abw = 1.0
             bbw = 0.0
-            gbw = Uinf
+            gbw = 0.0
 
             ! Green's Function BCs
             nt = 1.0
@@ -1567,28 +1357,28 @@ subroutine setbcs
             ! u = 0 on bottom wall, du/dy = 0 on top wall
 
             ! u=0 on y = 0 wall
-            atu = 1.0
-            btu = 0.0
+            atu = 0.0
+            btu = 1.0
             gtu = 0.0
 
             ! w=0 on y = 0 wall
-            atw = 1.0
-            btw = 0.0
+            atw = 0.0
+            btw = 1.0
             gtw = 0.0
 
             ! u=Uinf on y = yl wall
-            abu = 0.0
-            bbu = 1.0
+            abu = 1.0
+            bbu = 0.0
             gbu = 0.0
 
             ! w=0 on y = yl wall
-            abw = 0.0
-            bbw = 1.0
+            abw = 1.0
+            bbw = 0.0
             gbw = 0.0
 
             ! Green's Function BCs
-            nt = 1.0
-            nb = 2.0
+            nt = 2.0
+            nb = 1.0
 
         case (0,5,10) ! Vortex Ring or Still fluid
             print *,' BCs chosen for Still Fluid:'
@@ -1821,8 +1611,7 @@ end subroutine forcepre
 ! ---------------------------------------------------------------------------- !
 
 subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, &
-                   wrk1,wrkc,wfft1,wfft2,wfft3,wfft4,   &
-                   u11,u12,u13,u21,u22,u23,u31,u32,u33, &
+                   wrk1,wrkc,u11,u12,u13,u21,u22,u23,u31,u32,u33, &
 #IFDEF SCALAR
                    scalar,sclx,scly,sclz,scn,scnm1,     &
 #ENDIF
@@ -1835,11 +1624,13 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
                    str13n,str22n,str23n,str33n,str11nm1,str12nm1,str13nm1,      &
                    str22nm1,str23nm1,str33nm1,qp11,qp12,qp13,qp22,qp23,qp33,    &
 #ENDIF
-                   Lu,Lv,Lw,Lu_old,Lv_old,Lw_old)
+                   Lu,Lv,Lw,Lu_old,Lv_old,Lw_old, &
+                   planZb,planXb,planY,planXf,planZf) 
 
 ! ============================================================================ !
 !                             Declare Modules                                  !
 ! ============================================================================ !
+    use,intrinsic :: iso_c_binding
     use grid_size
     use solvers
     use derivs
@@ -1852,6 +1643,11 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
 ! ============================================================================ !
 
     implicit none
+
+    include 'fftw3.f03'
+
+    ! FFTW variables
+    type(C_PTR) :: planZb,planXb,planY,planXf,planZf
 
     ! Flow variables
     complex, dimension(nyp,nz,nxh) :: u,v,w,omx,omy,omz
@@ -1892,19 +1688,19 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
 #ENDIF
 
     ! Solver variables
-    complex, dimension(nyp,nz,nxh) :: fn,fnm1,gn,gnm1,gf1,gf2
+    complex, dimension(nyp,nz,nxh) :: fn,fnm1,gn,gnm1
     real,    dimension(nyp)        :: u0,h1n,h1nm1
     real,    dimension(nyp)        :: w0,h3n,h3nm1
     real,    dimension(nxh)        :: wavx
     real,    dimension(nz)         :: wavz
-    real,    dimension(nyp)        :: c
 
     ! Temporary variables (multi-purpose calculation variables)
     complex, dimension(nyp,nz,nxh) :: wrkc, wrk1
+#IFDEF POLYMER
     real,    dimension(nyp,nz,nx)  :: wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,wrk33
-    integer :: i,j,k,is
+#ENDIF
+    integer :: i,j,k
     complex :: im
-    real, dimension(nmax) :: wfft1,wfft2,wfft3,wfft4 
     
     
     ! Simulation control variables
@@ -1924,10 +1720,11 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
 ! ============================================================================ !
 
     common/iocontrl/  irstrt,nsteps,iprnfrq,print3d,crstrt
-    common/waves/     wavx,wavz,c
+    common/waves/     wavx,wavz
     common/init/      initu,initv,initw
     common/ibforce/   fxintg,fyintg,fzintg,fspread
-    common/itime/     it,dt
+    common/itime/     it
+    common/dtime/     dt
 #IFDEF SCALAR
     common/src_time/  src_start,src_stop
 #ENDIF
@@ -1950,7 +1747,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
     ! sets initial conditions in real space and then transforms to         !
     ! spectral space.                                                      !
     ! -------------------------------------------------------------------- !
-    
+   
     im = (0.0,1.0) ! imaginary number, i
     
     if (irstrt .eq. 1) then
@@ -1960,44 +1757,30 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
         read(113) fxintg,fyintg,fzintg
         close(113)
 
-        write(1,*) v
 #IF DEFINED SCALAR && !DEFINED POLYMER
     ! -------------------------------------------------------------------- !
     ! Initialize scalar field
         call setscl(scl,psource)
-        call scram(scl,scalar)
-        call xyzfft(scalar,wfft1,wfft2,wfft3,wfft4,-1)
+        call xyzfft(scalar,scl,-1)
 
-        call scram(psource,csource)
-        call xyzfft(csource,wfft1,wfft2,wfft3,wfft4,-1)
+        call xyzfft(csource,psource,-1)
 #ELIF DEFINED SCALAR
         if (crstrt .eq. 0) then
             ! For now, just manually set Cij and scalar and leave nonlinear terms as 0
             call setpoly(scl,psource,wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,wrk33)
-            call scram(scl,scalar)
-            call xyzfft(scalar,wfft1,wfft2,wfft3,wfft4,-1)
+
+            call xyzfft(scalar,scl,-1)
+            call xyzfft(csource,psource,-1)
     
-            call scram(psource,csource)
-            call xyzfft(csource,wfft1,wfft2,wfft3,wfft4,-1)
-    
-            call scram(wrk11,c11)
-            call xyzfft(c11,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk12,c12)
-            call xyzfft(c12,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk13,c13)
-            call xyzfft(c13,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk21,c21)
-            call xyzfft(c21,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk22,c22)
-            call xyzfft(c22,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk23,c23)
-            call xyzfft(c23,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk31,c31)
-            call xyzfft(c31,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk32,c32)
-            call xyzfft(c32,wfft1,wfft2,wfft3,wfft4,-1)
-            call scram(wrk33,c33)
-            call xyzfft(c33,wfft1,wfft2,wfft3,wfft4,-1)
+            call xyzfft(c11,wrk11,-1)
+            call xyzfft(c12,wrk12,-1)
+            call xyzfft(c13,wrk13,-1)
+            call xyzfft(c21,wrk21,-1)
+            call xyzfft(c22,wrk22,-1)
+            call xyzfft(c23,wrk23,-1)
+            call xyzfft(c31,wrk31,-1)
+            call xyzfft(c32,wrk32,-1)
+            call xyzfft(c33,wrk33,-1)
     
             ! Calculate scalar gradient
             call gradscl(scalar,sclx,scly,sclz,wrkc)
@@ -2085,50 +1868,33 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
     else ! assumes only options are 1 and 0
     ! -------------------------------------------------------------------- !
     ! Use initial flow values in real space to set u,v,w in spectral space
-    
-        call scram(initu,u)
-        call xyzfft(u,wfft1,wfft2,wfft3,wfft4,-1)
-        
-        call scram(initv,v)
-        call xyzfft(v,wfft1,wfft2,wfft3,wfft4,-1)
-        
-        call scram(initw,w)
-        call xyzfft(w,wfft1,wfft2,wfft3,wfft4,-1)
+
+        call xyzfft(u,initu,-1)
+        call xyzfft(v,initv,-1)
+        call xyzfft(w,initw,-1)
 
 #IF DEFINED SCALAR && !DEFINED POLYMER
     ! -------------------------------------------------------------------- !
     ! Initialize scalar field
         call setscl(scl,psource)
-        call scram(scl,scalar)
-        call xyzfft(scalar,wfft1,wfft2,wfft3,wfft4,-1)
 
-        call scram(psource,csource)
-        call xyzfft(csource,wfft1,wfft2,wfft3,wfft4,-1)
+        call xyzfft(scalar,scl,-1)
+        call xyzfft(csource,psource,-1)
 #ELIF DEFINED SCALAR
         call setpoly(scl,psource,wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,wrk33)
-        call scram(wrk11,c11)
-        call xyzfft(c11,wfft1,wfft2,wfft3,wfft4,-1)
-        call scram(wrk12,c12)
-        call xyzfft(c12,wfft1,wfft2,wfft3,wfft4,-1)
-        call scram(wrk13,c13)
-        call xyzfft(c13,wfft1,wfft2,wfft3,wfft4,-1)
-        call scram(wrk21,c21)
-        call xyzfft(c21,wfft1,wfft2,wfft3,wfft4,-1)
-        call scram(wrk22,c22)
-        call xyzfft(c22,wfft1,wfft2,wfft3,wfft4,-1)
-        call scram(wrk23,c23)
-        call xyzfft(c23,wfft1,wfft2,wfft3,wfft4,-1)
-        call scram(wrk31,c31)
-        call xyzfft(c31,wfft1,wfft2,wfft3,wfft4,-1)
-        call scram(wrk32,c32)
-        call xyzfft(c32,wfft1,wfft2,wfft3,wfft4,-1)
-        call scram(wrk33,c33)
-        call xyzfft(c33,wfft1,wfft2,wfft3,wfft4,-1)
-        call scram(scl,scalar)
-        call xyzfft(scalar,wfft1,wfft2,wfft3,wfft4,-1)
 
-        call scram(psource,csource)
-        call xyzfft(csource,wfft1,wfft2,wfft3,wfft4,-1)
+        call xyzfft(scalar,scl,-1)
+        call xyzfft(csource,psource,-1)
+    
+        call xyzfft(c11,wrk11,-1)
+        call xyzfft(c12,wrk12,-1)
+        call xyzfft(c13,wrk13,-1)
+        call xyzfft(c21,wrk21,-1)
+        call xyzfft(c22,wrk22,-1)
+        call xyzfft(c23,wrk23,-1)
+        call xyzfft(c31,wrk31,-1)
+        call xyzfft(c32,wrk32,-1)
+        call xyzfft(c33,wrk33,-1)
 #ENDIF
 
     ! -------------------------------------------------------------------- !
@@ -2146,7 +1912,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
         do i = 1,nyp
             omy(i,1,1) = (0.0,0.0)
         end do
-    
+   
         ! Normalize variables
         call norm(u)
         call norm(v)
@@ -2175,16 +1941,24 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
             w0(i) = real(w(i,1,1))
         end do
         
-        ! Calculate remaining components of velocity
-        call veloc(u,v,w,u0,w0,omy,wrkc)
+        ! Calculate first mode:
+        ! Update the first (kz = 0) mode of streamwise velocity. The imaginary part
+        ! of the first mode has been used to store the real part of the last Fourier
+        ! mode (nz/2 + 1)
         
+        do i = 1,nyp
+            u(i,1,1) = cmplx(u0(i),0.0)
+            v(i,1,1) = 0.0
+            w(i,1,1) = cmplx(w0(i),0.0)
+        end do
+
         call norm(u)
         call norm(v)
         call norm(w)
         call norm(omy)
-        
+       
         ! Calculate remaining vorticity and nonlinear terms
-        call vort(u,v,w,omx,omz,wrkc)
+        call vort(u,v,w,omx,omz)
         
         call norm(omx)
         call norm(omz)
@@ -2261,78 +2035,8 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
 #ENDIF
 
     ! -------------------------------------------------------------------- !
-    ! Transform data into y-physical
-        is = 1
-    
-        call yfft(u,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(v,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(w,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(omx,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(omy,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(omz,wfft1,wfft2,wfft3,wfft4,is)
-    
-        call yfft(u11,wfft1,wfft2,wfft3,wfft4,is)    
-        call yfft(u12,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(u13,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(u21,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(u22,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(u23,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(u31,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(u32,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(u33,wfft1,wfft2,wfft3,wfft4,is)
-    
-        call yfft(Lu,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(Lv,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(Lw,wfft1,wfft2,wfft3,wfft4,is)
-#IFDEF SCALAR    
-        call yfft(scalar,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(sclx,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(scly,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(sclz,wfft1,wfft2,wfft3,wfft4,is)
-#ENDIF
-#IFDEF POLYMER
-        call yfft(c11,wfft1,wfft2,wfft3,wfft4,is)    
-        call yfft(c12,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c13,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c21,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c22,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c23,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c31,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c32,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c33,wfft1,wfft2,wfft3,wfft4,is)
-
-        call yfft(dc111,wfft1,wfft2,wfft3,wfft4,is)    
-        call yfft(dc112,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc113,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc211,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc212,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc213,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc311,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc312,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc313,wfft1,wfft2,wfft3,wfft4,is)
-
-        call yfft(dc121,wfft1,wfft2,wfft3,wfft4,is)    
-        call yfft(dc122,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc123,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc221,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc222,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc223,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc321,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc322,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc323,wfft1,wfft2,wfft3,wfft4,is)
-
-        call yfft(dc131,wfft1,wfft2,wfft3,wfft4,is)    
-        call yfft(dc132,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc133,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc231,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc232,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc233,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc331,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc332,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(dc333,wfft1,wfft2,wfft3,wfft4,is)
-#ENDIF
-        ! -------------------------------------------------------------------- !
-        ! Compute v x omega in physical space
+    ! Compute v x omega in physical space - FFTs are performed inside subroutine
+    ! Assumes all variables are in 3D spectral space (on input and output)
         call vcw3dp(u,v,w,omx,omy,omz,fn,gn,u11,u12,u13,u21,u22,u23,       &
                     u31,u32,u33,Lu,Lv,Lw, &
 #IFDEF SCALAR
@@ -2347,55 +2051,17 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
                     str11n,str12n,str13n,str22n,str23n,str33n,             &
                     qp11,qp12,qp13,qp22,qp23,qp33,  &
 #ENDIF
-                    Lu_old,Lv_old,Lw_old) 
-    
-        ! Transform all data into y-spectral
-      
-        is = -1
-    
-        call yfft(v,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(omy,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(fn,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(gn,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(omz,wfft1,wfft2,wfft3,wfft4,is)
-#IFDEF SCALAR
-        call yfft(scalar,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(scn,wfft1,wfft2,wfft3,wfft4,is)
-        call norm(scalar)
-        call norm(scn)
-#ENDIF
+                    Lu_old,Lv_old,Lw_old, &
+                    planZb,planXb,planY,planXf,planZf) 
+   
+        call norm(v)
+        call norm(omy)
+        call norm(fn)
+        call norm(gn)
+        call norm(omz)
+
 #IFDEF POLYMER    
-        call yfft(c11,wfft1,wfft2,wfft3,wfft4,is)    
-        call yfft(c12,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c13,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c21,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c22,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c23,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c31,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c32,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c33,wfft1,wfft2,wfft3,wfft4,is)
-
-        call yfft(c11n,wfft1,wfft2,wfft3,wfft4,is)    
-        call yfft(c12n,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c13n,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c22n,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c23n,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(c33n,wfft1,wfft2,wfft3,wfft4,is)
-
-        call yfft(str11n,wfft1,wfft2,wfft3,wfft4,is)    
-        call yfft(str12n,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(str13n,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(str22n,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(str23n,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(str33n,wfft1,wfft2,wfft3,wfft4,is)
-
-        call yfft(qp11,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(qp12,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(qp13,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(qp22,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(qp23,wfft1,wfft2,wfft3,wfft4,is)
-        call yfft(qp33,wfft1,wfft2,wfft3,wfft4,is)
-
+        ! Normalize variables
         call norm(c11)
         call norm(c12)
         call norm(c13)
@@ -2426,16 +2092,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
         call norm(qp22)
         call norm(qp23)
         call norm(qp33)
-#ENDIF
 
-        ! Norms
-        call norm(v)
-        call norm(omy)
-        call norm(fn)
-        call norm(gn)
-        call norm(omz)
-
-#IFDEF POLYMER    
         ! -------------------------------------------------------------------- !
         ! Add polymer forces to the momentum equation
         ! qp is the polymer stress tensor, t = div(qp) which is the force on 
@@ -2472,6 +2129,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
     
         call norm(fn)
         call norm(gn)
+
 #IFDEF SCALAR
         call norm(scn)
 #ENDIF

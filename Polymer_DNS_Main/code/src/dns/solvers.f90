@@ -1950,7 +1950,8 @@ contains
     !---------------------------------------------------------------------!
     !                    Initialize some variables                        !
     !---------------------------------------------------------------------!
-   
+  
+    write(100+it,*) u 
  
     pi = 2.0*acos(0.0)
     delx = xl/float(nx-1)
@@ -2866,7 +2867,7 @@ contains
     
         up3d(k,1:mz,1:mx) = up(1:mz,1:mx)
         vp3d(k,1:mz,1:mx) = -vp(1:mz,1:mx)
-        wp3d(k,1:mz,1:mx) = wp(1:mz,1:mx)
+        wp3d(k,1:mz,1:mx) = vwy(1:mz,1:mx) ! Change back to wp
         wx3d(k,1:mz,1:mx) = -wx(1:mz,1:mx)
         wy3d(k,1:mz,1:mx) = wy(1:mz,1:mx)
         wz3d(k,1:mz,1:mx) = -wz(1:mz,1:mx)
@@ -3048,7 +3049,10 @@ contains
     !---------------------------------------------------------------------!
     !     Calculate swirl criterion and write data for visualization      !
     !---------------------------------------------------------------------!
-    
+   
+    write(200+it,*) up3d
+    write(300+it,*) wz3d
+ 
     ! Calculate swirl each time step to calculate area of vortex core 
     !$omp parallel do default(shared) private(i,j,k,swirl)
     do i = 1,nyp

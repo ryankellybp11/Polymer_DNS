@@ -508,7 +508,7 @@ program dns
         call vort(u,v,w,omx,omz,wrkc)
         call norm(omx)
         call norm(omz)
-       
+     
 #IFDEF SCALAR
         ! Calculate scalar gradient
         call norm(scalar)
@@ -1323,7 +1323,7 @@ subroutine setstuff
     ! Set y coordinate vector for easy reference elsewhere
     ycoord(1) = 0.0
     do k = 2,nyp
-        ycoord(k) = (1.0 - cos(float(k-1)*pi/float(ny)))*(yl/2.0) ! [0,YL]
+        ycoord(k) = (1.0-cos(float(k-1)*pi/float(ny)))*(yl/2.0) ! [0,YL]
         seght(k) = ycoord(k) - ycoord(k-1)
     end do
     seght(1) = seght(nyp)
