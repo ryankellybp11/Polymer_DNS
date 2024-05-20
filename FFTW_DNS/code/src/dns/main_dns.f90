@@ -154,7 +154,7 @@ program dns
         print *,'Error! FFTW could not initialize threads!'
         stop
     end if
-    call fftw_plan_with_nthreads(OMP_GET_NUM_THREADS())
+    call fftw_plan_with_nthreads(OMP_GET_MAX_THREADS())
 
     ! NOTE:
     !   With the FFTW_PATIENT option, this process may take a few seconds
@@ -163,12 +163,14 @@ program dns
     !   overwritten during this process, so they can't be used after this.
     !   It also has the benefit of reducing the number of OpenMP threads
     !   used if it determines less is better.
+    print *,'Planning FFT routines...'
     planZb = fftw_plan_dft_1d(mz,aspec,aspec,FFTW_BACKWARD,FFTW_PATIENT)
     planXb = fftw_plan_dft_c2r_1d(mx,aspec,aphys,FFTW_PATIENT)
     planY  = fftw_plan_r2r_1d(nyp,aphys,aphys,FFTW_REDFT00,FFTW_PATIENT)
     planXf = fftw_plan_dft_r2c_1d(mx,aphys,aspec,FFTW_PATIENT)
     planZf = fftw_plan_dft_1d(mz,aspec,aspec,FFTW_FORWARD,FFTW_PATIENT)
 
+    print *,'Done!'
     
     ! Compute Green's functions for the two systems
     call gfcn(gf1,a,wrkc,wrk1,bctop,bcbot,dnv1b,dnv1t,nb,nt,p1b,p1t)
@@ -912,7 +914,6 @@ subroutine setstuff
     
     ! Buffer region variables
     real    :: xstart
-    integer :: readvdes
 
 #IFDEF SCALAR
     ! Scalar variables
@@ -946,7 +947,8 @@ subroutine setstuff
     common/dtime/      dt
     common/imat/       imatrix,kwall,kmaxsurf
     common/domain/     xl,yl,zl
-    common/buffer/     bfgain,bfugain,vdes,bfhead,bftail,bfwidth,slopelength
+    common/buffer/     bfgain,bfugain,vdes,bfhead,bftail,bfwidth
+    common/slope/      slopelength
     common/buffx/      xstart
 #IFDEF SCALAR
     common/scl_stuff/  sigmax,sigmay,sigmaz,deltaT,diff,scl_flag,scltarg
@@ -1018,7 +1020,6 @@ subroutine setstuff
     read(110,*) crstrt
     read(110,*) print3d
     read(110,*) geomtype
-    read(110,*) readvdes
     read(110,*) particle_flag
     read(110,*) flow_select
 #IFDEF POLYMER
@@ -1451,7 +1452,6 @@ subroutine forcepre
     ! Buffer region
     real, dimension(1200) :: bfgain,bfugain
     integer :: bfhead,bftail,bfwidth,bfwh,bfcntr
-    integer :: readvdes 
     real    :: vdes(mx), xsuction 
     real    :: xstart
     
@@ -1486,7 +1486,8 @@ subroutine forcepre
     common/ibforce/  fxintg,fyintg,fzintg,fspread
     common/init/     initu,initv,initw
     common/imat/     imatrix,kwall,kmaxsurf
-    common/buffer/   bfgain,bfugain,vdes,bfhead,bftail,bfwidth,slopelength
+    common/buffer/   bfgain,bfugain,vdes,bfhead,bftail,bfwidth
+    common/slope/    slopelength
     common/flow/     re,Uinf,R_tau,dPdx
     common/domain/   xl,yl,zl
     common/buffx/    xstart
@@ -1519,7 +1520,11 @@ subroutine forcepre
     end do
 
     slopelength = bfwidth/2.0
-    ywall = ycoord(kwall)
+    if (kwall .ne. 0) then
+        ywall = ycoord(kwall)
+    else
+        ywall = 0.0
+    end if
     ytop = yl - ywall
 
     ! -------------------------------------------------------------------- !
@@ -1547,12 +1552,7 @@ subroutine forcepre
         if (x .le. xsuction) then
             vdes(i) = 0.0
         else
-            if (readvdes .eq. 0) then
-                vdes(i) = (-0.8604*Uinf)/sqrt(re*Uinf*(x + xstart - xsuction))
-            else if (readvdes .eq. 1) then
-                read(699,*) vtemp
-                vdes(i) = -vtemp
-            end if
+            vdes(i) = (-0.8604*Uinf)/sqrt(re*Uinf*(x + xstart - xsuction))
         end if
     end do
 
@@ -2034,6 +2034,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
         call norm(dc333)                                                 
 #ENDIF
 
+!    write(1,*) u
     ! -------------------------------------------------------------------- !
     ! Compute v x omega in physical space - FFTs are performed inside subroutine
     ! Assumes all variables are in 3D spectral space (on input and output)

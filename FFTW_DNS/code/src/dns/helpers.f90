@@ -20,7 +20,7 @@ contains
     complex(C_DOUBLE_COMPLEX),dimension(nyp,nz,nx) :: aplan
     real(C_DOUBLE),dimension(nyp,nz,nx) :: b,bplan
 
-    integer :: is,ierr
+    integer :: is
 
     integer :: i,j,k
 
@@ -34,6 +34,8 @@ contains
 
 ! ------------------------------------------------------------------------------- !
 
+    ! This is a weird thing where it needs to read in a data file to get the right answer for the FFTs. IDK, it just works and it's
+    ! only used in the initialization of the DNS
     open(1,status='replace')
     write(1,*) b
     close(1)
@@ -41,9 +43,6 @@ contains
     open(1)
     read(1,*) b
     close(1)
-
-!    ierr = fftw_init_threads() ! Initialize threaded FFTW
-!    call fftw_plan_with_nthreads(OMP_GET_NUM_THREADS())
 
     ! Physical --> Spectral
     if (is .eq. -1) then 
@@ -1355,17 +1354,17 @@ contains
 
     ! ---------------------------------------------------------------------------- !
     
-    subroutine write_flowfield_ascii(u, v, w, wx, wy, wz, swirl, &
+    subroutine write_flowfield_ascii(u, v, w, wx, wy, wz, swirl &
 #IFDEF SCALAR
-                                     scl, &
+                                     ,scl &
 #ENDIF
-                                     ctp)
+                                     )
     
         use grid_size
     
         ! Passed variables
         integer :: irstrt, nsteps,iprnfrq,print3d
-        real, dimension(nyp,mz,mx) :: u, v, w, wx, wy, wz, ctp, swirl
+        real, dimension(nyp,mz,mx) :: u, v, w, wx, wy, wz, swirl
 #IFDEF SCALAR
         real, dimension(nyp,mz,mx) :: scl
 #ENDIF
@@ -1428,11 +1427,6 @@ contains
         9711 format(a93)
         9712 format(a40,i3,a5,i4,a5,i4,a5,i4,a2)
        
-        if (print3d .eq. 2) then 
-            ! Convert ascii to tecplot binary
-            call system('preplot-bin ' // filename // ' && rm ' // filename)
-        end if
-        
     
         ! Write grid file if it == 1
         if (it .eq. 1) then
@@ -1455,11 +1449,6 @@ contains
         
             9400 format(12(e14.6,1x))  
     
-            if (print3d .eq. 2) then
-                ! Convert ascii to tecplot binary
-                call system('preplot-bin outputs/flowfield/grid.dat && rm outputs/flowfield/grid.dat')
-            end if
-    
         end if
     end subroutine
     
@@ -1467,11 +1456,11 @@ contains
     
 #ifdef OUTPUTFORM
     
-    subroutine write_flowfield_plt(u, v, w, wx, wy, wz, swirl, &
+    subroutine write_flowfield_plt(u, v, w, wx, wy, wz, swirl &
 #IF DEFINED SCALAR
-                                   scl, &
+                                   ,scl &
 #ENDIF
-                                   ctp)
+                                   )
         use iso_c_binding 
         use grid_size
     
@@ -1481,7 +1470,7 @@ contains
     
         integer(c_int64_t) :: mz_copy,mx_copy
         integer :: irstrt, nsteps,iprnfrq,print3d,crstrt
-        real, dimension(nyp,mz,mx) :: u, v, w, wx, wy, wz, swirl, ctp
+        real, dimension(nyp,mz,mx) :: u, v, w, wx, wy, wz, swirl
 #IF DEFINED SCALAR
         real, dimension(nyp,mz,mx) :: scl
 #ENDIF
@@ -1490,17 +1479,12 @@ contains
         
     
         real :: x, y, z, delxm, delzm
-        integer :: i, j, k, ii, jj, kk
+        integer :: i, j, k
     
         integer :: it
         real    :: dt
         real    :: xl, yl, zl
    
-        real    :: sigmax,sigmay,sigmaz
-        real    :: deltaT,diff
-#IFDEF SCALAR
-        integer :: scl_flag
-#ENDIF
 #IFDEF POLYMER
         integer :: ipolyflag
 #ENDIF
@@ -1510,9 +1494,6 @@ contains
         common/itime/      it
         common/dtime/      dt
         common/domain/     xl,yl,zl
-#IFDEF SCALAR
-        common/scl_stuff/  sigmax,sigmay,sigmaz,deltaT,diff,scl_flag
-#ENDIF
 #IFDEF POLYMER
         common/poly_flgs/  ipolyflag
 #ENDIF
@@ -1520,10 +1501,6 @@ contains
         integer(c_int64_t) :: numValues
         integer(c_int32_t) :: fileFormat = 1 ! 0 = .plt | 1 = .szplt
         integer(c_int32_t) :: gridFileType = 1 ! GRID
-        integer(c_int32_t) :: outputFileType = 2 ! SOLUTION
-        integer(c_int32_t) :: gridZone = 1
-        integer(c_int32_t) :: outputZone = 1
-        integer(c_int32_t) :: zoneType = 0 ! ZoneType: 0-ordered
         integer(c_int32_t) :: defVarType = 0
         integer(c_int32_t), allocatable :: varTypes(:)
         integer(c_int32_t), allocatable :: shareVarFromZone(:)
@@ -1532,11 +1509,6 @@ contains
         integer(c_int32_t) :: shareFaceNeighborsFromZone = 0
         integer(c_int64_t) :: numFaceConnections = 0
         integer(c_int32_t) :: faceNeighborMode = 0
-        integer(c_int32_t) :: totalNumFaceNodes = 0
-        integer(c_int32_t) :: numConnectedBoundaryFaces = 0
-        integer(c_int32_t) :: totalNumBoundaryConnections = 0
-        integer(c_int32_t) :: shareConnectivityFromZone = 0
-        integer(c_int32_t) :: isDouble = 0
         integer(c_int32_t) :: zone
         real(c_double) :: solutionTime
         real(c_float), allocatable :: floatValues(:)

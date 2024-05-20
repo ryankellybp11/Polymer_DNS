@@ -22,7 +22,7 @@ program generator
     read(110,*) yl
     read(110,*) zl
     read(110,*) xl
-    do skip = 1,28
+    do skip = 1,27
         read(110,*)
     end do
     read(110,*) npart

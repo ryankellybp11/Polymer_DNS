@@ -30,10 +30,10 @@ bftail = int(setup_data[12][0])
 
 output_format = int(setup_data[30][0]) # For writing Tecplot files
 
-ipoly = int(setup_data[37][0])
-iscl = int(setup_data[38][0])
-npart = int(setup_data[44][0])
-new_part = int(setup_data[45][0])
+ipoly = int(setup_data[36][0])
+iscl = int(setup_data[37][0])
+npart = int(setup_data[43][0])
+new_part = int(setup_data[44][0])
 
 # Calculate nmax (= 4*max1(nx,ny,nz)*max2(nx,ny,nz))
 nlist = list([nx,ny,nz])

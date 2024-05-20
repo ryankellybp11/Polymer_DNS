@@ -1787,11 +1787,11 @@ contains
 #ENDIF
    
     ! FFT complex arrays 
-    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: us = 0.0,vs = 0.0,ws = 0.0,wxs = 0.0,wys = 0.0,wzs = 0.0
-    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: u11s = 0.0,u12s = 0.0,u13s = 0.0,u21s = 0.0,u22s = 0.0,u23s = 0.0,u31s = 0.0,u32s = 0.0,u33s = 0.0
-    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: Lus = 0.0,Lvs = 0.0,Lws = 0.0
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: us,vs,ws,wxs,wys,wzs
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: u11s,u12s,u13s,u21s,u22s,u23s,u31s,u32s,u33s
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: Lus,Lvs,Lws
 
-    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: vwxs = 0.0,vwys = 0.0,vwzs = 0.0
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: vwxs,vwys,vwzs
 #IFDEF SCALAR
     complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: scs,cxs,cys,czs
     complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: vcs
@@ -1862,7 +1862,7 @@ contains
     
     integer :: i,j,k,n
     integer :: ii,jj,ipii,jpjj,idif,jdif
-    real    :: delx,delz,delxm,delzm,pi,vArea
+    real    :: delxm,delzm,pi!,vArea
     real    :: segdrag,xsegdrag,ysegdrag,zsegdrag,wdes
     real    :: cflcheck,cflmax,swirl
     
@@ -1945,7 +1945,8 @@ contains
     common/ibforce/    fxintg,fyintg,fzintg,fspread
     common/waves/      wavx,wavz,c
     common/init/       initu,initv,initw
-    common/buffer/     bfgain,bfugain,vdes,bfhead,bftail,bfwidth,slopelength
+    common/buffer/     bfgain,bfugain,vdes,bfhead,bftail,bfwidth
+    common/slope/      slopelength
     common/flow/       re,Uinf,R_tau,dPdx
     common/domain/     xl,yl,zl
     common/trig/       trigx,trigy,trigz,sine,cosine,trigx32,trigz32
@@ -1969,14 +1970,15 @@ contains
     ! =================================================================== !
     !                         Begin Calculations                          !
     ! =================================================================== !
-    
+   
+!    write(100+it,*) u 
+!    write(200+it,*) v 
+!    write(300+it,*) w 
     !---------------------------------------------------------------------!
     !                    Initialize some variables                        !
     !---------------------------------------------------------------------!
  
     pi = 2.0*acos(0.0)
-    delx = xl/float(nx-1)
-    delz = zl/float(nz-1)
     delxm = xl/float(mx-1)
     delzm = zl/float(mz-1)
    
@@ -2111,15 +2113,15 @@ contains
                 wys(i,j,k) = 0.0
                 wzs(i,j,k) = 0.0
 
-                u11(i,j,k) = 0.0
-                u12(i,j,k) = 0.0
-                u13(i,j,k) = 0.0
-                u21(i,j,k) = 0.0
-                u22(i,j,k) = 0.0
-                u23(i,j,k) = 0.0
-                u31(i,j,k) = 0.0
-                u32(i,j,k) = 0.0
-                u33(i,j,k) = 0.0
+                u11s(i,j,k) = 0.0
+                u12s(i,j,k) = 0.0
+                u13s(i,j,k) = 0.0
+                u21s(i,j,k) = 0.0
+                u22s(i,j,k) = 0.0
+                u23s(i,j,k) = 0.0
+                u31s(i,j,k) = 0.0
+                u32s(i,j,k) = 0.0
+                u33s(i,j,k) = 0.0
 
                 Lus(i,j,k) = 0.0
                 Lvs(i,j,k) = 0.0
@@ -2127,6 +2129,7 @@ contains
             end do
         end do
     end do
+    !$omp end parallel do
 
     ! Copy spectral variables into larger arrays for transforms 
     ! Also convert Chebyshev modes to cosine modes
@@ -2217,7 +2220,11 @@ contains
             end do
         end do
     end do
+    !$omp end parallel do
 
+!    write(110+it,*) us
+!    write(210+it,*) vs
+!    write(310+it,*) ws
     ! NOTE:
     !   The following routines notably use a 1D FFT in each direction,
     !   looped over the indices of the non-transformed variable. FFTW
@@ -2316,6 +2323,10 @@ contains
     end do
     !$omp end parallel do
 
+!    write(120+it,*) us
+!    write(220+it,*) vs
+!    write(320+it,*) ws
+
     ! Complex --> Real Transform (x-direction)
     !$omp parallel do default(shared) private(i,j)
     do j = 1,mz
@@ -2404,6 +2415,9 @@ contains
     end do
     !$omp end parallel do
 
+!    write(130+it,*) up
+!    write(230+it,*) vp
+!    write(330+it,*) wp
     ! Initialize the force field array for IBF
     dragx = 0.0
     dragy = 0.0
@@ -2594,7 +2608,7 @@ contains
                     beta_poly(i,j,k) = 1.0 ! for printing
                 end if ! it >= src_start-1
 #ENDIF
-                cflcheck = (abs(up(i,j,k))/delx + abs(vp(i,j,k))/seght(k) + abs(wp(i,j,k))/delz)*dt
+                cflcheck = (abs(up(i,j,k))/delxm + abs(vp(i,j,k))/seght(i) + abs(wp(i,j,k))/delzm)*dt
                 if(cflcheck .gt. cfl(i)) cfl(i) = cflcheck
 
                 !---------------------------------------------------------------------!
@@ -2688,7 +2702,7 @@ contains
                         jdif = 1 + iabs(jj)
                         segdrag = fspread(jdif,idif)
         
-                        if (j .ge. 3 .or. j .le. mzm2) then 
+                        if (j .ge. 3 .or. j .le. mz-2) then 
                             jpjj = j + jj
                             xsegdrag = segdrag*dragx(i,j,k)
                             ysegdrag = segdrag*dragy(i,j,k)
@@ -2766,6 +2780,9 @@ contains
     end do ! k
     !$omp end parallel do
 
+!    write(140+it,*) up
+!    write(240+it,*) vp
+!    write(340+it,*) wp
 
     ! Normalize then convert to Chebyshev modes
     vwx = vwx/float(ny)
@@ -3040,8 +3057,8 @@ contains
     do k = 1,mx
         do j = 1,mz
             do i = 1,nyp
-                call calcswirl(u11p(i,j,k),u21p(i,j,k),u31p(i,j,k),u12p(i,j,k),u22p(i,j,k), &
-                               u32p(i,j,k),u13p(i,j,k),u23p(i,j,k),u33p(i,j,k),swirl)
+!                call calcswirl(u11p(i,j,k),u21p(i,j,k),u31p(i,j,k),u12p(i,j,k),u22p(i,j,k), &
+!                               u32p(i,j,k),u13p(i,j,k),u23p(i,j,k),u33p(i,j,k),swirl)
     
                 swirl_3d(i,j,k) = swirl
             end do
@@ -3061,20 +3078,20 @@ contains
 #ELIF DEFINED SCALAR
                 call write_flowfield_ascii(up,vp,wp,wxp,wyp,wzp,swirl_3d,scp,float(imatrix))
 #ELSE
-                call write_flowfield_ascii(up,vp,wp,wxp,wyp,wzp,swirl_3d,float(imatrix))
+!                call write_flowfield_ascii(up,vp,wp,wxp,wyp,wzp,swirl_3d,float(imatrix))
 #ENDIF
 #IFDEF OUTPUTFORM
             else if (print3d .eq. 3) then ! Write output in Tecplot binary (.szplt)
 #IFDEF POLYMER
-                call write_flowfield_plt(up,vp,wp,wxp,wyp,wzp,swirl_3d,beta_poly,float(imatrix))
+                call write_flowfield_plt(up,vp,wp,wxp,wyp,wzp,swirl_3d,beta_poly)
 #ELIF DEFINED SCALAR                                         
-                call write_flowfield_plt(up,vp,wp,wxp,wyp,wzp,swirl_3d,scp,float(imatrix))
+                call write_flowfield_plt(up,vp,wp,wxp,wyp,wzp,swirl_3d,scp)
 #ELSE                                                        
-                call write_flowfield_plt(up,vp,wp,wxp,wyp,wzp,swirl_3d,float(imatrix))
+                call write_flowfield_plt(up,vp,wp,wxp,wyp,wzp,swirl_3d)
 #ENDIF
 #ENDIF
             else if (print3d .eq. 2) then ! Write outputs specifically for FTLE
-                call write_FTLE_output(up,vp,wp)
+!                call write_FTLE_output(up,vp,wp)
             else
                 write(*,*) 'Warning: Unknown print type. No output data will be written.'
             end if
@@ -3090,7 +3107,7 @@ contains
     if (npart .ne. 0) then
         call part_track(up,vp,wp,wxp,wyp,wzp,u_old,v_old,w_old,  &
                         u11p,u12p,u13p,u21p,u22p,u23p,u31p, &
-                        u32p,u33p,Lup,Lvp,Lwp,Lu_old,Lv_old,Lw_old,vArea)
+                        u32p,u33p,Lup,Lvp,Lwp,Lu_old,Lv_old,Lw_old)!,vArea)
     
         ! Save velocity and Laplacian for time derivatives inside particle integration
         u_old = up

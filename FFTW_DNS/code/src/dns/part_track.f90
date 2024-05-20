@@ -1,6 +1,6 @@
 subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, & 
                       u11,u12,u13,u21,u22,u23,u31,u32,u33, &
-                      Lu,Lv,Lw,Lu_old,Lv_old,Lw_old,area)
+                      Lu,Lv,Lw,Lu_old,Lv_old,Lw_old)!,area)
 
 ! -------------------------------------------------------- !
 ! This is an implementation of Lagrangian particle tracking 
@@ -93,7 +93,7 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
     real,dimension(nyp,mz,mx) :: u,v,w,u_old,v_old,w_old,omx,omy,omz
     real,dimension(nyp,mz,mx) :: u11,u12,u13,u21,u22,u23,u31,u32,u33
     real,dimension(nyp,mz,mx) :: Lu,Lv,Lw,Lu_old,Lv_old,Lw_old
-    real :: area
+!    real :: area
 
     ! Simulation control variables
     integer :: irstrt,nsteps,iprnfrq,print3d
@@ -115,7 +115,6 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
     ! File writing variables
     character*18  :: directory_part = 'outputs/particles/'
     character*18  :: filename_part
-    character*20  :: filename_part_plt
 
     ! Entrapment time variables
     real,save,dimension(npart) :: trap_time,rp0
@@ -478,7 +477,7 @@ subroutine fluid_interp1(xp,yp,zp,u,uf)
     imax = mod(imin,mx) + 1
     jmin = mod(floor(zp/delzm) + mz, mz) + 1
     jmax = mod(jmin,mz) + 1
-    kmin = 1+floor(float(ny)/pi*dacos(1.0 - 2.0*yp/yl))
+    kmin = 1+floor(float(ny)/pi*acos(1.0 - 2.0*yp/yl))
     if (kmin .eq. nyp) kmin = ny
     kmax = kmin + 1
     
@@ -561,7 +560,7 @@ subroutine fluid_interp(xp,yp,zp,u,v,w,uf,vf,wf)
     imax = mod(imin,mx) + 1
     jmin = mod(floor(zp/delzm) + mz, mz) + 1
     jmax = mod(jmin,mz) + 1
-    kmin = 1+floor(float(ny)/pi*dacos(1.0 - 2.0*yp/yl))
+    kmin = 1+floor(float(ny)/pi*acos(1.0 - 2.0*yp/yl))
     if (kmin .eq. nyp) kmin = ny
     kmax = kmin + 1
     
@@ -963,7 +962,7 @@ subroutine SubDerivative(u,v,w,u_old,v_old,w_old,ufluid,vfluid,wfluid,subDufDt,s
     imax = mod(imin,mx) + 1
     jmin = mod(floor(zpart/delzm) + mz, mz) + 1
     jmax = mod(jmin,mz) + 1
-    kmin = 1+floor(float(ny)/pi*dacos(1.0 - 2.0*ypart/yl))
+    kmin = 1+floor(float(ny)/pi*acos(1.0 - 2.0*ypart/yl))
     if (kmin .eq. nyp) kmin = ny
     kmax = kmin + 1
     
@@ -1077,7 +1076,7 @@ end subroutine
 
 ! --------------------------------------------------------------------------------- !
 
-subroutine swirl_count(xpart,ypart,zpart,swirl_part,u11,u12,u13,u21,u22,u23,u31,u32,u33,area)
+subroutine swirl_count(xpart,ypart,zpart,swirl_part,u11,u12,u13,u21,u22,u23,u31,u32,u33)!,area)
 ! Computes swirl at each particle position and then computes percentage of
 ! particles inside a vortex using a given threshold value
 
@@ -1089,7 +1088,7 @@ subroutine swirl_count(xpart,ypart,zpart,swirl_part,u11,u12,u13,u21,u22,u23,u31,
     ! Input variables
     real,dimension(npart) :: xpart,ypart,zpart,swirl_part
     real,dimension(nyp,mz,mx) :: u11,u12,u13,u21,u22,u23,u31,u32,u33
-    real :: area
+!    real :: area
 
     ! Simulation control variables
     integer :: it
@@ -1098,7 +1097,7 @@ subroutine swirl_count(xpart,ypart,zpart,swirl_part,u11,u12,u13,u21,u22,u23,u31,
     ! Calculation variables
     integer :: swirl_cnt, j
     real    :: xl,yl,zl
-    real    :: pArea,vArea
+!    real    :: pArea,vArea
 
     ! Common block
     common/itime/  it
@@ -1272,7 +1271,7 @@ subroutine interp_swirl(xpart,ypart,zpart,swirl,u11,u12,u13,u21,u22,u23,u31,u32,
     imax = mod(imin,mx) + 1
     jmin = mod(floor(zpart/delzm) + mz, mz) + 1
     jmax = mod(jmin,mz) + 1
-    kmin = 1+floor(float(ny)/pi*dacos(1.0 - 2.0*ypart/yl))
+    kmin = 1+floor(float(ny)/pi*acos(1.0 - 2.0*ypart/yl))
     if (kmin .eq. nyp) kmin = ny
     kmax = kmin + 1
     
@@ -1445,7 +1444,7 @@ subroutine write_particles_szplt(xp,yp,zp,up,vp,wp,swirl)
     character*1 :: NULLCHR
     character (37) :: filename
 
-    integer(c_int64_t) :: numValues
+    integer(c_int32_t) :: numValues
     integer(c_int32_t) :: fileFormat = 1 ! 0 = .plt | 1 = .szplt
     integer(c_int32_t) :: gridFileType = 1 ! GRID
     integer(c_int32_t) :: outputFileType = 0 ! Grid + Solution
@@ -1498,7 +1497,7 @@ subroutine write_particles_szplt(xp,yp,zp,up,vp,wp,swirl)
         1, &
         1, &
         0, 0, 0, &
-        1.0 * it, &
+        1.0 * float(it), &
         1, & ! StrandID
         0, &
         1, &

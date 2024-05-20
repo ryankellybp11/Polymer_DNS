@@ -47,7 +47,6 @@ program geom
     end do
     read(110,*) geomtype
     read(110,*)
-    read(110,*)
     read(110,*) flow_select
     close(110)
 
