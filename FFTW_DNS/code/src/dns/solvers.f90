@@ -2236,7 +2236,7 @@ contains
     !   aware of it. - REK 5/15/24
 
     ! Complex --> Complex Transform (z-direction)
-    !$omp parallel do default(shared) private(i,k)
+    !$omp parallel do default(shared) private(i,k) 
     do k = 1,nxh
         do i = 1,nyp
             ! Velocity Field
@@ -2328,7 +2328,7 @@ contains
 !    write(320+it,*) ws
 
     ! Complex --> Real Transform (x-direction)
-    !$omp parallel do default(shared) private(i,j)
+    !$omp parallel do default(shared) private(i,j) 
     do j = 1,mz
         do i = 1,nyp
             ! Velocity Field
@@ -2427,7 +2427,7 @@ contains
 
     ! These loops also compute the nonlinear terms and then begin the process of
     ! transforming the nonlinear output arrays to spectral space
-    !$omp parallel do default(shared) private(i,j,k,cflcheck,wdes,zj,rsq,argrad,fr,xi,argx,fx,ii,ipii,idif,jdif,segdrag,jpjj,jj)
+    !$omp parallel do default(shared) private(i,j,k,cflcheck,wdes,zj,rsq,argrad,fr,xi,argx,fx,ii,ipii,idif,jdif,segdrag,jpjj,jj) schedule(dynamic)
     do k = 1,mx
         do j = 1,mz
             ! Velocity Field
@@ -3129,27 +3129,27 @@ contains
     !---------------------------------------------------------------------!
   
     ! Make these into subroutines later...  
-    if (flow_select .eq. 1 .or. flow_select .eq. 4) then ! Only relevant for wall-bounded turbulence
-        write(*,*) 'Writing mean U data...'
-    
-        ! Mean velocity
-!        if (irstrt .eq. it) then
-!            open(71,file = 'outputs/mean_u_data.dat')
-!        else
-!            open(71,file = 'outputs/mean_u_data.dat', position = 'append')
-!        end if
-    
-        do i = 1,nyp
-            do j = 1,mz
-                uxmean(j) = sum(up(i,j,:))/mx
-            end do
-            uzmean(i) = sum(uxmean)/mz
-!            write(71,"(*(e14.6,1x))") uzmean
-        end do
-    
-!        close(71)
-        write(*,*) '    Done!'
-    end if
+!    if (flow_select .eq. 1 .or. flow_select .eq. 4) then ! Only relevant for wall-bounded turbulence
+!        write(*,*) 'Writing mean U data...'
+!    
+!        ! Mean velocity
+!!        if (irstrt .eq. it) then
+!!            open(71,file = 'outputs/mean_u_data.dat')
+!!        else
+!!            open(71,file = 'outputs/mean_u_data.dat', position = 'append')
+!!        end if
+!    
+!        do i = 1,nyp
+!            do j = 1,mz
+!                uxmean(j) = sum(up(i,j,:))/mx
+!            end do
+!            uzmean(i) = sum(uxmean)/mz
+!!            write(71,"(*(e14.6,1x))") uzmean
+!        end do
+!    
+!!        close(71)
+!        write(*,*) '    Done!'
+!    end if
     
     ! Compute mass flux: Integrate <U> over y
     if (irstrt .eq. it) then

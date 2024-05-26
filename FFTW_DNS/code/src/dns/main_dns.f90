@@ -177,11 +177,13 @@ program dns
     call gfcn(gf2,a,wrkc,wrk1,bctop,bcbot,dnv2b,dnv2t,nb,nt,p2b,p2t)
 
     ! Calculate common denominator
+    !$omp parallel do
     do k = 1,nxh
         do j = 1,nz
             denom(j,k) = dnv1t(j,k)*dnv2b(j,k) - dnv2t(j,k)*dnv1b(j,k)
         end do
     end do
+    !$omp end parallel do
 
     call forcepre ! Initializes immersed boundary forces
 

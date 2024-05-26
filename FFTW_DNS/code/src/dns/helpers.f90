@@ -20,9 +20,7 @@ contains
     complex(C_DOUBLE_COMPLEX),dimension(nyp,nz,nx) :: aplan
     real(C_DOUBLE),dimension(nyp,nz,nx) :: b,bplan
 
-    integer :: is
-
-    integer :: i,j,k
+    integer :: i,j,k,is
 
     type(C_PTR) :: plan1,plan2,plan3
 
@@ -36,56 +34,51 @@ contains
 
     ! This is a weird thing where it needs to read in a data file to get the right answer for the FFTs. IDK, it just works and it's
     ! only used in the initialization of the DNS
-    open(1,status='replace')
-    write(1,*) b
-    close(1)
+!    open(1,status='replace')
+!    write(1,*) b
+!    close(1)
+!
+!    open(1)
+!    read(1,*) b
+!    close(1)
 
-    open(1)
-    read(1,*) b
-    close(1)
-
-    ! Physical --> Spectral
-    if (is .eq. -1) then 
         plan1 = fftw_plan_r2r_1d(nyp,bplan,bplan,FFTW_REDFT00,FFTW_ESTIMATE)
         plan2 = fftw_plan_dft_r2c_1d(nx,bplan,aplan,FFTW_ESTIMATE)
         plan3 = fftw_plan_dft_1d(nz,aplan,aplan,is,FFTW_ESTIMATE)
-   
-!        write(102,*) b
-            ! y-transform
-            !omp parallel do shared(b,plan1)
-            do k = 1,nx
-                do j = 1,nz
-                    call fftw_execute_r2r(plan1,b(:,j,k),b(:,j,k))
-                    b(:,j,k) = b(:,j,k)/float(ny)
-                end do
-            end do
-            b(1,:,:) = b(1,:,:)/2.0
-            b(nyp,:,:) = b(nyp,:,:)/2.0
-            !omp end parallel do
-        
-!        write(202,*) b
-            ! x-transform | OpenMP threading does't work for this one, idk why
-            !omp parallel do shared(a,b,plan2)
+
+        ! y-transform
+        !$omp parallel do shared(b,plan1)
+        do k = 1,nx
             do j = 1,nz
-                do i = 1,nyp
-                    call fftw_execute_dft_r2c(plan2,b(i,j,:),aplan(i,j,:))
-                    aplan(i,j,:) = aplan(i,j,:)/float(nx)
-                end do
+                call fftw_execute_r2r(plan1,b(:,j,k),b(:,j,k))
+                b(:,j,k) = b(:,j,k)/float(ny)
             end do
-            !omp end parallel do
+        end do
+        !$omp end parallel do
+        b(1,:,:) = b(1,:,:)/2.0
+        b(nyp,:,:) = b(nyp,:,:)/2.0
         
-!        write(302,*) aplan
-            ! z-transform
-            !omp parallel do shared(a,plan3)
-            do k = 1,nxh
-                do i = 1,nyp
-                    call fftw_execute_dft(plan3,aplan(i,:,k),aplan(i,:,k))
-                    aplan(i,:,k) = aplan(i,:,k)/float(nz)
-                end do
+        ! x-transform 
+        !$omp parallel do shared(a,b,plan2)
+        do j = 1,nz
+            do i = 1,nyp
+                call fftw_execute_dft_r2c(plan2,b(i,j,:),aplan(i,j,:))
+                aplan(i,j,:) = aplan(i,j,:)/float(nx)
             end do
-            !omp end parallel do
-   
-!        write(402,*) aplan
+        end do
+        !$omp end parallel do
+        
+        ! z-transform
+        !$omp parallel do shared(a,plan3)
+        do k = 1,nxh
+            do i = 1,nyp
+                call fftw_execute_dft(plan3,aplan(i,:,k),aplan(i,:,k))
+                aplan(i,:,k) = aplan(i,:,k)/float(nz)
+            end do
+        end do
+        !$omp end parallel do
+
+        !$omp parallel do 
         do k = 1,nxh
         do j = 1,nz
         do i = 1,nyp 
@@ -93,79 +86,8 @@ contains
         end do
         end do
         end do
+        !$omp end parallel do
          
-!        write(502,*) a
-!        ! y-transform
-!        do k = 1,nx
-!            do j = 1,nz
-!                call fftw_execute_r2r(plan1,b(:,j,k),b(:,j,k))
-!            end do
-!        end do
-!        b = b/float(2*ny)
-!    
-!        ! x-transform
-!        do j = 1,nz
-!            do i = 1,nyp
-!                call fftw_execute_dft_r2c(plan2,b(i,j,:),a(i,j,:))
-!            end do
-!        end do
-!        a = a/float(nx)
-!    
-!        ! z-transform
-!        do k = 1,nxh
-!            do i = 1,nyp
-!                call fftw_execute_dft(plan3,a(i,:,k),a(i,:,k))
-!            end do
-!        end do
-!        a = a/float(nz)
-!
-    ! Spectral --> Physical
-    else if (is .eq. +1) then
-        plan1 = fftw_plan_dft_1d(nz,a,a,is,FFTW_ESTIMATE)
-        plan2 = fftw_plan_dft_c2r_1d(nx,a,b,FFTW_ESTIMATE)
-        plan3 = fftw_plan_r2r_1d(nyp,b,b,FFTW_REDFT00,FFTW_ESTIMATE)
-   
-        do i = 1,nyp
-            a(i,:,:) = a(i,:,:)*c(i)/2.0
-        end do
-
-        ! z-transform
-        !$omp parallel do
-        do k = 1,nxh
-            do i = 1,nyp
-                call fftw_execute_dft(plan1,a(i,:,k),a(i,:,k))
-            end do
-        end do
-        !$omp end parallel do
-
-        ! x-transform
-        !$omp parallel do
-        do j = 1,nz
-            do i = 1,nyp
-                call fftw_execute_dft_c2r(plan2,a(i,j,:),b(i,j,:))
-            end do
-        end do
-        !$omp end parallel do
-    
-        ! y-transform
-        !$omp parallel do
-        do k = 1,nx
-            do j = 1,nz
-                call fftw_execute_r2r(plan3,b(:,j,k),b(:,j,k))
-            end do
-        end do
-        !$omp end parallel do
-
-    else
-        print *,'Error! Invalid FFT sign (must be +1 or -1)'
-        stop
-    end if
-
-    call fftw_destroy_plan(plan1)
-    call fftw_destroy_plan(plan2)
-    call fftw_destroy_plan(plan3)
-
-        
     end subroutine xyzfft
     
     !---------------------------------------------------------------------!
@@ -518,11 +440,11 @@ contains
         do i = 1,nyp
             ! Calc y length
             if (i .eq. 1) then
-                Ly = (ycoord(2) - ycoord(1))/2.0
+                Ly = abs(ycoord(2) - ycoord(1))/2.0
             else if (i .eq. nyp) then
-                Ly = (ycoord(nyp) - ycoord(ny))/2.0
+                Ly = abs(ycoord(nyp) - ycoord(ny))/2.0
             else
-                Ly = (ycoord(i+1) - ycoord(i))/2.0 + (ycoord(i) - ycoord(i-1))/2.0
+                Ly = abs(ycoord(i+1) - ycoord(i))/2.0 + abs(ycoord(i) - ycoord(i-1))/2.0
             end if
             do j = 1,mz
                 ! Calc z length
@@ -801,7 +723,7 @@ contains
     !                         Begin Calculations                          !
     ! =================================================================== !
     
-    !omp parallel do
+    !$omp parallel do
     do k = 1,nyp
         do j = 1,mzp
             do i = 1,mxp2
@@ -951,7 +873,7 @@ contains
             end do
         end do
     end do ! k
-    !omp end parallel do
+    !$omp end parallel do
 
     !---------------------------------------------------------------------!
     !                        Calculate Q-criterion                        !
@@ -1048,15 +970,15 @@ contains
         sumens = 0.0
         TKE = 0.0 
         SG = 0.0
-        !omp parallel do default(shared) private(i,j,k,Lx,Ly,Lz,trS) reduction(+:scl_sum,sumens,TKE,SG) 
+        !$omp parallel do default(shared) private(i,j,k,Lx,Ly,Lz,trS) reduction(+:scl_sum,sumens,TKE,SG) 
         do i = 1,nyp
             ! Calc y length
             if (i .eq. 1) then
-                Ly = (ycoord(2) - ycoord(1))/2.0
+                Ly = abs(ycoord(2) - ycoord(1))/2.0
             else if (i .eq. nyp) then
-                Ly = (ycoord(nyp) - ycoord(ny))/2.0
+                Ly = abs(ycoord(nyp) - ycoord(ny))/2.0
             else
-                Ly = (ycoord(i+1) - ycoord(i))/2.0 + (ycoord(i) - ycoord(i-1))/2.0
+                Ly = abs(ycoord(i+1) - ycoord(i))/2.0 + abs(ycoord(i) - ycoord(i-1))/2.0
             end if
 !            scl_sum = 0.0 
             do j = 1,mz
@@ -1092,7 +1014,7 @@ contains
             end do
 !            scl(i) = sqrt(scl_sum/(float(mz)*float(mx)))*Ly
         end do
-        !omp end parallel do
+        !$omp end parallel do
 
         ! Write data to output files - updated each time step        
         if (it .eq. irstrt) then
@@ -1165,15 +1087,15 @@ contains
 
     area = 0.0
 
-    !omp parallel do reduction(+:area) default(shared) private(i,j,k,Lx,Ly,Lz) 
+    !$omp parallel do reduction(+:area) default(shared) private(i,j,k,Lx,Ly,Lz) 
     do i = 1,nyp
         ! Calc y length
         if (i .eq. 1) then
-            Ly = (ycoord(2) - ycoord(1))/2.0
+            Ly = abs(ycoord(2) - ycoord(1))/2.0
         else if (i .eq. nyp) then
-            Ly = (ycoord(nyp) - ycoord(ny))/2.0
+            Ly = abs(ycoord(nyp) - ycoord(ny))/2.0
         else
-            Ly = (ycoord(i+1) - ycoord(i))/2.0 + (ycoord(i) - ycoord(i-1))/2.0
+            Ly = abs(ycoord(i+1) - ycoord(i))/2.0 + abs(ycoord(i) - ycoord(i-1))/2.0
         end if
         do j = 1,mz
             ! Calc z length
@@ -1197,7 +1119,7 @@ contains
             end do
         end do
     end do
-    !omp end parallel do
+    !$omp end parallel do
 
     if (nx .lt. 10) then
         area = area/xl

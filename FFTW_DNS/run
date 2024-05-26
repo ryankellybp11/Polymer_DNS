@@ -1,5 +1,5 @@
 ulimit -s unlimited
-export OMP_NUM_THREADS=32
+unset OMP_NUM_THREADS
 export OMP_STACKSIZE=2G
 
 shopt -s extglob
@@ -9,4 +9,4 @@ cd ..
 mkdir outputs/flowfield
 mkdir outputs/particles
 
-./code/bin/dns
+time ./code/bin/dns
