@@ -1,2 +1,0 @@
-ifx: command line warning #10148: option '-parallel' not supported
-warning: <unknown>:0:0: stack frame size (4869589464) exceeds limit (4294967295) in function 'solvers_mp_vcw3dp_'
