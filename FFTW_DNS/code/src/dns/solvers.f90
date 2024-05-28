@@ -1926,7 +1926,7 @@ contains
 #ENDIF
 
     ! Particle variables
-    real,dimension(npart) :: xpart,ypart,zpart,swirl_part
+    real,save,dimension(npart) :: xpart,ypart,zpart,swirl_part
 
 #IFDEF POLYMER
     ! Polymer variables
@@ -2133,7 +2133,7 @@ contains
 
     ! Copy spectral variables into larger arrays for transforms 
     ! Also convert Chebyshev modes to cosine modes
-    !$omp parallel do default(shared) private(i,j,k,jj)
+    !$omp parallel do default(shared) private(i,j,k,jj,fac)
     do k = 1,nxh
         do j = 1,nz 
             if (j .le. nzh) jj = j
@@ -2260,12 +2260,10 @@ contains
             call fftw_execute_dft(planZb,u32s(i,:,k),u32s(i,:,k))
             call fftw_execute_dft(planZb,u33s(i,:,k),u33s(i,:,k))
 
-            if (npart .gt. 0) then ! only used in particle tracking
             ! Laplacian
             call fftw_execute_dft(planZb,Lus(i,:,k),Lus(i,:,k))
             call fftw_execute_dft(planZb,Lvs(i,:,k),Lvs(i,:,k))
             call fftw_execute_dft(planZb,Lws(i,:,k),Lws(i,:,k))
-            end if
 #IFDEF SCALAR
             ! Scalar field and its gradient
             call fftw_execute_dft(planZb,scs(i,:,k),scs(i,:,k))
@@ -2352,12 +2350,10 @@ contains
             call fftw_execute_dft_c2r(planXb,u32s(i,j,:),u32p(i,j,:))
             call fftw_execute_dft_c2r(planXb,u33s(i,j,:),u33p(i,j,:))
 
-            if (npart .gt. 0) then ! only used in particle tracking
             ! Laplacian
             call fftw_execute_dft_c2r(planXb,Lus(i,j,:),Lup(i,j,:))
             call fftw_execute_dft_c2r(planXb,Lvs(i,j,:),Lvp(i,j,:))
             call fftw_execute_dft_c2r(planXb,Lws(i,j,:),Lwp(i,j,:))
-            end if
 #IFDEF SCALAR
             ! Scalar field and its gradient
             call fftw_execute_dft_c2r(planXb,scs(i,j,:),scp(i,j,:))
@@ -2451,12 +2447,10 @@ contains
             call fftw_execute_r2r(planY,u32p(:,j,k),u32p(:,j,k))
             call fftw_execute_r2r(planY,u33p(:,j,k),u33p(:,j,k))
 
-            if (npart .gt. 0) then ! only used in particle tracking
             ! Laplacian
             call fftw_execute_r2r(planY,Lup(:,j,k),Lup(:,j,k))
             call fftw_execute_r2r(planY,Lvp(:,j,k),Lvp(:,j,k))
             call fftw_execute_r2r(planY,Lwp(:,j,k),Lwp(:,j,k))
-            end if
 #IFDEF SCALAR
             ! Scalar field and its gradient
             call fftw_execute_r2r(planY,scp(:,j,k),scp(:,j,k))
@@ -3057,8 +3051,8 @@ contains
     do k = 1,mx
         do j = 1,mz
             do i = 1,nyp
-!                call calcswirl(u11p(i,j,k),u21p(i,j,k),u31p(i,j,k),u12p(i,j,k),u22p(i,j,k), &
-!                               u32p(i,j,k),u13p(i,j,k),u23p(i,j,k),u33p(i,j,k),swirl)
+                call calcswirl(u11p(i,j,k),u21p(i,j,k),u31p(i,j,k),u12p(i,j,k),u22p(i,j,k), &
+                               u32p(i,j,k),u13p(i,j,k),u23p(i,j,k),u33p(i,j,k),swirl)
     
                 swirl_3d(i,j,k) = swirl
             end do
@@ -3070,7 +3064,8 @@ contains
     if (print3d .ne. 0) then
     
         if ((mod(it,iprnfrq) .eq. 0 .and. it .ne. 0) .or. it .eq. 1) then
-            
+
+            print *,'Writing output data...'            
             ! Write output files
             if (print3d .eq. 1) then ! Write output in ASCII format
 #IFDEF POLYMER
@@ -3103,7 +3098,7 @@ contains
     !---------------------------------------------------------------------!
     !                   Particle Tracking Implementation                  !
     !---------------------------------------------------------------------!
-    
+
     if (npart .ne. 0) then
         call part_track(up,vp,wp,wxp,wyp,wzp,u_old,v_old,w_old,  &
                         u11p,u12p,u13p,u21p,u22p,u23p,u31p, &

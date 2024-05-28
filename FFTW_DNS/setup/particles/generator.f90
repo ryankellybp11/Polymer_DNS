@@ -3,7 +3,7 @@ program generator
     implicit none
 
     real dt,yl,zl,xl,delay
-    real xp, yp, zp, up, vp, wp
+    real xp, yp, zp, up, vp, wp, a
     real xc,yc,zc,L,rad,pi
     real r, theta,phi
     integer npart,j,tp,skip,new_part
@@ -27,6 +27,8 @@ program generator
     end do
     read(110,*) npart
     read(110,*) new_part
+    read(110,*) 
+    read(110,*) a
     close(110) 
 
     open(111, file='../vort.config',status = 'old')
@@ -42,6 +44,9 @@ program generator
     close(111)
 
     pi = acos(-1.0)
+
+    ! Set yl based on particle radius (subtract from walls)
+    yl = yl - 2.0*a
 
     if (new_part .eq. 11) then
 
@@ -200,7 +205,7 @@ program generator
        
                 ! Scale these according to domain size
                 xp = xl*xp
-                yp = yl*yp
+                yp = yl*yp - yl/2.0
                 zp = zl*zp
     
     

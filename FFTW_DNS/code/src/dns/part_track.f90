@@ -103,14 +103,14 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
     ! Particle variables
     integer :: particle_flag,CD_switch
 	real    :: ratio,a,C_mu,g
-    real,dimension(npart) :: xpart,ypart,zpart,upart,vpart,wpart,swirl_part
+    real,save,dimension(npart) :: xpart,ypart,zpart,upart,vpart,wpart,swirl_part
     real :: xp,yp,zp,up,vp,wp
 
-    real :: p_cfl,umax1
+    real :: p_cfl = 0.0,umax1 = 0.0
    
     ! Calculation Variables 
     integer,save :: substep
-    integer :: j,jj
+    integer :: j,jj,nthreads
 
     ! File writing variables
     character*18  :: directory_part = 'outputs/particles/'
@@ -137,17 +137,20 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
     if (it .eq. irstrt) then
         call init_part(xpart,ypart,zpart,upart,vpart,wpart,u,v,w,rp0,trap_time)
         call substep_check(substep)
+
     else
-      
+     
         ! Change dt for substep
         dt = dt/float(substep)
- 
+
+        nthreads = min(npart,OMP_GET_MAX_THREADS()) 
         ! Compute new particle location
         if (particle_flag .ge. 0) then
         !$omp parallel do shared(xpart,ypart,zpart,upart,vpart,wpart,u,v,w,   &
         !$omp                    u_old,v_old,w_old,omx,omy,omz,a,u11,u12,u13, &
         !$omp                    u21,u22,u23,u31,u32,u33,Lu,Lv,Lw,Lu_old,     &
-        !$omp                    Lv_old,Lw_old)
+        !$omp                    Lv_old,Lw_old,umax1,substep,particle_flag)   &
+        !$omp             default(private) schedule(dynamic) num_threads(nthreads)
         do j = 1,npart
             if (particle_flag .eq. 0) then ! Tracer
                 call tracer_update(xpart(j),ypart(j),zpart(j),upart(j),vpart(j),wpart(j),u,v,w,a)
@@ -160,7 +163,7 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
                     up = upart(j)
                     vp = vpart(j)
                     wp = wpart(j)        
-
+   
                     call RK4(xp,yp,zp,up,vp,wp,u,v,w,u_old,v_old,w_old,omx, &
                              omy,omz,a,u11,u12,u13,u21,u22,u23,u31,u32,u33, &
                              Lu,Lv,Lw,Lu_old,Lv_old,Lw_old,umax1)
@@ -388,9 +391,7 @@ subroutine tracer_update(xp,yp,zp,up,vp,wp,u,v,w,a)
 	real    :: dt
 
     ! Geometry variables
-    integer :: kwall,kmaxsurf
     real    :: xl,yl,zl
-    integer, dimension(nyp,mz,mx) :: imatrix
 
     ! Calculation variable
     real :: Height
@@ -403,7 +404,6 @@ subroutine tracer_update(xp,yp,zp,up,vp,wp,u,v,w,a)
     common/itime/      it
     common/dtime/      dt
     common/domain/     xl,yl,zl
-    common/imat/       imatrix,kwall,kmaxsurf
 ! ---------------------------------------------------------------------------- !
 
 ! ============================================================================ !
@@ -411,11 +411,11 @@ subroutine tracer_update(xp,yp,zp,up,vp,wp,u,v,w,a)
 ! ============================================================================ !
 
     ! Calculate height if there are walls
-    Height = ycoord(nyp - kwall) - a
+    Height = ycoord(1) - a
 
     ! Update particle position
     xp = mod(xl + xp + up*dt,xl)
-    yp = max(min(yp + vp*dt,Height),a+ycoord(kwall))
+    yp = max(min(yp + vp*dt,Height),a+ycoord(nyp))
     zp = mod(zl + zp + wp*dt,zl)
    
     ! Update particle velocity 
@@ -477,9 +477,8 @@ subroutine fluid_interp1(xp,yp,zp,u,uf)
     imax = mod(imin,mx) + 1
     jmin = mod(floor(zp/delzm) + mz, mz) + 1
     jmax = mod(jmin,mz) + 1
-    kmin = 1+floor(float(ny)/pi*acos(1.0 - 2.0*yp/yl))
-    if (kmin .eq. nyp) kmin = ny
-    kmax = kmin + 1
+    kmax = floor(1 + float(ny)/pi*acos(2.0*yp/yl))
+    kmin = kmax + 1
     
     xmin = float(imin-1)*delxm
     xmax = float(imax-1)*delxm
@@ -560,9 +559,20 @@ subroutine fluid_interp(xp,yp,zp,u,v,w,uf,vf,wf)
     imax = mod(imin,mx) + 1
     jmin = mod(floor(zp/delzm) + mz, mz) + 1
     jmax = mod(jmin,mz) + 1
-    kmin = 1+floor(float(ny)/pi*acos(1.0 - 2.0*yp/yl))
-    if (kmin .eq. nyp) kmin = ny
-    kmax = kmin + 1
+    kmax = floor(1 + float(ny)/pi*acos(2.0*yp/yl))
+    kmin = kmax + 1
+
+    if (imin .lt. 1 .or. jmin .lt. 1 .or. kmin .lt. 1) then
+        print *,'imin/imax: ',imin,imax
+        print *,'kmin/kmax: ',kmin,kmax
+        print *,'jmin/jmax: ',jmin,jmax
+        print *,'xp,yp,zp: ',xp,yp,zp
+
+        print *,'xmin/xmax: ',xmin,xmax
+        print *,'ymin/ymax: ',ymin,ymax
+        print *,'zmin/zmax: ',zmin,zmax
+        stop
+    end if
     
     xmin = float(imin-1)*delxm
     xmax = float(imax-1)*delxm
@@ -571,13 +581,7 @@ subroutine fluid_interp(xp,yp,zp,u,v,w,uf,vf,wf)
     zmin = float(jmin-1)*delzm
     zmax = float(jmax-1)*delzm
 
-if (imin .lt. 1 .or. jmin .lt. 1 .or. kmin .lt. 1) then
-    print *,'imin/imax: ',imin,imax
-    print *,'jmin/jmax: ',jmin,jmax
-    print *,'kmin/kmax: ',kmin,kmax
-    print *,'xp,yp,zp: ',xp,yp,zp
-    stop
-end if
+
     ! Interpolate fluid velocity at particle position
     uf = interpolate3(xp, yp, zp,       &
                   xmin, xmax, ymin, ymax, zmin, zmax,   &
@@ -629,9 +633,7 @@ subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a,
 	real    :: dt
 
     ! Geometry variables
-    integer :: kwall,kmaxsurf
     real    :: xl,yl,zl
-    integer, dimension(nyp,mz,mx) :: imatrix
 
     ! Calculation variables
     real :: Height,umax
@@ -656,7 +658,6 @@ subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a,
 ! ============================================================================ !
     common/itime/  it
     common/dtime/  dt
-    common/imat/   imatrix,kwall,kmaxsurf
     common/domain/ xl,yl,zl
 ! ---------------------------------------------------------------------------- !
 
@@ -665,7 +666,7 @@ subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a,
 ! ============================================================================ !
 
     ! Set height of top wall
-    Height = ycoord(nyp - kwall) - a
+    Height = ycoord(1) - a
 
 
     xp = xpart
@@ -719,7 +720,7 @@ subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a,
 
     ! Update position
     xpart = mod(xl + xpart + dt*(up/6 + u2/3 + u3/3 + u4/6),xl)
-    ypart = max(min(ypart + dt*(vp/6 + v2/3 + v3/3 + v4/6),Height),a+ycoord(kwall))
+    ypart = max(min(ypart + dt*(vp/6 + v2/3 + v3/3 + v4/6),Height),a+ycoord(nyp))
     zpart = mod(zl + zpart + dt*(wp/6 + w2/3 + w3/3 + w4/6),zl)
 
     ! Update velocity 
@@ -728,7 +729,7 @@ subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a,
     wp = wp + dt*(Kw1/6 + Kw2/3 + Kw3/3 + Kw4/6)
 
     ! Handle particles near walls
-    if ((ypart .eq. Height .and. vp_new .gt. 0.0) .or. (ypart .eq. a+ycoord(kwall) .and. vp_new .lt. 0.0)) then
+    if ((ypart .eq. Height .and. vp_new .gt. 0.0) .or. (ypart .eq. a+ycoord(nyp) .and. vp_new .lt. 0.0)) then
         vp = -vp_new ! Bounce elastically off the walls  
     else
         vp = vp_new
@@ -772,9 +773,7 @@ subroutine RKstage(sn,un,vn,wn,xp,yp,zp,Ku,Kv,Kw,u,v,w, &
     integer :: sn
 
     ! Geometry variables
-    integer :: kwall,kmaxsurf
     real    :: xl,yl,zl
-    integer, dimension(nyp,mz,mx) :: imatrix
 
     ! Flow setup variables
 	real    :: re,Uinf,R_tau,dPdx
@@ -805,7 +804,6 @@ subroutine RKstage(sn,un,vn,wn,xp,yp,zp,Ku,Kv,Kw,u,v,w, &
     common/particles/  particle_flag,CD_switch,ratio,a,C_mu,g
     common/itime/      it
     common/dtime/      dt
-    common/imat/       imatrix,kwall,kmaxsurf
     common/domain/     xl,yl,zl
 ! ---------------------------------------------------------------------------- !
     ! -------------------------------------------------------- !
@@ -820,7 +818,7 @@ subroutine RKstage(sn,un,vn,wn,xp,yp,zp,Ku,Kv,Kw,u,v,w, &
     C_L = 0.5
  
     ! Set height of top wall
-    Height = ycoord(nyp - kwall) - a
+    Height = ycoord(1) - a
 
     ! Calculate fluid velocity and vorticity at particle location
     call fluid_interp(xp,yp,zp,u,v,w,ufluid,vfluid,wfluid)
@@ -884,7 +882,7 @@ subroutine RKstage(sn,un,vn,wn,xp,yp,zp,Ku,Kv,Kw,u,v,w, &
     wn = wp_old + h*Kw
     
     xp = mod(xl + xp_old + h*un,xl)
-    yp = max(min(yp_old + h*vn, Height),a+ycoord(kwall))
+    yp = max(min(yp_old + h*vn, Height),a+ycoord(nyp))
     zp = mod(zl + zp_old + h*wn,zl)
 
 
@@ -962,9 +960,8 @@ subroutine SubDerivative(u,v,w,u_old,v_old,w_old,ufluid,vfluid,wfluid,subDufDt,s
     imax = mod(imin,mx) + 1
     jmin = mod(floor(zpart/delzm) + mz, mz) + 1
     jmax = mod(jmin,mz) + 1
-    kmin = 1+floor(float(ny)/pi*acos(1.0 - 2.0*ypart/yl))
-    if (kmin .eq. nyp) kmin = ny
-    kmax = kmin + 1
+    kmax = floor(1 + float(ny)/pi*acos(2.0*ypart/yl))
+    kmin = kmax + 1
     
     xmin = float(imin-1)*delxm
     xmax = float(imax-1)*delxm
@@ -1271,9 +1268,8 @@ subroutine interp_swirl(xpart,ypart,zpart,swirl,u11,u12,u13,u21,u22,u23,u31,u32,
     imax = mod(imin,mx) + 1
     jmin = mod(floor(zpart/delzm) + mz, mz) + 1
     jmax = mod(jmin,mz) + 1
-    kmin = 1+floor(float(ny)/pi*acos(1.0 - 2.0*ypart/yl))
-    if (kmin .eq. nyp) kmin = ny
-    kmax = kmin + 1
+    kmax = floor(1 + float(ny)/pi*acos(2.0*ypart/yl))
+    kmin = kmax + 1
     
     xmin = float(imin-1)*delxm
     xmax = float(imax-1)*delxm

@@ -223,6 +223,7 @@ program dns
         ! Initialize conformation tensor on the time step before polymer is released
         if (it .eq. src_start - 1 .or. it .eq. irstrt .and. crstrt .eq. 0) then
 
+            !$omp parallel do default(shared) private(i,j,k)
             do k = 1,nx
                 do j = 1,nz
                     do i = 1,nyp
@@ -239,6 +240,7 @@ program dns
                     end do
                 end do
             end do
+            !$omp end parallel do
 
             call xyzfft(c11,wrk11,-1)
             call xyzfft(c12,wrk12,-1)
@@ -277,7 +279,7 @@ program dns
             !$omp end parallel sections
 
             ! Copy n to nm1
-            !$omp parallel do
+            !$omp parallel do default(shared) private(i,j,k)
             do k = 1,nxh
                 do j = 1,nz
                     do i = 1,nyp
@@ -1902,6 +1904,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
     ! -------------------------------------------------------------------- !
     ! Calculate other variables
         ! Calculate omy
+        !$omp parallel do default(shared) private(i,j,k)
         do k = 1,nxh
             do j = 1,nz
                 do i = 1,nyp
@@ -1909,6 +1912,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
                 end do
             end do
         end do
+        !$omp end parallel do
     
         ! Because of periodicity, the (0,0) mode for omy is always 0
         do i = 1,nyp
@@ -2036,6 +2040,9 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
         call norm(dc333)                                                 
 #ENDIF
 
+    open(999,file='outputs/spectral_data',status='replace',form='unformatted')
+    write(999) u
+    close(999)
 !    write(1,*) u
     ! -------------------------------------------------------------------- !
     ! Compute v x omega in physical space - FFTs are performed inside subroutine
@@ -2113,6 +2120,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
         ! -------------------------------------------------------------------- !
         ! Add source to scalar term
         if (src_start .eq. 0) then
+            !$omp parallel do default(shared) private(i,j,k)
             do k = 1,nxh
                 do j = 1,nz
                     do i = 1,nyp
@@ -2120,6 +2128,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
                     end do
                 end do
             end do
+            !$omp end parallel do
         end if
 #ENDIF        
         ! -------------------------------------------------------------------- !
@@ -2138,7 +2147,8 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
 #ENDIF
     
         ! For the first time step, fnm1=fn & h1nm1=h1n
-    
+   
+        !$omp parallel do default(shared) private(i,j,k) 
         do k=1,nxh
             do j=1,nz
                 do i=1,nyp
@@ -2147,19 +2157,8 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
 #IFDEF SCALAR
                     scnm1(i,j,k) = scn(i,j,k)
 #ENDIF
-                end do
-            end do
-        end do
-    
-        do i=1,nyp
-            h1nm1(i)=h1n(i)
-            h3nm1(i)=h3n(i)
-        end do
 #IFDEF POLYMER   
-        ! Add Cij terms 
-        do k=1,nxh
-            do j=1,nz
-                do i=1,nyp
+                    ! Add Cij terms 
                     c11nm1(i,j,k) = c11n(i,j,k)
                     c12nm1(i,j,k) = c12n(i,j,k)
                     c13nm1(i,j,k) = c13n(i,j,k)
@@ -2172,10 +2171,16 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
                     str22nm1(i,j,k) = str22n(i,j,k)
                     str23nm1(i,j,k) = str23n(i,j,k)
                     str33nm1(i,j,k) = str33n(i,j,k)
+#ENDIF
                 end do
             end do
         end do
-#ENDIF
+        !$omp end parallel do
+ 
+        do i=1,nyp
+            h1nm1(i)=h1n(i)
+            h3nm1(i)=h3n(i)
+        end do
     end if
 end subroutine initial
 
@@ -2274,20 +2279,20 @@ subroutine setpoly(scl,psource,wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,w
                     wrk33(i,j,k) = c33z
 
                     ! Initialize scalar
-                    if (scl_flag .eq. 1) then
-                        scl(i,j,k) = deltaT*exp(-(betax + betay + betaz))
-                    else if (scl_flag .eq. 2) then  
-                        if (src_start .eq. 0) then
-                            psource(i,j,k) = deltaT*exp(-(betax + betay + betaz))
-                        end if
+                    scl(i,j,k) = deltaT*exp(-(betax + betay + betaz))
                     end if
                 end do
             end do
         end do
     end do
 
-    if (scl_flag .eq. 3) then
-        scl(i,j,k) = 1.0
+    if (scl_flag .eq. 2) then
+        psource = scl
+        scl = 0.0
+    else if (scl_flag .eq. 3) then
+        scl = 1.0
+    else if (scl_flag .ne. 1) then
+        scl = 0.0
     end if
 
 end subroutine setpoly
