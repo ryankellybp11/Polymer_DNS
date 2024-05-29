@@ -2776,7 +2776,7 @@ subroutine write_flowfield_plt(u, v, w, wx, wy, wz, swirl, ctp, scl)
         
     write(filename,'("outputs/flowfield/time-",i6.6,".szplt")')it
     
-    i = tecini142("Solution", "swirl u v w wx wy wz ctp beta", filename//NULLCHR, ".", &
+    i = tecini142("Solution", "swirl u v w wx wy wz ctp tr(C)", filename//NULLCHR, ".", &
         fileFormat, outputFileType, 1, 0)
     
     varTypes = 1

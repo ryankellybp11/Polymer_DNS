@@ -1703,7 +1703,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
 #IFDEF POLYMER
     real,    dimension(nyp,nz,nx)  :: wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,wrk33
 #ENDIF
-    integer :: i,j,k
+    integer :: i,j,k,jj
     complex :: im
     
     
@@ -1716,6 +1716,11 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
     real, dimension(nyp,mz,mx) :: fxintg,fyintg,fzintg
     real, dimension(mz2,mx2)   :: fspread
 
+    ! Low-res restart variables
+    integer :: nypLR,nxhLR,mxLR,nzLR,mzLR
+    complex,allocatable,dimension(:,:,:) :: vLR,fnLR,fnm1LR,omyLR,gnLR,gnm1LR
+    real,allocatable,dimension(:)     :: u0LR,h1nLR,h1nm1LR,w0LR,h3nLR,h3nm1LR
+    real,allocatable,dimension(:,:,:) :: fxintgLR,fyintgLR,fzintgLR
 ! ---------------------------------------------------------------------------- !
 
 
@@ -1754,13 +1759,75 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
    
     im = (0.0,1.0) ! imaginary number, i
     
-    if (irstrt .eq. 1) then
-        open(113,file='setup/restart',status='old',form='unformatted')
-!        read(113)
-        read(113) v,fn,fnm1,omy,gn,gnm1,u0,h1n,h1nm1,w0,h3n,h3nm1
-        read(113) fxintg,fyintg,fzintg
-        close(113)
+    if (irstrt .ge. 1) then
+        if (irstrt .eq. 1) then ! read as normal
+            open(113,file='setup/restart',status='old',form='unformatted')
+            read(113) v,fn,fnm1,omy,gn,gnm1,u0,h1n,h1nm1,w0,h3n,h3nm1
+            read(113) fxintg,fyintg,fzintg
+            close(113)
+        else if (irstrt .eq. 2) then ! Read in a lower resolution file
+            ! Get lower resolution grid sizes
+            ! Temp - manually enter variables - should be saved to file and read
+            ! Only thing changing for now is x-grid
+            nxhLR = nxh/2; mxLR = mx/2
+            nzLR = nz; mzLR = mz; nypLR = nyp
 
+            ! Allocate variables for lower resolution
+            allocate(vLR(nypLR,nzLR,nxhLR),fnLR(nypLR,nzLR,nxhLR),fnm1LR(nypLR,nzLR,nxhLR), &
+                     omyLR(nypLR,nzLR,nxhLR),gnLR(nypLR,nzLR,nxhLR),gnm1LR(nypLR,nzLR,nxhLR), &
+                     u0LR(nypLR),h1nLR(nypLR),h1nm1LR(nypLR),w0LR(nypLR),h3nLR(nypLR),h3nm1LR(nypLR), & 
+                     fxintgLR(nyp,mzLR,mxLR),fyintgLR(nypLR,mzLR,mxLR),fzintgLR(nypLR,mzLR,mxLR))
+
+            ! Read in low-res variables
+            open(113,file='setup/restart',status='old',form='unformatted')
+            read(113) vLR,fnLR,fnm1LR,omyLR,gnLR,gnm1LR,u0LR,h1nLR,h1nm1LR,w0LR,h3nLR,h3nm1LR
+            read(113) fxintgLR,fyintgLR,fzintgLR
+            close(113)
+            
+            ! Initialize high-res variables
+            v = 0.0; fn = 0.0; gn = 0.0; omy = 0.0
+            fnm1 = 0.0; gnm1 = 0.0
+            u0 = 0.0; h1n = 0.0; h1nm1 = 0.0
+            w0 = 0.0; h3n = 0.0; h3nm1 = 0.0
+            fxintg = 0.0; fyintg = 0.0; fzintg = 0.0
+
+            ! Fill in high-resolution variables from low-res inputs
+
+            ! The current format does not work because I actually need interpolation in the y-direction; however, for now I am only
+            ! going to change the x-direction grid size, so that's a problem for later
+            do k = 1,nxhLR
+                do j = 1,nzLR
+                    jj = j ! This will change if z-grid changes
+                    do i = 1,nypLR
+                           v(i,jj,k) = vLR(i,j,k)
+                          fn(i,jj,k) = fnLR(i,j,k)
+                        fnm1(i,jj,k) = fnm1LR(i,j,k)
+                         omy(i,jj,k) = omyLR(i,j,k)
+                          gn(i,jj,k) = gnLR(i,j,k)
+                        gnm1(i,jj,k) = gnm1LR(i,j,k)
+                    end do
+                end do
+            end do
+
+            do i = 1,nypLR
+                u0(i) = u0LR(i)
+               h1n(i) = h1nLR(i)
+             h1nm1(i) = h1nm1LR(i)
+                w0(i) = w0LR(i)
+               h3n(i) = h3nLR(i)
+             h3nm1(i) = h3nm1LR(i)
+            end do
+
+            do k = 1,mxLR
+                do j = 1,mzLR
+                    do i = 1,nypLR
+                        fxintg(i,j,k) = fxintgLR(i,j,k)
+                        fyintg(i,j,k) = fyintgLR(i,j,k)
+                        fzintg(i,j,k) = fzintgLR(i,j,k)
+                    end do
+                end do
+            end do
+        end if
 #IF DEFINED SCALAR && !DEFINED POLYMER
     ! -------------------------------------------------------------------- !
     ! Initialize scalar field
@@ -2040,10 +2107,9 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
         call norm(dc333)                                                 
 #ENDIF
 
-    open(999,file='outputs/spectral_data',status='replace',form='unformatted')
-    write(999) u
-    close(999)
-!    write(1,*) u
+!    open(999,file='outputs/spectral_data',status='replace',form='unformatted')
+!    write(999) u
+!    close(999)
     ! -------------------------------------------------------------------- !
     ! Compute v x omega in physical space - FFTs are performed inside subroutine
     ! Assumes all variables are in 3D spectral space (on input and output)

@@ -45,6 +45,8 @@ program compare
     ! FFTW Initialization variables
     type(C_PTR) :: plan1,plan2,plan3,plan4,plan5
     type(C_PTR) :: plan11,plan12,plan13,plan14,plan15
+!    type(fftw_iodim) :: dims,howmany_dims
+    type(fftw_iodim), dimension(2) :: dims,howmany_dims!1,howmany_dims2
 
     ! FFTW Transform variables
     complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: uc
@@ -53,13 +55,7 @@ program compare
     complex(C_DOUBLE_COMPLEX), dimension(mz,mx) :: uc2d
     real(C_DOUBLE),dimension(mz,mx) :: up2d
 
-    complex(C_DOUBLE_COMPLEX), dimension(mz)  :: cztemp
-    complex(C_DOUBLE_COMPLEX), dimension(mx)  :: cxtemp
-
-    real(C_DOUBLE), dimension(nyp) :: rytemp
-    real(C_DOUBLE), dimension(mx)  :: rxtemp
-
-    real,dimension(nyp) :: cheb = 1.0
+    real(C_DOUBLE),dimension(nyp,mz,mx) :: ur,ui
 
     ! Timing variables
     double precision :: tstart, tend
@@ -75,9 +71,6 @@ program compare
     !                         Begin Calculations                          !
     ! ------------------------------------------------------------------- !
     call MPI_Init(ierr)
-
-    cheb(1) = 2.0
-    cheb(nyp) = 2.0
 
     ! Read input data
     print *,'Read in spectral data'
@@ -113,13 +106,11 @@ program compare
     print *,'   DNS FFT average execution time: ',(tend-tstart)/float(num_ffts),' s'
     print *,''
 
-    write(1,*) us1(:,1,1)
-
     ! Initialize FFTW FFTs
     print *,''
     print *,' ------------------------------------------------------------- '
     print *,''
-    print *,'   Creating FFTW Plans (1D x 3, array slice)'
+    print *,'   Creating FFTW Plans (1D x 3, Basic Interface)' 
     print *,''
 
     tstart = MPI_Wtime()
@@ -141,43 +132,7 @@ program compare
     print *,'   Executing FFTW FFTs... '
     print *,''
     tstart = MPI_Wtime()
-    ! Copy spectral data to bigger array for FFT
-    !$omp parallel do shared(uc)
-    do k = 1,mx
-    do j = 1,mz
-    do i = 1,nyp
-    uc(i,j,k) = 0.0
-    end do
-    end do
-    end do
-    !$omp end parallel do
-
-    !$omp parallel do shared(uc,us2)
-    do k = 1,nxh
-        do j = 1,nz
-            if (j .le. nzh) jj = j
-            if (j .gt. nzh) jj = (mz-nz) + j
-            do i = 1,nyp
-                uc(i,jj,k) = us2(i,j,k)*cheb(i)/2.0
-            end do
-        end do
-    end do
-    !$omp end parallel do
-
-!    call FFTW_FFTs(us2,num_ffts,plan1,plan2,plan3,plan4,plan5)
-    call perform_FFTs(uc,plan1,plan2,plan3,plan4,plan5,num_ffts)
-    ! Fill out spectral variable
-    !$omp parallel do shared(us2,uc)
-    do k = 1,nxh
-        do j = 1,nz
-            if (j .le. nzh) jj = j
-            if (j .gt. nzh) jj = (mz-nz) + j
-            do i = 1,nyp
-                us2(i,j,k) = uc(i,jj,k)
-            end do
-        end do
-    end do 
-    !$omp end parallel do
+    call perform_FFTs(us2,plan1,plan2,plan3,plan4,plan5,num_ffts)
     tend = MPI_Wtime()
 !    call fftw_destroy_plan(plan1)
 !    call fftw_destroy_plan(plan2)
@@ -190,26 +145,32 @@ program compare
     print *,''
     print *,'   FFTW FFT average execution time: ',(tend-tstart)/float(num_ffts),' s'
     print *,''
-    write(2,*) us2(:,1,1)
-
-    ! DEBUGGING
-!    stop
 
     ! Initialize FFTW FFts
     print *,''
     print *,' ------------------------------------------------------------- '
     print *,''
-    print *,'   Creating FFTW Plans (1D x 3, array --> vector copy)'
+    print *,'   Creating FFTW Plans (1D x 3, Guru Interface)'
     print *,''
 
     tstart = MPI_Wtime()
-!    ierr = fftw_init_threads() ! Initialize threaded FFTW
-!    call fftw_plan_with_nthreads(OMP_GET_MAX_THREADS())
-    plan11 = fftw_plan_dft_1d(mz,cztemp,cztemp,FFTW_BACKWARD,FFTW_MEASURE)
-    plan12 = fftw_plan_dft_c2r_1d(mx,cxtemp,rxtemp,FFTW_MEASURE)
-    plan13 = fftw_plan_r2r_1d(nyp,rytemp,rytemp,FFTW_REDFT00,FFTW_MEASURE)
-    plan14 = fftw_plan_dft_r2c_1d(mx,rxtemp,cxtemp,FFTW_MEASURE)
-    plan15 = fftw_plan_dft_1d(mz,cztemp,cztemp,FFTW_FORWARD,FFTW_MEASURE)
+    dims%n  = mz
+    dims%is = nyp
+    dims%os = nyp
+
+    howmany_dims(1)%n  = nyp
+    howmany_dims(1)%is = mz*mx
+    howmany_dims(1)%os = mz*mx
+
+    howmany_dims(2)%n  = nxh
+    howmany_dims(2)%is = 1
+    howmany_dims(2)%os = 1
+
+    plan11 = fftw_plan_guru_split_dft(1,dims,2,howmany_dims,ur,ui,ur,ui,FFTW_MEASURE)
+    plan12 = fftw_plan_dft_c2r_1d(mx,uc,up,FFTW_MEASURE)
+    plan13 = fftw_plan_r2r_1d(nyp,up,up,FFTW_REDFT00,FFTW_MEASURE)
+    plan14 = fftw_plan_dft_r2c_1d(mx,up,uc,FFTW_MEASURE)
+    plan15 = fftw_plan_dft_1d(mz,uc,uc,FFTW_FORWARD,FFTW_MEASURE)
     tend = MPI_Wtime()
 
     print *,'   FFTW Initialization time: ',tend-tstart,' s'
@@ -219,30 +180,7 @@ program compare
     print *,'   Executing FFTW FFTs... '
     print *,''
     tstart = MPI_Wtime()
-    ! Copy spectral data to bigger array for FFT
-    !$omp parallel do shared(uc)
-    do k = 1,mx
-    do j = 1,mz
-    do i = 1,nyp
-    uc(i,j,k) = 0.0
-    end do
-    end do
-    end do
-    !$omp end parallel do
-
-    call perform_FFTs_2(uc,plan11,plan12,plan13,plan14,plan15,num_ffts)
-    ! Fill out spectral variable
-    !$omp parallel do shared(uc,us3)
-    do k = 1,nxh
-        do j = 1,nz
-            if (j .le. nzh) jj = j
-            if (j .gt. nzh) jj = (mz-nz) + j
-            do i = 1,nyp
-                us3(i,j,k) = uc(i,jj,k)
-            end do
-        end do
-    end do 
-    !$omp end parallel do
+    call perform_FFTs_2(us3,plan11,plan12,plan13,plan14,plan15,num_ffts)
     tend = MPI_Wtime()
 
     print *,''
@@ -476,137 +414,121 @@ end subroutine yfft
 
 ! ------------------------------------------------------------------------------------ !
 
-subroutine FFTW_FFTs(us,num_ffts,plan1,plan2,plan3,plan4,plan5)
+subroutine perform_FFTs(us,plan1,plan2,plan3,plan4,plan5,num_ffts)
 
     use,intrinsic :: iso_c_binding
     use grid_size
     use omp_lib
 
     implicit none
-
+    
     include 'fftw3.f03'
 
+    complex,dimension(nyp,nz,nxh) :: us
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: uc,vc,wc
 
-    ! Input data
-    complex(C_DOUBLE_COMPLEX),dimension(nyp,nz,nxh) :: us
-    integer :: num_ffts
+    real(C_DOUBLE),dimension(nyp,mz,mx) :: up,vp,wp
 
-    ! FFTW Initialization variables
+    real,dimension(mz,mx) :: fac1,fac2,fac3
+    integer :: i,j,k,n,num_ffts,jj
+
     type(C_PTR) :: plan1,plan2,plan3,plan4,plan5
+    real,dimension(nyp) :: cheb = 1.0
+    cheb(1) = 2.0
+    cheb(nyp) = 2.0
 
-    ! FFTW Transform variables
-    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: uc
-    real(C_DOUBLE), dimension(nyp,mz,mx) :: up
-
-    ! Normalization factor
-    real,dimension(mz,mx) :: fac
-
-    ! Loop indices
-    integer :: i,j,k,jj,n
-
-    ! ------------------------------------------------------------------- !
-    !                         Begin Calculations                          !
-    ! ------------------------------------------------------------------- !
 
     do n = 1,num_ffts
-
     ! Copy spectral data to bigger array for FFT
-    !omp parallel do
+    !$omp parallel do shared(uc)
+    do k = 1,mx
+    do j = 1,mz
+    do i = 1,nyp
+    uc(i,j,k) = 0.0
+    end do
+    end do
+    end do
+    !$omp end parallel do
+
+    !$omp parallel do shared(uc,us)
     do k = 1,nxh
         do j = 1,nz
             if (j .le. nzh) jj = j
             if (j .gt. nzh) jj = (mz-nz) + j
             do i = 1,nyp
-                uc(i,jj,k) = us(i,j,k)
+                uc(i,jj,k) = us(i,j,k)*cheb(i)/2.0
             end do
         end do
     end do
-    !omp end parallel do
+    !$omp end parallel do
 
     ! Complex --> Complex z-transform
-    !omp parallel do
+    !$omp parallel do shared(uc,plan1)
     do k = 1,nxh
         do i = 1,nyp
             call fftw_execute_dft(plan1,uc(i,:,k),uc(i,:,k))
         end do
     end do
-    !omp end parallel do
+    !$omp end parallel do
+    write(101,*) uc
 
     ! Complex --> Real x-transform
-    !omp parallel do
+    !$omp parallel do shared(plan2,uc,up)
     do j = 1,mz
-        do i = 1,nyp
-            call fftw_execute_dft_c2r(plan2,uc(i,j,:),up(i,j,:))
-        end do
+    do i = 1,nyp
+        call fftw_execute_dft_c2r(plan2,uc(i,j,:),up(i,j,:))
     end do
-    !omp end parallel do
+    end do
+    !$omp end parallel do
+    write(102,*) up
 
     ! Real --> Real IDCT
-    !omp parallel do
+!    print *,'Real --> Real Cosine Transform'
+    !$omp parallel do shared(plan3,up)
     do k = 1,mx
         do j = 1,mz
             call fftw_execute_r2r(plan3,up(:,j,k),up(:,j,k))
         end do
     end do
-    !omp end parallel do
-
-    ! Normalize IDCT for real values
+    !$omp end parallel do
+    write(103,*) up
     
-!    do k = 1,mx
-!        do j = 1,mz
-!            fac(j,k) = up(1,j,k)
-!            do i = 1,nyp
-!                up(i,j,k) = (up(i,j,k) - fac(j,k))/2.0
-!            end do
-!        end do
-!    end do
-!    print *,'test u = ',up(nyh,1,1)
-!    write(1,*) up
-    ! Now do everything in reverse!
-
-    ! Un-normalize real values for DCT
-    !omp parallel do
-    do k = 1,mx
-        do j = 1,mz
-            do i = 1,nyp
-                up(i,j,k) = 2.0*up(i,j,k) + fac(j,k)
-            end do
-        end do
-    end do
-    !omp end parallel do
-
     ! Real --> Real DCT
-    !omp parallel do
+    !$omp parallel do shared(plan3,up)
     do k = 1,mx
         do j = 1,mz
             call fftw_execute_r2r(plan3,up(:,j,k),up(:,j,k))
         end do
     end do
-    !omp end parallel do
-!    write(1,*) up
+    !$omp end parallel do
+    up = up/float(ny)
+    up(1,:,:) = up(1,:,:)/2.0
+    up(nyp,:,:) = up(nyp,:,:)/2.0
 
     ! Real --> Complex x-transform
-    !omp parallel do
+    !$omp parallel do shared(plan4,up,uc)
     do j = 1,mz
         do i = 1,nyp
             call fftw_execute_dft_r2c(plan4,up(i,j,:),uc(i,j,:))
         end do
     end do
-    !omp end parallel do
+    !$omp end parallel do
+    uc = uc/float(mx)
 !    write(2,*) uc*rmz
 
     ! Complex --> Complex z-transform
-    !omp parallel do
+    !$omp parallel do shared(plan5,uc)
     do k = 1,nxh
         do i = 1,nyp
             call fftw_execute_dft(plan5,uc(i,:,k),uc(i,:,k))
         end do
     end do
-    !omp end parallel do
+    !$omp end parallel do
+    uc = uc/float(mz)
 !    write(3,*) uc
 
     ! Fill out spectral variable
-    !omp parallel do
+    !$omp parallel do shared(us,uc)
     do k = 1,nxh
         do j = 1,nz
             if (j .le. nzh) jj = j
@@ -616,15 +538,16 @@ subroutine FFTW_FFTs(us,num_ffts,plan1,plan2,plan3,plan4,plan5)
             end do
         end do
     end do 
-    !omp end parallel do
-    
+    !$omp end parallel do
 
     end do ! n
 
 
-end subroutine FFTW_FFTs
+end subroutine 
 
-subroutine perform_FFTs(uc,plan1,plan2,plan3,plan4,plan5,num_ffts)
+! ------------------------------------------------------------------------------------ !
+
+subroutine perform_FFTs_2(us,plan1,plan2,plan3,plan4,plan5,num_ffts)
 
     use,intrinsic :: iso_c_binding
     use grid_size
@@ -634,31 +557,73 @@ subroutine perform_FFTs(uc,plan1,plan2,plan3,plan4,plan5,num_ffts)
     
     include 'fftw3.f03'
 
-    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: uc,vc,wc
+    complex, dimension(nyp,nz,nxh) :: us
+    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: uc
+    real(C_DOUBLE),dimension(nyp,mz,mx) :: up
+    real(C_DOUBLE),dimension(nyp,mz,mx) :: ur,ui
 
-    real(C_DOUBLE),dimension(nyp,mz,mx) :: up,vp,wp
-
-    real,dimension(mz,mx) :: fac1,fac2,fac3
-    integer :: i,j,k,n,num_ffts
+    integer :: i,j,k,n,num_ffts,jj
 
     type(C_PTR) :: plan1,plan2,plan3,plan4,plan5
+
+    real,dimension(nyp) :: cheb = 1.0
+    cheb(1) = 2.0
+    cheb(nyp) = 2.0
 
 
     do n = 1,num_ffts
 
-    ! Complex --> Complex z-transform
-!    print *,'Complex --> Complex Transform'
-    !$omp parallel do shared(uc,plan1)
+    ! Copy spectral data to bigger array for FFT
+    !$omp parallel do shared(uc)
+    do k = 1,mx
+    do j = 1,mz
+    do i = 1,nyp
+    uc(i,j,k) = 0.0
+    ur(i,j,k) = 0.0
+    ui(i,j,k) = 0.0
+    end do
+    end do
+    end do
+    !$omp end parallel do
+
+    !$omp parallel do shared(uc,us)
     do k = 1,nxh
-        do i = 1,nyp
-            call fftw_execute_dft(plan1,uc(i,:,k),uc(i,:,k))
+        do j = 1,nz
+            jj = j
+!            if (j .le. nzh) jj = j
+!            if (j .gt. nzh) jj = (mz-nz) + j
+            do i = 1,nyp
+                uc(i,jj,k) = us(i,j,k)*cheb(i)/2.0
+                ur(i,jj,k) = real(us(i,j,k))*cheb(i)/2.0
+                ui(i,jj,k) = aimag(us(i,j,k))*cheb(i)/2.0
+            end do
         end do
     end do
     !$omp end parallel do
-!    write(200,*) uc
+
+
+    ! Complex --> Complex z-transform
+    call fftw_execute_split_dft(plan1,ur,ui,ur,ui)
+!    !$omp parallel do shared(uc,plan1)
+!    do k = 1,nxh
+!        do i = 1,nyp
+!            call fftw_execute_dft(plan1,uc(i,:,k),uc(i,:,k))
+!        end do
+!    end do
+!    !$omp end parallel do  
+    !$omp parallel do
+    do k = 1,mx
+    do j = 1,mz
+    do i = 1,nyp
+    uc(i,j,k) = cmplx(ur(i,j,k),ui(i,j,k))
+    end do
+    end do
+    end do
+    !$omp end parallel do
+
+    write(201,*) uc
 
     ! Complex --> Real x-transform
-!    print *,'Complex --> Real Transform'
     !$omp parallel do shared(plan2,uc,up)
     do j = 1,mz
     do i = 1,nyp
@@ -666,6 +631,7 @@ subroutine perform_FFTs(uc,plan1,plan2,plan3,plan4,plan5,num_ffts)
     end do
     end do
     !$omp end parallel do
+    write(202,*) up
 
 
     ! Real --> Real IDCT
@@ -677,6 +643,7 @@ subroutine perform_FFTs(uc,plan1,plan2,plan3,plan4,plan5,num_ffts)
         end do
     end do
     !$omp end parallel do
+    write(203,*) up
 
     ! Real --> Real DCT
     !$omp parallel do shared(plan3,up)
@@ -689,7 +656,6 @@ subroutine perform_FFTs(uc,plan1,plan2,plan3,plan4,plan5,num_ffts)
     up = up/float(ny)
     up(1,:,:) = up(1,:,:)/2.0
     up(nyp,:,:) = up(nyp,:,:)/2.0
-!    write(1,*) up
 
     ! Real --> Complex x-transform
     !$omp parallel do shared(plan4,up,uc)
@@ -713,109 +679,19 @@ subroutine perform_FFTs(uc,plan1,plan2,plan3,plan4,plan5,num_ffts)
     uc = uc/float(mz)
 !    write(3,*) uc
 
-    end do ! n
 
-
-end subroutine 
-
-subroutine perform_FFTs_2(uc,plan1,plan2,plan3,plan4,plan5,num_ffts)
-
-    use,intrinsic :: iso_c_binding
-    use grid_size
-    use omp_lib
-
-    implicit none
-    
-    include 'fftw3.f03'
-
-    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: uc
-    real(C_DOUBLE),dimension(nyp,mz,mx) :: up
-
-    complex(C_DOUBLE_COMPLEX), dimension(mz)  :: cztemp
-    complex(C_DOUBLE_COMPLEX), dimension(mx)  :: cxtemp
-
-    real(C_DOUBLE), dimension(nyp) :: rytemp
-    real(C_DOUBLE), dimension(mx)  :: rxtemp
-
-    integer :: i,j,k,n,num_ffts
-
-    type(C_PTR) :: plan1,plan2,plan3,plan4,plan5
-
-
-    do n = 1,num_ffts
-
-    ! Complex --> Complex z-transform
-    !$omp parallel do shared(uc,plan1)
+    ! Fill out spectral variable
+    !$omp parallel do shared(uc,us)
     do k = 1,nxh
-        do i = 1,nyp
-            cztemp = uc(i,:,k)
-            call fftw_execute_dft(plan1,cztemp,cztemp)
-            uc(i,:,k) = cztemp
+        do j = 1,nz
+            if (j .le. nzh) jj = j
+            if (j .gt. nzh) jj = (mz-nz) + j
+            do i = 1,nyp
+                us(i,j,k) = uc(i,jj,k)
+            end do
         end do
-    end do
+    end do 
     !$omp end parallel do
-
-    ! Complex --> Real x-transform
-    !$omp parallel do shared(plan2,uc,up)
-    do j = 1,mz
-    do i = 1,nyp
-        cxtemp = uc(i,j,:)
-        call fftw_execute_dft_c2r(plan2,cxtemp,rxtemp)
-        up(i,j,:) = rxtemp
-    end do
-    end do
-    !$omp end parallel do
-
-
-    ! Real --> Real IDCT
-    !$omp parallel do shared(plan3,up)
-    do k = 1,mx
-        do j = 1,mz
-            rytemp = up(:,j,k)
-            call fftw_execute_r2r(plan3,rytemp,rytemp)
-            up(:,j,k) = rytemp
-        end do
-    end do
-    !$omp end parallel do
-
-    ! Real --> Real DCT
-    !$omp parallel do shared(plan3,up)
-    do k = 1,mx
-        do j = 1,mz
-            rytemp = up(:,j,k)
-            call fftw_execute_r2r(plan3,rytemp,rytemp)
-            up(:,j,k) = rytemp
-        end do
-    end do
-    !$omp end parallel do
-    up = up/float(ny)
-    up(1,:,:) = up(1,:,:)/2.0
-    up(nyp,:,:) = up(nyp,:,:)/2.0
-
-    ! Real --> Complex x-transform
-    !$omp parallel do shared(plan4,up,uc)
-    do j = 1,mz
-        do i = 1,nyp
-            rxtemp = up(i,j,:)
-            call fftw_execute_dft_r2c(plan4,rxtemp,cxtemp)
-            uc(i,j,:) = cxtemp
-        end do
-    end do
-    !$omp end parallel do
-    uc = uc/float(mx)
-
-    ! Complex --> Complex z-transform
-    !$omp parallel do shared(plan5,uc)
-    do k = 1,nxh
-        do i = 1,nyp
-            cztemp = uc(i,:,k)
-            call fftw_execute_dft(plan5,cztemp,cztemp)
-            uc(i,:,k) = cztemp
-        end do
-    end do
-    !$omp end parallel do
-    uc = uc/float(mz)
-
     end do ! n
 
 

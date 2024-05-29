@@ -16,7 +16,7 @@ fftw_test: fftw_test.f90 Makefile
 	clear
 
 omp_compare_fft: omp_compare_ffts.f90 Makefile
-	mpiifx code/src/dns/grid_size.f90 code/src/dns/ffts.f90 omp_compare_ffts.f90 -o omp_compare_ffts $(LIB) $(INC) $(FLAGS) $(OMPFLAGS)
+	mpiifort code/src/dns/grid_size.f90 code/src/dns/ffts.f90 omp_compare_ffts.f90 -o omp_compare_ffts $(LIB) $(INC) $(FLAGS) $(OMPFLAGS)
 	clear
 
 compare_fft: compare_ffts.f90 Makefile

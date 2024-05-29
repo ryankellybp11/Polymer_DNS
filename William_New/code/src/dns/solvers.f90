@@ -3744,7 +3744,7 @@ contains
         Lvp3d(k,1:mz,1:mx) = Lvp(1:mz,1:mx) 
         Lwp3d(k,1:mz,1:mx) = Lwp(1:mz,1:mx) 
    
-        scp3d(k,1:mz,1:mx) = scp(1:mz,1:mx)
+        scp3d(k,1:mz,1:mx) = trp(1:mz,1:mx) ! just checking - change back to scp
 
         beta3d(k,1:mz,1:mx) = beta_poly(1:mz,1:mx)
  
@@ -3921,42 +3921,42 @@ contains
             if (print3d .eq. 1) then
                 call write_flowfield_ascii(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,swirl_3d,real(imatrix))
             else if (print3d .eq. 3) then
-                call write_flowfield_plt(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,swirl_3d,real(imatrix),beta3d)
+                call write_flowfield_plt(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,swirl_3d,real(imatrix),scp3d)
                 ! In certain cases, it may be better to print both scalar and beta, but since that's
                 ! not relevant at the moment, I'm just leaving beta
             else
                 write(*,*) 'Warning: Unknown print type. No output data will be written.'
             end if
         
-            ! Print out wx and scalar as a function of r
-            write(filename2,'("outputs/morestuff/fr-",i6.6,".dat")') it
-            open(190, file = filename2)
-            do j = 1,mz/2-1
-                z = delzm*(j-1)
-                r = abs(z - vortZ)
-                wxi = wx3d(nyh,mz/2+j,1) + wx3d(nyh,mz/2-j,1)
-                do k = 1,3
-                    argy = pi/4.0*float(k)
-                    z1 = r*cos(argy) + vortZ
-                    y1 = r*sin(argy) + vortY
-                    y2 = vortY - r*sin(argy)
-                   
-                    if (y1 .gt. 0.0 .and. y1 .lt. yl) then 
-                        call fluid_interp(0.0,y1,z1,wx3d,scp3d,up3d,wxj,scj,up1)
-                        wxi = wxi + wxj
-                        sci = sci + scj
-                        call fluid_interp(0.0,y2,z1,wx3d,scp3d,up3d,wxj,scj,up1)
-                        wxi = wxi + wxj
-                        sci = sci + scj
-                    end if
-                end do
-
-                wxi = wxi/8.0
-                sci = sci/8.0
-
-                write(190,"(3(e14.6,1x))") r, wxi ,sci
-            end do
-            close(190)
+!            ! Print out wx and scalar as a function of r
+!            write(filename2,'("outputs/morestuff/fr-",i6.6,".dat")') it
+!            open(190, file = filename2)
+!            do j = 1,mz/2-1
+!                z = delzm*(j-1)
+!                r = abs(z - vortZ)
+!                wxi = wx3d(nyh,mz/2+j,1) + wx3d(nyh,mz/2-j,1)
+!                do k = 1,3
+!                    argy = pi/4.0*float(k)
+!                    z1 = r*cos(argy) + vortZ
+!                    y1 = r*sin(argy) + vortY
+!                    y2 = vortY - r*sin(argy)
+!                   
+!                    if (y1 .gt. 0.0 .and. y1 .lt. yl) then 
+!                        call fluid_interp(0.0,y1,z1,wx3d,scp3d,up3d,wxj,scj,up1)
+!                        wxi = wxi + wxj
+!                        sci = sci + scj
+!                        call fluid_interp(0.0,y2,z1,wx3d,scp3d,up3d,wxj,scj,up1)
+!                        wxi = wxi + wxj
+!                        sci = sci + scj
+!                    end if
+!                end do
+!
+!                wxi = wxi/8.0
+!                sci = sci/8.0
+!
+!                write(190,"(3(e14.6,1x))") r, wxi ,sci
+!            end do
+!            close(190)
 
             write(*,*) '    Done!'
         end if
