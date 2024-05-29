@@ -723,200 +723,200 @@ contains
     !                         Begin Calculations                          !
     ! =================================================================== !
     
-    !$omp parallel do
-    do k = 1,nyp
-        do j = 1,mzp
-            do i = 1,mxp2
-
-                u11p(j,i) = 0.0
-                u12p(j,i) = 0.0
-                u13p(j,i) = 0.0
-                u21p(j,i) = 0.0
-                u22p(j,i) = 0.0
-                u23p(j,i) = 0.0
-                u31p(j,i) = 0.0
-                u32p(j,i) = 0.0
-                u33p(j,i) = 0.0
-
-                 scp(j,i) = 0.0
-
-            end do ! i
-        end do ! j
-
-        do j = 1,nz
-            if (j .le. nzh) jj = j
-            if (j .gt. nzh) jj = (mz-nz) + j
-
-            do i = 1,nxh
-                i1 = 2*(i-1) + 1
-                i2 = 2*i
-
-                u11p(jj,i1) =  real(u11(k,j,i))
-                u11p(jj,i2) = aimag(u11(k,j,i))
-                u12p(jj,i1) =  real(u12(k,j,i))
-                u12p(jj,i2) = aimag(u12(k,j,i))
-                u13p(jj,i1) =  real(u13(k,j,i))
-                u13p(jj,i2) = aimag(u13(k,j,i))
-                u21p(jj,i1) =  real(u21(k,j,i))
-                u21p(jj,i2) = aimag(u21(k,j,i))
-                u22p(jj,i1) =  real(u22(k,j,i))
-                u22p(jj,i2) = aimag(u22(k,j,i))
-                u23p(jj,i1) =  real(u23(k,j,i))
-                u23p(jj,i2) = aimag(u23(k,j,i))
-                u31p(jj,i1) =  real(u31(k,j,i))
-                u31p(jj,i2) = aimag(u31(k,j,i))
-                u32p(jj,i1) =  real(u32(k,j,i))
-                u32p(jj,i2) = aimag(u32(k,j,i))
-                u33p(jj,i1) =  real(u33(k,j,i))
-                u33p(jj,i2) = aimag(u33(k,j,i))
-                
-                scp(jj,i1) =  real(scalar(k,j,i))
-                scp(jj,i2) = aimag(scalar(k,j,i))
-            end do
-        end do
-   
-    !---------------------------------------------------------------------!
-    !        Transform (interpolate) into 3/2 grid physical space         !
-    !---------------------------------------------------------------------!
-    
-        inc  = 1
-        isgn = 1
-        jump = 2*mzp
-        lot  = nx/2
-    
-        call cfftmlt(u11p(1,1),u11p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u12p(1,1),u12p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u13p(1,1),u13p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u21p(1,1),u21p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u22p(1,1),u22p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u23p(1,1),u23p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u31p(1,1),u31p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u32p(1,1),u32p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-        call cfftmlt(u33p(1,1),u33p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-    
-        call cfftmlt(scp(1,1),scp(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
-
-        do j = 1,mz
-
-            u11p(j,nxp) = u11p(j,2)
-            u12p(j,nxp) = u12p(j,2)
-            u13p(j,nxp) = u13p(j,2)
-            u21p(j,nxp) = u21p(j,2)
-            u22p(j,nxp) = u22p(j,2)
-            u23p(j,nxp) = u23p(j,2)
-            u31p(j,nxp) = u31p(j,2)
-            u32p(j,nxp) = u32p(j,2)
-            u33p(j,nxp) = u33p(j,2)
-    
-            scp(j,nxp) = scp(j,2)
-            
-            u11p(j,2) = 0.0
-            u12p(j,2) = 0.0
-            u13p(j,2) = 0.0
-            u21p(j,2) = 0.0
-            u22p(j,2) = 0.0
-            u23p(j,2) = 0.0
-            u31p(j,2) = 0.0
-            u32p(j,2) = 0.0
-            u33p(j,2) = 0.0
-            
-            scp(j,2) = 0.0
-     
-            u11p(j,nxp2) = u11p(j,2)
-            u12p(j,nxp2) = u12p(j,2)
-            u13p(j,nxp2) = u13p(j,2)
-            u21p(j,nxp2) = u21p(j,2)
-            u22p(j,nxp2) = u22p(j,2)
-            u23p(j,nxp2) = u23p(j,2)
-            u31p(j,nxp2) = u31p(j,2)
-            u32p(j,nxp2) = u32p(j,2)
-            u33p(j,nxp2) = u33p(j,2)
-            
-            scp(j,nxp2) = scp(j,2)
-        end do
-
-        isgn = 1
-        inc  = mzp
-        jump = 1
-        lot  = mz
-    
-        call rfftmlt(u11p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u12p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u13p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u21p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u22p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u23p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u31p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u32p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-        call rfftmlt(u33p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-     
-        call rfftmlt(scp,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
-
-    !---------------------------------------------------------------------!
-    !       Calculate beta then store it and grad(V) in 3D variables      !
-    !---------------------------------------------------------------------!
-   
-        do j = 1,mz
-            do i = 1,mx
-                beta_poly(j,i) = exp(-alpha_poly*abs(scp(j,i)))
-
-                beta(k,j,i) = beta_poly(j,i)
-                u11p3d(k,j,i) = u11p(j,i) 
-                u12p3d(k,j,i) = -u12p(j,i) 
-                u13p3d(k,j,i) = u13p(j,i) 
-                u21p3d(k,j,i) = -u21p(j,i) 
-                u22p3d(k,j,i) = u22p(j,i) 
-                u23p3d(k,j,i) = -u23p(j,i) 
-                u31p3d(k,j,i) = u31p(j,i) 
-                u32p3d(k,j,i) = -u32p(j,i) 
-                u33p3d(k,j,i) = u33p(j,i) 
-            end do
-        end do
-    end do ! k
-    !$omp end parallel do
-
-    !---------------------------------------------------------------------!
-    !                        Calculate Q-criterion                        !
-    !---------------------------------------------------------------------!
-
-    !$omp parallel do private(i,j,k,QQ)
-    do i = 1,nyp
-        do j = 1,mz
-            do k = 1,mx
-!                call calcQ(u11p3d(i,j,k),u21p3d(i,j,k),u31p3d(i,j,k),u12p3d(i,j,k),u22p3d(i,j,k), &
-!                               u32p3d(i,j,k),u13p3d(i,j,k),u23p3d(i,j,k),u33p3d(i,j,k),QQ)
-                QQ = sqrt(u11p3d(i,j,k)**2 + u22p3d(i,j,k)**2 + u33p3d(i,j,k)**2) ! Manually calculate strain rate magnitude
-    
-                Qcrit(i,j,k) = QQ
-            end do
-        end do
-    end do
-    !$omp end parallel do
-
-    ! Check for local (grid) min
-    Qcrit = -1.0*Qcrit ! Sort largest -> smallest
-    cnt = 1
-    do k = 2,mx-1
-        do j = 2,mz-1
-            do i = 2,ny
-                if (Qcrit(i,j,k) .lt. 0 .and. cnt .le. size(Qmin)) then
-                    if (Qcrit(i,j,k) .lt. Qcrit(i+1,j,k) .and. Qcrit(i,j,k) .lt. Qcrit(i-1,j,k)) then
-                        if (Qcrit(i,j,k) .lt. Qcrit(i,j+1,k) .and. Qcrit(i,j,k) .lt. Qcrit(i,j-1,k)) then
-                            if (Qcrit(i,j,k) .lt. Qcrit(i,j,k+1) .and. Qcrit(i,j,k) .lt. Qcrit(i,j,k-1)) then
-                                Qmin(cnt) = Qcrit(i,j,k)
-                                Qx(cnt) = k
-                                Qy(cnt) = i
-                                Qz(cnt) = j
-                                cnt = cnt + 1
-                            end if
-                        end if
-                    end if
-                end if
-            end do
-        end do
-    end do
-
-    call shell_sort(Qmin,Qx,Qy,Qz)
+!    !$omp parallel do
+!    do k = 1,nyp
+!        do j = 1,mzp
+!            do i = 1,mxp2
+!
+!                u11p(j,i) = 0.0
+!                u12p(j,i) = 0.0
+!                u13p(j,i) = 0.0
+!                u21p(j,i) = 0.0
+!                u22p(j,i) = 0.0
+!                u23p(j,i) = 0.0
+!                u31p(j,i) = 0.0
+!                u32p(j,i) = 0.0
+!                u33p(j,i) = 0.0
+!
+!                 scp(j,i) = 0.0
+!
+!            end do ! i
+!        end do ! j
+!
+!        do j = 1,nz
+!            if (j .le. nzh) jj = j
+!            if (j .gt. nzh) jj = (mz-nz) + j
+!
+!            do i = 1,nxh
+!                i1 = 2*(i-1) + 1
+!                i2 = 2*i
+!
+!                u11p(jj,i1) =  real(u11(k,j,i))
+!                u11p(jj,i2) = aimag(u11(k,j,i))
+!                u12p(jj,i1) =  real(u12(k,j,i))
+!                u12p(jj,i2) = aimag(u12(k,j,i))
+!                u13p(jj,i1) =  real(u13(k,j,i))
+!                u13p(jj,i2) = aimag(u13(k,j,i))
+!                u21p(jj,i1) =  real(u21(k,j,i))
+!                u21p(jj,i2) = aimag(u21(k,j,i))
+!                u22p(jj,i1) =  real(u22(k,j,i))
+!                u22p(jj,i2) = aimag(u22(k,j,i))
+!                u23p(jj,i1) =  real(u23(k,j,i))
+!                u23p(jj,i2) = aimag(u23(k,j,i))
+!                u31p(jj,i1) =  real(u31(k,j,i))
+!                u31p(jj,i2) = aimag(u31(k,j,i))
+!                u32p(jj,i1) =  real(u32(k,j,i))
+!                u32p(jj,i2) = aimag(u32(k,j,i))
+!                u33p(jj,i1) =  real(u33(k,j,i))
+!                u33p(jj,i2) = aimag(u33(k,j,i))
+!                
+!                scp(jj,i1) =  real(scalar(k,j,i))
+!                scp(jj,i2) = aimag(scalar(k,j,i))
+!            end do
+!        end do
+!   
+!    !---------------------------------------------------------------------!
+!    !        Transform (interpolate) into 3/2 grid physical space         !
+!    !---------------------------------------------------------------------!
+!    
+!        inc  = 1
+!        isgn = 1
+!        jump = 2*mzp
+!        lot  = nx/2
+!    
+!        call cfftmlt(u11p(1,1),u11p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+!        call cfftmlt(u12p(1,1),u12p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+!        call cfftmlt(u13p(1,1),u13p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+!        call cfftmlt(u21p(1,1),u21p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+!        call cfftmlt(u22p(1,1),u22p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+!        call cfftmlt(u23p(1,1),u23p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+!        call cfftmlt(u31p(1,1),u31p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+!        call cfftmlt(u32p(1,1),u32p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+!        call cfftmlt(u33p(1,1),u33p(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+!    
+!        call cfftmlt(scp(1,1),scp(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+!
+!        do j = 1,mz
+!
+!            u11p(j,nxp) = u11p(j,2)
+!            u12p(j,nxp) = u12p(j,2)
+!            u13p(j,nxp) = u13p(j,2)
+!            u21p(j,nxp) = u21p(j,2)
+!            u22p(j,nxp) = u22p(j,2)
+!            u23p(j,nxp) = u23p(j,2)
+!            u31p(j,nxp) = u31p(j,2)
+!            u32p(j,nxp) = u32p(j,2)
+!            u33p(j,nxp) = u33p(j,2)
+!    
+!            scp(j,nxp) = scp(j,2)
+!            
+!            u11p(j,2) = 0.0
+!            u12p(j,2) = 0.0
+!            u13p(j,2) = 0.0
+!            u21p(j,2) = 0.0
+!            u22p(j,2) = 0.0
+!            u23p(j,2) = 0.0
+!            u31p(j,2) = 0.0
+!            u32p(j,2) = 0.0
+!            u33p(j,2) = 0.0
+!            
+!            scp(j,2) = 0.0
+!     
+!            u11p(j,nxp2) = u11p(j,2)
+!            u12p(j,nxp2) = u12p(j,2)
+!            u13p(j,nxp2) = u13p(j,2)
+!            u21p(j,nxp2) = u21p(j,2)
+!            u22p(j,nxp2) = u22p(j,2)
+!            u23p(j,nxp2) = u23p(j,2)
+!            u31p(j,nxp2) = u31p(j,2)
+!            u32p(j,nxp2) = u32p(j,2)
+!            u33p(j,nxp2) = u33p(j,2)
+!            
+!            scp(j,nxp2) = scp(j,2)
+!        end do
+!
+!        isgn = 1
+!        inc  = mzp
+!        jump = 1
+!        lot  = mz
+!    
+!        call rfftmlt(u11p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+!        call rfftmlt(u12p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+!        call rfftmlt(u13p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+!        call rfftmlt(u21p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+!        call rfftmlt(u22p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+!        call rfftmlt(u23p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+!        call rfftmlt(u31p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+!        call rfftmlt(u32p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+!        call rfftmlt(u33p,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+!     
+!        call rfftmlt(scp,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+!
+!    !---------------------------------------------------------------------!
+!    !       Calculate beta then store it and grad(V) in 3D variables      !
+!    !---------------------------------------------------------------------!
+!   
+!        do j = 1,mz
+!            do i = 1,mx
+!                beta_poly(j,i) = exp(-alpha_poly*abs(scp(j,i)))
+!
+!                beta(k,j,i) = beta_poly(j,i)
+!                u11p3d(k,j,i) = u11p(j,i) 
+!                u12p3d(k,j,i) = -u12p(j,i) 
+!                u13p3d(k,j,i) = u13p(j,i) 
+!                u21p3d(k,j,i) = -u21p(j,i) 
+!                u22p3d(k,j,i) = u22p(j,i) 
+!                u23p3d(k,j,i) = -u23p(j,i) 
+!                u31p3d(k,j,i) = u31p(j,i) 
+!                u32p3d(k,j,i) = -u32p(j,i) 
+!                u33p3d(k,j,i) = u33p(j,i) 
+!            end do
+!        end do
+!    end do ! k
+!    !$omp end parallel do
+!
+!    !---------------------------------------------------------------------!
+!    !                        Calculate Q-criterion                        !
+!    !---------------------------------------------------------------------!
+!
+!    !$omp parallel do private(i,j,k,QQ)
+!    do i = 1,nyp
+!        do j = 1,mz
+!            do k = 1,mx
+!!                call calcQ(u11p3d(i,j,k),u21p3d(i,j,k),u31p3d(i,j,k),u12p3d(i,j,k),u22p3d(i,j,k), &
+!!                               u32p3d(i,j,k),u13p3d(i,j,k),u23p3d(i,j,k),u33p3d(i,j,k),QQ)
+!                QQ = sqrt(u11p3d(i,j,k)**2 + u22p3d(i,j,k)**2 + u33p3d(i,j,k)**2) ! Manually calculate strain rate magnitude
+!    
+!                Qcrit(i,j,k) = QQ
+!            end do
+!        end do
+!    end do
+!    !$omp end parallel do
+!
+!    ! Check for local (grid) min
+!    Qcrit = -1.0*Qcrit ! Sort largest -> smallest
+!    cnt = 1
+!    do k = 2,mx-1
+!        do j = 2,mz-1
+!            do i = 2,ny
+!                if (Qcrit(i,j,k) .lt. 0 .and. cnt .le. size(Qmin)) then
+!                    if (Qcrit(i,j,k) .lt. Qcrit(i+1,j,k) .and. Qcrit(i,j,k) .lt. Qcrit(i-1,j,k)) then
+!                        if (Qcrit(i,j,k) .lt. Qcrit(i,j+1,k) .and. Qcrit(i,j,k) .lt. Qcrit(i,j-1,k)) then
+!                            if (Qcrit(i,j,k) .lt. Qcrit(i,j,k+1) .and. Qcrit(i,j,k) .lt. Qcrit(i,j,k-1)) then
+!                                Qmin(cnt) = Qcrit(i,j,k)
+!                                Qx(cnt) = k
+!                                Qy(cnt) = i
+!                                Qz(cnt) = j
+!                                cnt = cnt + 1
+!                            end if
+!                        end if
+!                    end if
+!                end if
+!            end do
+!        end do
+!    end do
+!
+!    call shell_sort(Qmin,Qx,Qy,Qz)
 
     end subroutine findmaxQ
 #ENDIF    

@@ -2107,9 +2107,9 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
         call norm(dc333)                                                 
 #ENDIF
 
-!    open(999,file='outputs/spectral_data',status='replace',form='unformatted')
-!    write(999) u
-!    close(999)
+    open(999,file='outputs/spectral_data',status='replace',form='unformatted')
+    write(999) u
+    close(999)
     ! -------------------------------------------------------------------- !
     ! Compute v x omega in physical space - FFTs are performed inside subroutine
     ! Assumes all variables are in 3D spectral space (on input and output)

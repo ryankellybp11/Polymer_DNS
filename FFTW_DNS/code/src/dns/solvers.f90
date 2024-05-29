@@ -1922,6 +1922,7 @@ contains
     real    :: deltaT,diff
     integer :: scl_flag,scltarg
     integer :: src_start,src_stop
+    integer :: cnt,kk
     logical :: condition
 #ENDIF
 
@@ -2034,7 +2035,7 @@ contains
         Qx = 0
         Qy = 0
         Qz = 0
-        call findmaxQ(u11,u12,u13,u21,u22,u23,u31,u32,u33,scalar,Qmin,Qx,Qy,Qz,beta3d)
+        call findmaxQ(u11,u12,u13,u21,u22,u23,u31,u32,u33,scalar,Qmin,Qx,Qy,Qz,beta_poly)
         scsource = 0.0
         n = 1
         cnt = 1
@@ -2042,7 +2043,7 @@ contains
             kk = Qx(n)
             ii = Qy(n)
             jj = Qz(n)
-            if (beta3d(ii,jj,kk) .gt. 0.9) then 
+            if (beta_poly(ii,jj,kk) .gt. 0.9) then 
                 xc1 = delxm*(kk-1)
                 yc1 = ycoord(ii)
                 zc1 = delzm*(jj-1)
@@ -2126,6 +2127,53 @@ contains
                 Lus(i,j,k) = 0.0
                 Lvs(i,j,k) = 0.0
                 Lws(i,j,k) = 0.0
+#IFDEF SCALAR
+                scs(i,j,k) = 0.0
+                cxs(i,j,k) = 0.0
+                cys(i,j,k) = 0.0
+                czs(i,j,k) = 0.0
+#ENDIF
+#IFDEF POLYMER
+                c11s(i,j,k) = 0.0
+                c12s(i,j,k) = 0.0
+                c13s(i,j,k) = 0.0
+                c21s(i,j,k) = 0.0
+                c22s(i,j,k) = 0.0
+                c23s(i,j,k) = 0.0
+                c31s(i,j,k) = 0.0
+                c32s(i,j,k) = 0.0
+                c33s(i,j,k) = 0.0
+               
+                dc111s(i,j,k) = 0.0
+                dc112s(i,j,k) = 0.0
+                dc113s(i,j,k) = 0.0
+                dc121s(i,j,k) = 0.0
+                dc122s(i,j,k) = 0.0
+                dc123s(i,j,k) = 0.0
+                dc131s(i,j,k) = 0.0
+                dc132s(i,j,k) = 0.0
+                dc133s(i,j,k) = 0.0
+                                
+                dc211s(i,j,k) = 0.0
+                dc212s(i,j,k) = 0.0
+                dc213s(i,j,k) = 0.0
+                dc221s(i,j,k) = 0.0
+                dc222s(i,j,k) = 0.0
+                dc223s(i,j,k) = 0.0
+                dc231s(i,j,k) = 0.0
+                dc232s(i,j,k) = 0.0
+                dc233s(i,j,k) = 0.0
+                               
+                dc311s(i,j,k) = 0.0
+                dc312s(i,j,k) = 0.0
+                dc313s(i,j,k) = 0.0
+                dc321s(i,j,k) = 0.0
+                dc322s(i,j,k) = 0.0
+                dc323s(i,j,k) = 0.0
+                dc331s(i,j,k) = 0.0
+                dc332s(i,j,k) = 0.0
+                dc333s(i,j,k) = 0.0
+#ENDIF
             end do
         end do
     end do

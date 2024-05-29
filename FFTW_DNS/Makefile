@@ -2,7 +2,7 @@
 COMP := ifort
 LIB := -L$(TACC_FFTW3_LIB) -lfftw3 -lfftw3f -lm -L$(TECPLOT_360_LIB) -lirc -ltecio
 INC := -I$(TACC_FFTW3_INC) -I$(TECPLOT_360_INCLUDE) -DOUTPUTFORM=3
-FLAGS := -r8 -fr -fpp -mavx -132 -O3 -xhost -qmkl -parallel -unroll
+FLAGS := -r8 -fr -fpp -mavx -132 -O3 -xhost -qmkl -parallel -unroll -march=native -mtune=native
 #FLAGS := -r8 -fr -fpp -mavx -132 -O0 -mcmodel=medium -shared-intel -xhost -qmkl -parallel -g -traceback -debug full -warn all -check all -check noarg_temp_created -nogen-interfaces
 OMPFLAGS := -qopenmp -lfftw3_omp
 DIR := code/src/dns/

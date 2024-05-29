@@ -40,13 +40,13 @@ program compare
     real, dimension(4000)  :: trigz32 
 
     ! DNS Transform variables
-    integer :: num_ffts = 1
+    integer :: num_ffts = 10
 
     ! FFTW Initialization variables
     type(C_PTR) :: plan1,plan2,plan3,plan4,plan5
-    type(C_PTR) :: plan11,plan12,plan13,plan14,plan15
+    type(C_PTR) :: plan12,plan13,plan21
 !    type(fftw_iodim) :: dims,howmany_dims
-    type(fftw_iodim), dimension(2) :: dims,howmany_dims!1,howmany_dims2
+    type(fftw_iodim), dimension(2) :: dims,dimsR,howmany_dims,howmany_dimsR
 
     ! FFTW Transform variables
     complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: uc
@@ -81,96 +81,106 @@ program compare
     us2 = us1
     us3 = us1 
 
-    ! Initialize DNS FFTs
-    print *,'   Initializing DNS FFTs... '
-    tstart = MPI_Wtime()
-    call rcsexp(nx,ixfax,trigx)
-    call ccosexp(ny,sine,cosine,iyfax,trigy)
-    call ccexp(nz,izfax,trigz)
-    call rcsexp(nx32,ixfax32,trigx32)
-    call ccexp(nz32,izfax32,trigz32)
-    tend = MPI_Wtime()
+!    ! Initialize DNS FFTs
+!    print *,'   Initializing DNS FFTs... '
+!    tstart = MPI_Wtime()
+!    call rcsexp(nx,ixfax,trigx)
+!    call ccosexp(ny,sine,cosine,iyfax,trigy)
+!    call ccexp(nz,izfax,trigz)
+!    call rcsexp(nx32,ixfax32,trigx32)
+!    call ccexp(nz32,izfax32,trigz32)
+!    tend = MPI_Wtime()
+!
+!    print *,''
+!    print *,'   DNS FFT Initialization: ',tend-tstart,' s'
+!    print *,'' 
+!
+!    ! Execute DNS FFTs
+!    print *,'   Executing DNS FFTs... '
+!    tstart = MPI_Wtime()
+!    call DNS_FFTs(us1,num_ffts)
+!    tend = MPI_Wtime()
+!    print *,''
+!    print *,'   DNS FFT total execution time: ',(tend-tstart),' s'
+!    print *,''
+!    print *,'   DNS FFT average execution time: ',(tend-tstart)/float(num_ffts),' s'
+!    print *,''
 
-    print *,''
-    print *,'   DNS FFT Initialization: ',tend-tstart,' s'
-    print *,'' 
-
-    ! Execute DNS FFTs
-    print *,'   Executing DNS FFTs... '
-    tstart = MPI_Wtime()
-    call DNS_FFTs(us1,num_ffts)
-    tend = MPI_Wtime()
-    print *,''
-    print *,'   DNS FFT total execution time: ',(tend-tstart),' s'
-    print *,''
-    print *,'   DNS FFT average execution time: ',(tend-tstart)/float(num_ffts),' s'
-    print *,''
-
-    ! Initialize FFTW FFTs
-    print *,''
-    print *,' ------------------------------------------------------------- '
-    print *,''
-    print *,'   Creating FFTW Plans (1D x 3, Basic Interface)' 
-    print *,''
-
-    tstart = MPI_Wtime()
+!    ! Initialize FFTW FFTs
+!    print *,''
+!    print *,' ------------------------------------------------------------- '
+!    print *,''
+!    print *,'   Creating FFTW Plans (1D x 3, Basic Interface)' 
+!    print *,''
+!
+!    tstart = MPI_Wtime()
     ierr = fftw_init_threads() ! Initialize threaded FFTW
     call fftw_plan_with_nthreads(OMP_GET_MAX_THREADS())
 
-    plan1 = fftw_plan_dft_1d(mz,uc,uc,FFTW_BACKWARD,FFTW_MEASURE)
-    plan2 = fftw_plan_dft_c2r_1d(mx,uc,up,FFTW_MEASURE)
-    plan3 = fftw_plan_r2r_1d(nyp,up,up,FFTW_REDFT00,FFTW_MEASURE)
-    plan4 = fftw_plan_dft_r2c_1d(mx,up,uc,FFTW_MEASURE)
-    plan5 = fftw_plan_dft_1d(mz,uc,uc,FFTW_FORWARD,FFTW_MEASURE)
-    tend = MPI_Wtime()
-
-    print *,'   FFTW Initialization time: ',tend-tstart,' s'
-    print *,''
-
-!    write(1,*) us
-    ! Execute FFTW FFTs
-    print *,'   Executing FFTW FFTs... '
-    print *,''
-    tstart = MPI_Wtime()
-    call perform_FFTs(us2,plan1,plan2,plan3,plan4,plan5,num_ffts)
-    tend = MPI_Wtime()
-!    call fftw_destroy_plan(plan1)
-!    call fftw_destroy_plan(plan2)
-!    call fftw_destroy_plan(plan3)
-!    call fftw_destroy_plan(plan4)
-!    call fftw_destroy_plan(plan5)
-
-    print *,''
-    print *,'   FFTW FFT total execution time: ',(tend-tstart),' s'
-    print *,''
-    print *,'   FFTW FFT average execution time: ',(tend-tstart)/float(num_ffts),' s'
-    print *,''
+!    plan1 = fftw_plan_dft_1d(mz,uc,uc,FFTW_BACKWARD,FFTW_MEASURE)
+!    plan2 = fftw_plan_dft_c2r_1d(mx,uc,up,FFTW_MEASURE)
+!    plan3 = fftw_plan_r2r_1d(nyp,up,up,FFTW_REDFT00,FFTW_MEASURE)
+!    plan4 = fftw_plan_dft_r2c_1d(mx,up,uc,FFTW_MEASURE)
+!    plan5 = fftw_plan_dft_1d(mz,uc,uc,FFTW_FORWARD,FFTW_MEASURE)
+!    tend = MPI_Wtime()
+!
+!    print *,'   FFTW Initialization time: ',tend-tstart,' s'
+!    print *,''
+!
+!    ! Execute FFTW FFTs
+!    print *,'   Executing FFTW FFTs... '
+!    print *,''
+!    tstart = MPI_Wtime()
+!    call perform_FFTs(us2,plan1,plan2,plan3,plan4,plan5,num_ffts)
+!    tend = MPI_Wtime()
+!!    call fftw_destroy_plan(plan1)
+!!    call fftw_destroy_plan(plan2)
+!!    call fftw_destroy_plan(plan3)
+!!    call fftw_destroy_plan(plan4)
+!!    call fftw_destroy_plan(plan5)
+!!    write(1,*) us2
+!
+!    print *,''
+!    print *,'   FFTW FFT total execution time: ',(tend-tstart),' s'
+!    print *,''
+!    print *,'   FFTW FFT average execution time: ',(tend-tstart)/float(num_ffts),' s'
+!    print *,''
 
     ! Initialize FFTW FFts
     print *,''
     print *,' ------------------------------------------------------------- '
     print *,''
-    print *,'   Creating FFTW Plans (1D x 3, Guru Interface)'
+    print *,'   Creating FFTW Plans (2D + DCT, Guru Interface)'
     print *,''
 
     tstart = MPI_Wtime()
-    dims%n  = mz
-    dims%is = nyp
-    dims%os = nyp
+    dims(1)%n  = mz
+    dims(1)%is = nyp
+    dims(1)%os = nyp
 
-    howmany_dims(1)%n  = nyp
-    howmany_dims(1)%is = mz*mx
-    howmany_dims(1)%os = mz*mx
+    dims(2)%n  = mx
+    dims(2)%is = mz*nyp
+    dims(2)%os = mz*nyp
 
-    howmany_dims(2)%n  = nxh
-    howmany_dims(2)%is = 1
-    howmany_dims(2)%os = 1
+    howmany_dims%n = nyp
+    howmany_dims%is = 1
+    howmany_dims%os = 1
 
-    plan11 = fftw_plan_guru_split_dft(1,dims,2,howmany_dims,ur,ui,ur,ui,FFTW_MEASURE)
-    plan12 = fftw_plan_dft_c2r_1d(mx,uc,up,FFTW_MEASURE)
-    plan13 = fftw_plan_r2r_1d(nyp,up,up,FFTW_REDFT00,FFTW_MEASURE)
-    plan14 = fftw_plan_dft_r2c_1d(mx,up,uc,FFTW_MEASURE)
-    plan15 = fftw_plan_dft_1d(mz,uc,uc,FFTW_FORWARD,FFTW_MEASURE)
+    dimsR%n  = nyp
+    dimsR%is = 1
+    dimsR%os = 1
+
+    howmany_dimsR(1)%n  = mz
+    howmany_dimsR(1)%is = nyp 
+    howmany_dimsR(1)%os = nyp 
+
+    howmany_dimsR(2)%n  = mx 
+    howmany_dimsR(2)%is = mz*nyp
+    howmany_dimsR(2)%os = mz*nyp
+
+    plan12 = fftw_plan_guru_split_dft_c2r(2,dims,1,howmany_dims,ur,ui,up,FFTW_MEASURE)
+    plan13 = fftw_plan_guru_r2r(1,dimsR,2,howmany_dimsR,ur,ur,[FFTW_REDFT00],FFTW_MEASURE)
+    plan21 = fftw_plan_guru_split_dft_r2c(2,dims,1,howmany_dims,up,ur,ui,FFTW_MEASURE)
     tend = MPI_Wtime()
 
     print *,'   FFTW Initialization time: ',tend-tstart,' s'
@@ -180,9 +190,10 @@ program compare
     print *,'   Executing FFTW FFTs... '
     print *,''
     tstart = MPI_Wtime()
-    call perform_FFTs_2(us3,plan11,plan12,plan13,plan14,plan15,num_ffts)
+    call perform_FFTs_2(us3,plan12,plan13,plan21,num_ffts)
     tend = MPI_Wtime()
 
+!    write(2,*) us3
     print *,''
     print *,'   FFTW FFT total execution time: ',(tend-tstart),' s'
     print *,''
@@ -470,7 +481,7 @@ subroutine perform_FFTs(us,plan1,plan2,plan3,plan4,plan5,num_ffts)
         end do
     end do
     !$omp end parallel do
-    write(101,*) uc
+!    write(101,*) uc
 
     ! Complex --> Real x-transform
     !$omp parallel do shared(plan2,uc,up)
@@ -480,7 +491,7 @@ subroutine perform_FFTs(us,plan1,plan2,plan3,plan4,plan5,num_ffts)
     end do
     end do
     !$omp end parallel do
-    write(102,*) up
+!    write(102,*) up
 
     ! Real --> Real IDCT
 !    print *,'Real --> Real Cosine Transform'
@@ -491,7 +502,7 @@ subroutine perform_FFTs(us,plan1,plan2,plan3,plan4,plan5,num_ffts)
         end do
     end do
     !$omp end parallel do
-    write(103,*) up
+!    write(103,*) up
     
     ! Real --> Real DCT
     !$omp parallel do shared(plan3,up)
@@ -504,6 +515,7 @@ subroutine perform_FFTs(us,plan1,plan2,plan3,plan4,plan5,num_ffts)
     up = up/float(ny)
     up(1,:,:) = up(1,:,:)/2.0
     up(nyp,:,:) = up(nyp,:,:)/2.0
+!    write(104,*) up
 
     ! Real --> Complex x-transform
     !$omp parallel do shared(plan4,up,uc)
@@ -525,7 +537,7 @@ subroutine perform_FFTs(us,plan1,plan2,plan3,plan4,plan5,num_ffts)
     end do
     !$omp end parallel do
     uc = uc/float(mz)
-!    write(3,*) uc
+!    write(105,*) uc
 
     ! Fill out spectral variable
     !$omp parallel do shared(us,uc)
@@ -547,7 +559,7 @@ end subroutine
 
 ! ------------------------------------------------------------------------------------ !
 
-subroutine perform_FFTs_2(us,plan1,plan2,plan3,plan4,plan5,num_ffts)
+subroutine perform_FFTs_2(us,plan1,plan2,plan3,num_ffts)
 
     use,intrinsic :: iso_c_binding
     use grid_size
@@ -564,7 +576,8 @@ subroutine perform_FFTs_2(us,plan1,plan2,plan3,plan4,plan5,num_ffts)
 
     integer :: i,j,k,n,num_ffts,jj
 
-    type(C_PTR) :: plan1,plan2,plan3,plan4,plan5
+    type(C_PTR) :: plan1,plan2,plan3
+    real :: fac
 
     real,dimension(nyp) :: cheb = 1.0
     cheb(1) = 2.0
@@ -578,7 +591,6 @@ subroutine perform_FFTs_2(us,plan1,plan2,plan3,plan4,plan5,num_ffts)
     do k = 1,mx
     do j = 1,mz
     do i = 1,nyp
-    uc(i,j,k) = 0.0
     ur(i,j,k) = 0.0
     ui(i,j,k) = 0.0
     end do
@@ -589,97 +601,46 @@ subroutine perform_FFTs_2(us,plan1,plan2,plan3,plan4,plan5,num_ffts)
     !$omp parallel do shared(uc,us)
     do k = 1,nxh
         do j = 1,nz
-            jj = j
-!            if (j .le. nzh) jj = j
-!            if (j .gt. nzh) jj = (mz-nz) + j
             do i = 1,nyp
-                uc(i,jj,k) = us(i,j,k)*cheb(i)/2.0
-                ur(i,jj,k) = real(us(i,j,k))*cheb(i)/2.0
-                ui(i,jj,k) = aimag(us(i,j,k))*cheb(i)/2.0
+                ur(i,j,k) = real(us(i,j,k))*cheb(i)/2.0
+                ui(i,j,k) = aimag(us(i,j,k))*cheb(i)/2.0
             end do
         end do
     end do
     !$omp end parallel do
 
 
-    ! Complex --> Complex z-transform
-    call fftw_execute_split_dft(plan1,ur,ui,ur,ui)
-!    !$omp parallel do shared(uc,plan1)
-!    do k = 1,nxh
-!        do i = 1,nyp
-!            call fftw_execute_dft(plan1,uc(i,:,k),uc(i,:,k))
-!        end do
-!    end do
-!    !$omp end parallel do  
-    !$omp parallel do
-    do k = 1,mx
-    do j = 1,mz
-    do i = 1,nyp
-    uc(i,j,k) = cmplx(ur(i,j,k),ui(i,j,k))
-    end do
-    end do
-    end do
-    !$omp end parallel do
-
-    write(201,*) uc
-
-    ! Complex --> Real x-transform
-    !$omp parallel do shared(plan2,uc,up)
-    do j = 1,mz
-    do i = 1,nyp
-        call fftw_execute_dft_c2r(plan2,uc(i,j,:),up(i,j,:))
-    end do
-    end do
-    !$omp end parallel do
-    write(202,*) up
+    ! Complex --> Complex 2D x/z-transform
+    call fftw_execute_split_dft_c2r(plan1,ur,ui,up)
+!    write(202,*) up
 
 
     ! Real --> Real IDCT
-!    print *,'Real --> Real Cosine Transform'
-    !$omp parallel do shared(plan3,up)
-    do k = 1,mx
-        do j = 1,mz
-            call fftw_execute_r2r(plan3,up(:,j,k),up(:,j,k))
-        end do
-    end do
-    !$omp end parallel do
-    write(203,*) up
+    call fftw_execute_r2r(plan2,up,up)
+!    write(203,*) up
 
     ! Real --> Real DCT
-    !$omp parallel do shared(plan3,up)
-    do k = 1,mx
-        do j = 1,mz
-            call fftw_execute_r2r(plan3,up(:,j,k),up(:,j,k))
-        end do
-    end do
-    !$omp end parallel do
+    call fftw_execute_r2r(plan2,up,up)
     up = up/float(ny)
     up(1,:,:) = up(1,:,:)/2.0
     up(nyp,:,:) = up(nyp,:,:)/2.0
+!    write(204,*) up
 
-    ! Real --> Complex x-transform
-    !$omp parallel do shared(plan4,up,uc)
-    do j = 1,mz
-        do i = 1,nyp
-            call fftw_execute_dft_r2c(plan4,up(i,j,:),uc(i,j,:))
+    ! Real --> Complex 2D x/z-transform
+    call fftw_execute_split_dft_r2c(plan3,up,ur,ui)
+
+    fac = float(mx*mz)
+    !$omp parallel do
+    do k = 1,mx
+        do j = 1,mz
+            do i = 1,nyp
+                uc(i,j,k) = cmplx(ur(i,j,k),ui(i,j,k))/fac
+            end do
         end do
     end do
     !$omp end parallel do
-    uc = uc/float(mx)
-!    write(2,*) uc*rmz
 
-    ! Complex --> Complex z-transform
-    !$omp parallel do shared(plan5,uc)
-    do k = 1,nxh
-        do i = 1,nyp
-            call fftw_execute_dft(plan5,uc(i,:,k),uc(i,:,k))
-        end do
-    end do
-    !$omp end parallel do
-    uc = uc/float(mz)
-!    write(3,*) uc
-
-
+!    write(205,*) uc
     ! Fill out spectral variable
     !$omp parallel do shared(uc,us)
     do k = 1,nxh
