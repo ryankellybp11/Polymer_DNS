@@ -19,11 +19,9 @@ program dns
 
     include 'fftw3.f03'
 
-    ! FFTW Plan variables
-    type(C_PTR) :: planZb,planXb,planY,planXf,planZf
-    complex(C_DOUBLE_COMPLEX), dimension(nyp,mz,mx) :: aspec
-    real(C_DOUBLE), dimension(nyp,mz,mx) :: aphys
-    integer :: ierr
+    ! Timing variables
+    real :: time1,time2
+    integer :: count1,count2,count_rate
 
     ! Flow variables
     complex, dimension(nyp,nz,nxh) :: u,v,w,omx,omy,omz
@@ -147,31 +145,6 @@ program dns
   
     call setstuff ! Reads setup file to initialize variables
 
-
-    ! Plan FFT routines
-    ierr = fftw_init_threads() ! Initialize threaded FFTW (OpenMP)
-    if (ierr .eq. 0) then
-        print *,'Error! FFTW could not initialize threads!'
-        stop
-    end if
-    call fftw_plan_with_nthreads(OMP_GET_MAX_THREADS())
-
-    ! NOTE:
-    !   With the FFTW_PATIENT option, this process may take a few seconds
-    !   but once the plans are created, they can be used indefinitely.
-    !   The variables aspec and aphys are dummy variables that are
-    !   overwritten during this process, so they can't be used after this.
-    !   It also has the benefit of reducing the number of OpenMP threads
-    !   used if it determines less is better.
-    print *,'Planning FFT routines...'
-    planZb = fftw_plan_dft_1d(mz,aspec,aspec,FFTW_BACKWARD,FFTW_PATIENT)
-    planXb = fftw_plan_dft_c2r_1d(mx,aspec,aphys,FFTW_PATIENT)
-    planY  = fftw_plan_r2r_1d(nyp,aphys,aphys,FFTW_REDFT00,FFTW_PATIENT)
-    planXf = fftw_plan_dft_r2c_1d(mx,aphys,aspec,FFTW_PATIENT)
-    planZf = fftw_plan_dft_1d(mz,aspec,aspec,FFTW_FORWARD,FFTW_PATIENT)
-
-    print *,'Done!'
-    
     ! Compute Green's functions for the two systems
     call gfcn(gf1,a,wrkc,wrk1,bctop,bcbot,dnv1b,dnv1t,nb,nt,p1b,p1t)
     call gfcn(gf2,a,wrkc,wrk1,bctop,bcbot,dnv2b,dnv2t,nb,nt,p2b,p2t)
@@ -204,8 +177,7 @@ program dns
                  str13n,str22n,str23n,str33n,str11nm1,str12nm1,str13nm1,      &
                  str22nm1,str23nm1,str33nm1,qp11,qp12,qp13,qp22,qp23,qp33,    &
 #ENDIF
-                 Lu,Lv,Lw,Lu_old,Lv_old,Lw_old, &
-                 planZb,planXb,planY,planXf,planZf) 
+                 Lu,Lv,Lw,Lu_old,Lv_old,Lw_old)
                  
 
 ! ---------------------------------------------------------------------------- !
@@ -214,6 +186,8 @@ program dns
 !                                 Main Loop                                    !
 ! ============================================================================ !
 
+    call system_clock(count1,count_rate)
+    time1 = count1*1.0/count_rate
     do it = 1,nsteps
 
         write(*,*) '   it = ',it
@@ -632,8 +606,8 @@ program dns
                     str11n,str12n,str13n,str22n,str23n,str33n,             &
                     qp11,qp12,qp13,qp22,qp23,qp33,  &
 #ENDIF
-                    Lu_old,Lv_old,Lw_old, &
-                    planZb,planXb,planY,planXf,planZf) 
+                    Lu_old,Lv_old,Lw_old)
+
 
         ! Normalizations
         call norm(v)
@@ -722,10 +696,10 @@ program dns
         
         ! y-direction smoothing
         !$omp parallel do
-        do i = 1,nyp
-            ysmth = exp(-3.0*((float(i-1)/float(ny))**10))
+        do k = 1,nxh
             do j = 1,nz
-                do k = 1,nxh
+                do i = 1,nyp
+                ysmth = exp(-3.0*((float(i-1)/float(ny))**10))
                     omz(i,j,k) = omz(i,j,k)*ysmth
                     gn(i,j,k)  =  gn(i,j,k)*ysmth
                     fn(i,j,k)  =  fn(i,j,k)*ysmth
@@ -754,12 +728,12 @@ program dns
         
         ! z-direction smoothing
         !$omp parallel do
-        do j = 1,nz
-            jj = j-1
-            if (j .gt. nzh) jj = nz - j + 1
-            zsmth = exp(-3.0*((float(jj)/float(nzh))**10))
-            do i = 1,nyp
-                do k = 1,nxh
+        do k = 1,nxh
+            do j = 1,nz
+                jj = j-1
+                if (j .gt. nzh) jj = nz - j + 1
+                zsmth = exp(-3.0*((float(jj)/float(nzh))**10))
+                do i = 1,nyp
                     omz(i,j,k) = omz(i,j,k)*zsmth
                     gn(i,j,k)  =  gn(i,j,k)*zsmth
                     fn(i,j,k)  =  fn(i,j,k)*zsmth
@@ -846,12 +820,10 @@ program dns
 !                               Post-Processing                                !
 ! ============================================================================ !
 
-    call fftw_destroy_plan(planZb)
-    call fftw_destroy_plan(planZf)
-    call fftw_destroy_plan(planXb)
-    call fftw_destroy_plan(planXf)
-    call fftw_destroy_plan(planY)
+    call system_clock(count2,count_rate)
+    time2 = count2*1.0/count_rate
 
+    print *,'Elapsed time for ',OMP_GET_MAX_THREADS(),' threads: ',time2-time1,' s'
 ! ---------------------------------------------------------------------------- !
 end program dns
 
@@ -1628,8 +1600,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
                    str13n,str22n,str23n,str33n,str11nm1,str12nm1,str13nm1,      &
                    str22nm1,str23nm1,str33nm1,qp11,qp12,qp13,qp22,qp23,qp33,    &
 #ENDIF
-                   Lu,Lv,Lw,Lu_old,Lv_old,Lw_old, &
-                   planZb,planXb,planY,planXf,planZf) 
+                   Lu,Lv,Lw,Lu_old,Lv_old,Lw_old)
 
 ! ============================================================================ !
 !                             Declare Modules                                  !
@@ -1649,9 +1620,6 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
     implicit none
 
     include 'fftw3.f03'
-
-    ! FFTW variables
-    type(C_PTR) :: planZb,planXb,planY,planXf,planZf
 
     ! Flow variables
     complex, dimension(nyp,nz,nxh) :: u,v,w,omx,omy,omz
@@ -2107,9 +2075,9 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
         call norm(dc333)                                                 
 #ENDIF
 
-    open(999,file='outputs/spectral_data',status='replace',form='unformatted')
-    write(999) u
-    close(999)
+!    open(999,file='outputs/spectral_data',status='replace',form='unformatted')
+!    write(999) u
+!    close(999)
     ! -------------------------------------------------------------------- !
     ! Compute v x omega in physical space - FFTs are performed inside subroutine
     ! Assumes all variables are in 3D spectral space (on input and output)
@@ -2127,8 +2095,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
                     str11n,str12n,str13n,str22n,str23n,str33n,             &
                     qp11,qp12,qp13,qp22,qp23,qp33,  &
 #ENDIF
-                    Lu_old,Lv_old,Lw_old, &
-                    planZb,planXb,planY,planXf,planZf) 
+                    Lu_old,Lv_old,Lw_old)
    
         call norm(v)
         call norm(omy)
@@ -2346,7 +2313,6 @@ subroutine setpoly(scl,psource,wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,w
 
                     ! Initialize scalar
                     scl(i,j,k) = deltaT*exp(-(betax + betay + betaz))
-                    end if
                 end do
             end do
         end do

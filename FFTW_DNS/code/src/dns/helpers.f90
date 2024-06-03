@@ -570,7 +570,8 @@ contains
     ! =================================================================== !
     !                         Begin Calculations                          !
     ! =================================================================== !
-    
+   
+    !$omp parallel do default(shared) private(i,j,k) schedule(dynamic) 
     do k = 1,nxh
         do j = 1,nz
             do i = 1,nyp
@@ -580,6 +581,7 @@ contains
             end do
         end do
     end do
+    !$omp end parallel do
 
     end subroutine subforce
     
@@ -634,6 +636,7 @@ contains
     ! =================================================================== !
     
     tpolyinv = 1.0/tpoly
+    !$omp parallel do default(shared) private(i,j,k) schedule(dynamic)
     do k = 1,nxh
         do j = 1,nz
             do i = 1,nyp
@@ -646,6 +649,7 @@ contains
             end do
         end do
     end do
+    !$omp end parallel do
 
     end subroutine polyNL
 
@@ -957,7 +961,6 @@ contains
     ! Common blocks
         common/iocontrl/   irstrt
         common/itime/      it
-        common/dtime/      dt
         common/domain/     xl,yl,zl
      
     ! =================================================================== !
@@ -970,17 +973,15 @@ contains
         sumens = 0.0
         TKE = 0.0 
         SG = 0.0
-        !$omp parallel do default(shared) private(i,j,k,Lx,Ly,Lz,trS) reduction(+:scl_sum,sumens,TKE,SG) 
-        do i = 1,nyp
-            ! Calc y length
-            if (i .eq. 1) then
-                Ly = abs(ycoord(2) - ycoord(1))/2.0
-            else if (i .eq. nyp) then
-                Ly = abs(ycoord(nyp) - ycoord(ny))/2.0
+        !$omp parallel do default(shared) private(i,j,k,Lx,Ly,Lz,trS) reduction(+:scl_sum,sumens,TKE,SG) schedule(dynamic)
+        do k = 1,mx
+            ! Calc x length
+            if (k .eq. 1 .or. k .eq. mx) then
+                Lx = delxm/2.0
             else
-                Ly = abs(ycoord(i+1) - ycoord(i))/2.0 + abs(ycoord(i) - ycoord(i-1))/2.0
+                Lx = delxm
             end if
-!            scl_sum = 0.0 
+
             do j = 1,mz
                 ! Calc z length
                 if (j .eq. 1 .or. j .eq. mz) then
@@ -988,15 +989,17 @@ contains
                 else
                     Lz = delzm
                 end if
-        
-                do k = 1,mx
-                    ! Calc x length
-                    if (k .eq. 1 .or. k .eq. mx) then
-                        Lx = delxm/2.0
-                    else
-                        Lx = delxm
-                    end if
        
+                do i = 1,nyp
+                    ! Calc y length
+                    if (i .eq. 1) then
+                        Ly = abs(ycoord(2) - ycoord(1))/2.0
+                    else if (i .eq. nyp) then
+                        Ly = abs(ycoord(nyp) - ycoord(ny))/2.0
+                    else
+                        Ly = abs(ycoord(i+1) - ycoord(i))/2.0 + abs(ycoord(i) - ycoord(i-1))/2.0
+                    end if
+
                     ! Calc strain rate at grid point
                     trS = u11(i,j,k)**2.0 + u22(i,j,k)**2.0 + u33(i,j,k)**2.0
     
