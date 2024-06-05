@@ -139,18 +139,14 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
         call substep_check(substep)
 
     else
-     
+    
         ! Change dt for substep
         dt = dt/float(substep)
-
-        nthreads = min(npart,OMP_GET_MAX_THREADS()) 
+        nthreads = 1!min(npart,OMP_GET_MAX_THREADS())
         ! Compute new particle location
         if (particle_flag .ge. 0) then
-        !$omp parallel do shared(xpart,ypart,zpart,upart,vpart,wpart,u,v,w,   &
-        !$omp                    u_old,v_old,w_old,omx,omy,omz,a,u11,u12,u13, &
-        !$omp                    u21,u22,u23,u31,u32,u33,Lu,Lv,Lw,Lu_old,     &
-        !$omp                    Lv_old,Lw_old,umax1,substep,particle_flag)   &
-        !$omp             default(private) schedule(dynamic) num_threads(nthreads)
+        !$omp parallel do simd default(shared) private(j,jj,xp,yp,zp,up,vp,wp) &
+        !$omp                    reduction(max:umax1) num_threads(nthreads)
         do j = 1,npart
             if (particle_flag .eq. 0) then ! Tracer
                 call tracer_update(xpart(j),ypart(j),zpart(j),upart(j),vpart(j),wpart(j),u,v,w,a)
@@ -163,7 +159,7 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
                     up = upart(j)
                     vp = vpart(j)
                     wp = wpart(j)        
-   
+  
                     call RK4(xp,yp,zp,up,vp,wp,u,v,w,u_old,v_old,w_old,omx, &
                              omy,omz,a,u11,u12,u13,u21,u22,u23,u31,u32,u33, &
                              Lu,Lv,Lw,Lu_old,Lv_old,Lw_old,umax1)
@@ -178,7 +174,7 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
                 end do
             end if
         end do
-        !$omp end parallel do
+        !$omp end parallel do simd
         end if
 
         ! Change dt back to normal
@@ -267,7 +263,6 @@ subroutine init_part(xp,yp,zp,up,vp,wp,u,v,w,rp0,tt)
     ! -------------------------------------------------------- !
     !                      Begin Calculations                  !
     ! -------------------------------------------------------- !
-
     ! Read in data from file for initial particle positions
     open(95, file = 'setup/particles/particles.dat', status = 'old', action = 'read')
     read(95,*)
@@ -562,6 +557,13 @@ subroutine fluid_interp(xp,yp,zp,u,v,w,uf,vf,wf)
     kmax = floor(1 + float(ny)/pi*acos(2.0*yp/yl))
     kmin = kmax + 1
 
+    xmin = float(imin-1)*delxm
+    xmax = float(imax-1)*delxm
+    ymin = ycoord(kmin)
+    ymax = ycoord(kmax)
+    zmin = float(jmin-1)*delzm
+    zmax = float(jmax-1)*delzm
+
     if (imin .lt. 1 .or. jmin .lt. 1 .or. kmin .lt. 1) then
         print *,'imin/imax: ',imin,imax
         print *,'kmin/kmax: ',kmin,kmax
@@ -574,13 +576,6 @@ subroutine fluid_interp(xp,yp,zp,u,v,w,uf,vf,wf)
         stop
     end if
     
-    xmin = float(imin-1)*delxm
-    xmax = float(imax-1)*delxm
-    ymin = ycoord(kmin)
-    ymax = ycoord(kmax)
-    zmin = float(jmin-1)*delzm
-    zmax = float(jmax-1)*delzm
-
 
     ! Interpolate fluid velocity at particle position
     uf = interpolate3(xp, yp, zp,       &
@@ -824,7 +819,7 @@ subroutine RKstage(sn,un,vn,wn,xp,yp,zp,Ku,Kv,Kw,u,v,w, &
     call fluid_interp(xp,yp,zp,u,v,w,ufluid,vfluid,wfluid)
     call fluid_interp(xp,yp,zp,omx,omy,omz,wxf,wyf,wzf)
     call fluid_interp(xp,yp,zp,Lu,Lv,Lw,Luf,Lvf,Lwf)
-
+    
     ! Calculate substantial derivative at particle location
     call SubDerivative(u,v,w,u_old,v_old,w_old,ufluid,vfluid,wfluid,subDufDt,subDvfDt,subDwfDt, &
                        xp,yp,zp,u11,u12,u13,u21,u22,u23,u31,u32,u33,Lu,Lv,Lw,Lu_old,Lv_old,     &
@@ -880,7 +875,7 @@ subroutine RKstage(sn,un,vn,wn,xp,yp,zp,Ku,Kv,Kw,u,v,w, &
     un = up_old + h*Ku
     vn = vp_old + h*Kv
     wn = wp_old + h*Kw
-    
+
     xp = mod(xl + xp_old + h*un,xl)
     yp = max(min(yp_old + h*vn, Height),a+ycoord(nyp))
     zp = mod(zl + zp_old + h*wn,zl)

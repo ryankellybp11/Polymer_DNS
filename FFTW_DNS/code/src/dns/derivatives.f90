@@ -59,7 +59,8 @@ contains
     call cderiv(u22,wrk2) ! d^2(v)/dy^2
     call cderiv(u32,wrk3) ! d^2(w)/dy^2
     
-    ! Calculate x- and z-derivatives spectrally
+    ! Calculate x- and z-derivatives spectrally default(shared) private(i,j,k,wn2) collapse(2) schedule(dynamic)
+    !$omp parallel do 
     do k = 1,nxh
         do j = 1,nz
             wn2 = wavx(k)**2 + wavz(j)**2
@@ -80,12 +81,13 @@ contains
             end do
         end do
     end do
+    !$omp end parallel do
     
     end subroutine gradv
     
     !---------------------------------------------------------------------!
 #IFDEF SCALAR    
-    subroutine gradscl(scalar,sclx,scly,sclz,wrkc)
+    subroutine gradscl(scalar,sclx,scly,sclz)
     !---------------------------------------------------------------------!
     ! This subroutine computes gradient of the scalar and stores them in  !
     ! sclx, scly, and sclz                                                !
@@ -102,7 +104,7 @@ contains
     implicit none
     
     ! Passed variables
-    complex, dimension(nyp,nz,nxh) :: scalar,sclx,scly,sclz,wrkc
+    complex, dimension(nyp,nz,nxh) :: scalar,sclx,scly,sclz
     
     ! Calculation variables
     complex :: im
@@ -128,7 +130,7 @@ contains
    
     call cderiv(scalar,scly)
 
-    !$omp parallel do
+    !$omp parallel do default(shared) private(i,j,k) collapse(3)
     do k = 1,nxh
         do j = 1,nz
             do i = 1,nyp
@@ -192,17 +194,29 @@ contains
     im = (0.0,1.0)
   
     ! Calculate y-derivatives
+    !$omp parallel sections default(shared) num_threads(9)
+    !$omp section
     call cderiv(c11,dc112)
+    !$omp section
     call cderiv(c12,dc122)
+    !$omp section
     call cderiv(c13,dc132)
+    !$omp section
     call cderiv(c21,dc212)
+    !$omp section
     call cderiv(c22,dc222)
+    !$omp section
     call cderiv(c23,dc232)
+    !$omp section
     call cderiv(c31,dc312)
+    !$omp section
     call cderiv(c32,dc322)
+    !$omp section
     call cderiv(c33,dc332)
+    !$omp end parallel sections
 
     ! Calculate x- and z- derivatives
+    !$omp parallel do default(shared) private(i,j,k) collapse(3) schedule(dynamic)
     do k = 1,nxh
         do j = 1,nz
             do i = 1,nyp
@@ -235,6 +249,7 @@ contains
             end do
         end do
     end do
+    !$omp end parallel do
 
     end subroutine derivscji
 #ENDIF    
@@ -248,6 +263,7 @@ contains
     !                           Declare Modules                           !
     ! =================================================================== !
     use grid_size
+    use omp_lib
     !---------------------------------------------------------------------!
     
     ! =================================================================== !
@@ -278,30 +294,23 @@ contains
     do i = 1,2 ! Dummy loop to fool tau. Without this, tau-instrumented code doesn't work
     end do     ! Editor's note: idk what that means, but I'm not messing with it
     
-    ! Top wall
+    !$omp parallel do default(shared) private(i,j,k) schedule(dynamic)
     do k = 1,nxh
         do j = 1,nz
+            ! Bottom wall
             df(nyp,j,k) = 0.0
             df(ny,j,k)  = 2.0*float(ny)*f(nyp,j,k)*dyde
-        end do
-    end do
-    
-    ! Interior
-    do j = 1,nz
-        do i = nym,1,-1
-            do k = 1,nxh
+
+            ! Interior
+            do i = nym,1,-1
                 df(i,j,k) = df(i+2,j,k) + 2.0*float(i)*f(i+1,j,k)*dyde
             end do
-        end do
-    end do
-    
-    ! Bottom wall
-    do k = 1,nxh
-        do j = 1,nz
+
+            ! Top wall
             df(1,j,k) = 0.5*df(1,j,k) 
         end do
     end do
-    
+    !$omp end parallel do
     end subroutine cderiv   
     
     !---------------------------------------------------------------------!

@@ -29,7 +29,6 @@ program dns
     complex, dimension(nyp,nz,nxh) :: u21,u22,u23
     complex, dimension(nyp,nz,nxh) :: u31,u32,u33
     complex, dimension(nyp,nz,nxh) :: Lu,Lv,Lw
-    real,    dimension(nyp,mz,mx)  :: Lu_old,Lv_old,Lw_old
 
 #IFDEF SCALAR
     ! Scalar variables
@@ -134,6 +133,8 @@ program dns
 !                          Initialization Routines                             !
 ! ============================================================================ !
 
+    call system_clock(count1,count_rate)
+    time1 = count1*1.0/count_rate
     ! -------------------------------------------------------------------- !
     ! Initializes all preliminary variables before heading into the main   !
     ! time loop. Reads data from setup/dns.config, computes preliminary    !
@@ -150,7 +151,7 @@ program dns
     call gfcn(gf2,a,wrkc,wrk1,bctop,bcbot,dnv2b,dnv2t,nb,nt,p2b,p2t)
 
     ! Calculate common denominator
-    !$omp parallel do
+    !$omp parallel do default(shared) private(j,k) collapse(2)
     do k = 1,nxh
         do j = 1,nz
             denom(j,k) = dnv1t(j,k)*dnv2b(j,k) - dnv2t(j,k)*dnv1b(j,k)
@@ -177,17 +178,15 @@ program dns
                  str13n,str22n,str23n,str33n,str11nm1,str12nm1,str13nm1,      &
                  str22nm1,str23nm1,str33nm1,qp11,qp12,qp13,qp22,qp23,qp33,    &
 #ENDIF
-                 Lu,Lv,Lw,Lu_old,Lv_old,Lw_old)
+                 Lu,Lv,Lw)
                  
-
+!    write(100,*) Lu
 ! ---------------------------------------------------------------------------- !
 
 ! ============================================================================ !
 !                                 Main Loop                                    !
 ! ============================================================================ !
 
-    call system_clock(count1,count_rate)
-    time1 = count1*1.0/count_rate
     do it = 1,nsteps
 
         write(*,*) '   it = ',it
@@ -197,7 +196,7 @@ program dns
         ! Initialize conformation tensor on the time step before polymer is released
         if (it .eq. src_start - 1 .or. it .eq. irstrt .and. crstrt .eq. 0) then
 
-            !$omp parallel do default(shared) private(i,j,k)
+            !$omp parallel do default(shared) private(i,j,k) schedule(dynamic)
             do k = 1,nx
                 do j = 1,nz
                     do i = 1,nyp
@@ -237,7 +236,7 @@ program dns
                         str11nm1,str12nm1,str13nm1,str22nm1,str23nm1,str33nm1)
 
             ! Note: The arguments are chosen such that I can still use phirhs for the C tensor solver
-            !$omp parallel sections default(shared) private(wrkc,wrk1,bcbot,bctop)
+            !$omp parallel sections default(shared) private(wrkc,wrk1,bcbot,bctop) num_threads(6)
             !$omp section
             call phirhs(c11,wrkc,wrk1,c11NL,2.0*c11NL,bcbot,bctop,diffpoly)
             !$omp section
@@ -253,7 +252,7 @@ program dns
             !$omp end parallel sections
 
             ! Copy n to nm1
-            !$omp parallel do default(shared) private(i,j,k)
+            !$omp parallel do default(shared) private(i,j,k) schedule(dynamic)
             do k = 1,nxh
                 do j = 1,nz
                     do i = 1,nyp
@@ -300,7 +299,7 @@ program dns
             call norm(c33)
 
             ! Use symmetry to get other components of C tensor
-            !$omp parallel do
+            !$omp parallel do default(shared) private(i,j,k) schedule(dynamic)
             do k = 1,nxh
                 do j = 1,nz
                     do i = 1,nyp
@@ -320,7 +319,7 @@ program dns
         call phirhs(scalar,wrkc,wrk1,scn,scnm1,bcsclbot,bcscltop,diff)
 
         ! Copy scn to scnm1
-        !$omp parallel do
+        !$omp parallel do default(shared) private(i,j,k) schedule(dynamic)
         do k = 1,nxh
             do j = 1,nz
                 do i = 1,nyp
@@ -355,7 +354,7 @@ program dns
         call cderiv(v,wrk1)
         call cderiv(wrk1,wrkc)
 
-        !$omp parallel do
+        !$omp parallel do default(shared) private(i,j,k,wn2) collapse(2)
         do k = 1,nxh
             do j = 1,nz
                 wn2 = wavx(k)**2 + wavz(j)**2
@@ -371,7 +370,7 @@ program dns
         call phirhs(v,wrkc,wrk1,fn,fnm1,bcbot,bctop,1.0)
 
         ! Copy fn to fnm1
-        !$omp parallel do
+        !$omp parallel do default(shared) private(i,j,k) schedule(dynamic)
         do k = 1,nxh
             do j = 1,nz
                 do i = 1,nyp
@@ -403,7 +402,7 @@ program dns
         call phirhs(omy,wrkc,wrk1,gn,gnm1,bcbot,bctop,1.0)
 
         ! Copy gn to gnm1
-        !$omp parallel do
+        !$omp parallel do default(shared) private(i,j,k) schedule(dynamic)
         do k = 1,nxh
             do j = 1,nz
                 do i = 1,nyp
@@ -445,21 +444,26 @@ program dns
         end if
 
         ! Compute c1 and c2
+        !$omp parallel do default(shared) private(i,j,k) collapse(2) schedule(dynamic)
         do k = 1,nxh
             do j = 1,nz
                 c1(j,k) = (wrkc(iyb,j,k)*dnv2t(j,k) - wrkc(iyt,j,k)*dnv2b(j,k))/denom(j,k)
                 c2(j,k) = (wrkc(iyt,j,k)*dnv1b(j,k) - wrkc(iyb,j,k)*dnv1t(j,k))/denom(j,k)
-            end do
-        end do
-
-        ! Form total v
-        do k = 1,nxh
-            do j = 1,nz
                 do i = 1,nyp
                     v(i,j,k) = v(i,j,k) + c1(j,k)*gf1(i,j,k) + c2(j,k)*gf2(i,j,k)
                 end do
             end do
         end do
+        !$omp end parallel do
+
+!        ! Form total v
+!        do k = 1,nxh
+!            do j = 1,nz
+!                do i = 1,nyp
+!                    v(i,j,k) = v(i,j,k) + c1(j,k)*gf1(i,j,k) + c2(j,k)*gf2(i,j,k)
+!                end do
+!            end do
+!        end do
 
         ! -------------------------------------------------------------------- !
         ! Now do vorticity field
@@ -470,10 +474,6 @@ program dns
             call penta(omy(1,1,k),x,g,dyde,ib,atu,btu,bctop(1,k),abu,bbu,bcbot(1,k),a,wrk1)
         end do
 
-        ! Because of periodicity, the (0,0) mode for omy is always zero
-        do i = 1,nyp
-            omy(i,1,1) = (0.0,0.0)
-        end do
 
         ! -------------------------------------------------------------------- !
         ! Solve for zeroth Fourier modes of streamwise and spanwise velocities
@@ -482,10 +482,15 @@ program dns
         uflag = 3
         call uzero(w0,h3n,h3nm1,uflag)
 
+        !$omp parallel do default(shared) private(i) num_threads(nyh) schedule(dynamic)
         do i = 1,nyp
+            ! Because of periodicity, the (0,0) mode for omy is always zero
+            omy(i,1,1) = (0.0,0.0)
+
             h1nm1(i) = h1n(i)
             h3nm1(i) = h3n(i)
         end do
+        !$omp end parallel do
 
         ! -------------------------------------------------------------------- !
         ! Calculate the remaining components of velocity from continuity and
@@ -520,7 +525,7 @@ program dns
 #IFDEF SCALAR
         ! Calculate scalar gradient
         call norm(scalar)
-        call gradscl(scalar,sclx,scly,sclz,wrkc)
+        call gradscl(scalar,sclx,scly,sclz)
         call norm(sclx)
         call norm(scly)
         call norm(sclz)
@@ -543,6 +548,7 @@ program dns
         call norm(Lv)
         call norm(Lw)
 
+!        write(100+it,*) Lu
 #IFDEF POLYMER
         ! Calculate derivatives of conformation tensor        
         call derivscji(c11,c12,c13,c21,c22,c23,c31,c32,c33,                   &
@@ -588,12 +594,12 @@ program dns
          call norm(dc332) 
          call norm(dc333)                                                 
 #ENDIF
-       
+
         ! -------------------------------------------------------------------- !
         ! Compute v x omega in physical space - FFTs are performed inside subroutine
         ! Assumes all variables are in 3D spectral space (on input and output)
         call vcw3dp(u,v,w,omx,omy,omz,fn,gn,u11,u12,u13,u21,u22,u23,       &
-                    u31,u32,u33,Lu,Lv,Lw, &
+                    u31,u32,u33, &
 #IFDEF SCALAR
                     scalar,sclx,scly,sclz,scn,        &
 #ENDIF
@@ -606,8 +612,9 @@ program dns
                     str11n,str12n,str13n,str22n,str23n,str33n,             &
                     qp11,qp12,qp13,qp22,qp23,qp33,  &
 #ENDIF
-                    Lu_old,Lv_old,Lw_old)
+                    Lu,Lv,Lw)
 
+!        write(500+it,*) Lu
 
         ! Normalizations
         call norm(v)
@@ -667,7 +674,7 @@ program dns
 
          if (it .eq. (src_start-1) .or. it .eq. irstrt .and. crstrt .eq. 0) then
          ! Set (n-1) terms equal to current terms for explicit time integration - Ryan 9/27/22
-         !$omp parallel do
+         !$omp parallel do default(shared) private(i,j,k) schedule(dynamic)
          do k=1,nxh
             do j=1,nz
                  do i=1,nyp
@@ -695,11 +702,11 @@ program dns
         ! Spectral smoothing, assuming force is in fn, gn, and omz
         
         ! y-direction smoothing
-        !$omp parallel do
+        !$omp parallel do default(shared) private(i,j,k,ysmth) schedule(dynamic)
         do k = 1,nxh
             do j = 1,nz
                 do i = 1,nyp
-                ysmth = exp(-3.0*((float(i-1)/float(ny))**10))
+                    ysmth = exp(-3.0*((float(i-1)/float(ny))**10))
                     omz(i,j,k) = omz(i,j,k)*ysmth
                     gn(i,j,k)  =  gn(i,j,k)*ysmth
                     fn(i,j,k)  =  fn(i,j,k)*ysmth
@@ -727,7 +734,7 @@ program dns
         !$omp end parallel do
         
         ! z-direction smoothing
-        !$omp parallel do
+        !$omp parallel do default(shared) private(i,j,k,jj,zsmth) schedule(dynamic)
         do k = 1,nxh
             do j = 1,nz
                 jj = j-1
@@ -1600,7 +1607,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
                    str13n,str22n,str23n,str33n,str11nm1,str12nm1,str13nm1,      &
                    str22nm1,str23nm1,str33nm1,qp11,qp12,qp13,qp22,qp23,qp33,    &
 #ENDIF
-                   Lu,Lv,Lw,Lu_old,Lv_old,Lw_old)
+                   Lu,Lv,Lw)
 
 ! ============================================================================ !
 !                             Declare Modules                                  !
@@ -1627,7 +1634,6 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
     complex, dimension(nyp,nz,nxh) :: u21,u22,u23
     complex, dimension(nyp,nz,nxh) :: u31,u32,u33
     complex, dimension(nyp,nz,nxh) :: Lu,Lv,Lw
-    real,    dimension(nyp,mz,mx)  :: Lu_old,Lv_old,Lw_old
     real,    dimension(nyp,nz,nx)  :: initu,initv,initw
 
 #IFDEF SCALAR
@@ -1822,7 +1828,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
             call xyzfft(c33,wrk33,-1)
     
             ! Calculate scalar gradient
-            call gradscl(scalar,sclx,scly,sclz,wrkc)
+            call gradscl(scalar,sclx,scly,sclz)
             call norm(sclx)
             call norm(scly)
             call norm(sclz)
@@ -2006,7 +2012,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
 
 #IFDEF SCALAR        
         ! Calculate scalar gradient
-        call gradscl(scalar,sclx,scly,sclz,wrkc)
+        call gradscl(scalar,sclx,scly,sclz)
         call norm(sclx)
         call norm(scly)
         call norm(sclz)
@@ -2029,6 +2035,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
         call norm(Lv)
         call norm(Lw)
 
+        
 #IFDEF POLYMER    
         ! Calculate derivatives of conformation tensor        
         call derivscji(c11,c12,c13,c21,c22,c23,c31,c32,c33,                   &
@@ -2082,7 +2089,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
     ! Compute v x omega in physical space - FFTs are performed inside subroutine
     ! Assumes all variables are in 3D spectral space (on input and output)
         call vcw3dp(u,v,w,omx,omy,omz,fn,gn,u11,u12,u13,u21,u22,u23,       &
-                    u31,u32,u33,Lu,Lv,Lw, &
+                    u31,u32,u33, &
 #IFDEF SCALAR
                     scalar,sclx,scly,sclz,scn,        &
 #ENDIF
@@ -2095,7 +2102,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
                     str11n,str12n,str13n,str22n,str23n,str33n,             &
                     qp11,qp12,qp13,qp22,qp23,qp33,  &
 #ENDIF
-                    Lu_old,Lv_old,Lw_old)
+                    Lu,Lv,Lw)
    
         call norm(v)
         call norm(omy)

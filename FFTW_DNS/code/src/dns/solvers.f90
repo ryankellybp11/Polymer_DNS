@@ -329,7 +329,7 @@ contains
     real, dimension(nz) :: wn
     real :: dyde,rj1,rj2,rj3
     integer :: i,j,k
-    
+   
     do i = 1,nyh
         j = 2*i
         rj1 = 1.0/float(4*j*(j-1))
@@ -341,7 +341,7 @@ contains
             a(i,k,3) = wn(k)*rj3
         end do
     end do
-    
+   
     do k = 1,nz
         a(1,k,1) = 2.0*a(1,k,1)
         a(nyhm,k,3) = 0.0
@@ -361,7 +361,7 @@ contains
     real, dimension(nz) :: wn
     real :: dyde,rj1,rj2,rj3
     integer :: i,j,k
-    
+   
     do i = 1,nyhm
         j = 2*i + 1
         rj1 = 1.0/float(4*j*(j-1))  
@@ -373,7 +373,7 @@ contains
             a(i,k,3) = wn(k)*rj3
         end do
     end do
-    
+   
     do k = 1,nz
         a(nyhm-1,k,3) = 0.0
         a(nyhm,k,2) = -1.0*dyde*dyde
@@ -397,6 +397,7 @@ contains
     integer :: i,j,k,jp2,jm2,ib
     real    :: rj1,rj2,rj3
     
+    !omp parallel do shared(wrk,c,s) default(private) schedule(dynamic) 
     do i = 2,nyhm
         j = 2*i - 2
         jp2 = j+2
@@ -408,6 +409,7 @@ contains
             wrk(i,k) = -c(jm2)*s(jm2,k)*rj1 + s(j,k)*rj2 - s(jp2,k)*rj3
         end do
     end do
+    !omp end parallel do
     
     j = ny-2
     jm2 = j - 2
@@ -450,7 +452,7 @@ contains
     
     integer :: i,j,k,jp2,jm2,ib
     real    :: rj1,rj2,rj3
-    
+   
     do i = 2,nyhm-1
         j = 2*i - 1
         jp2 = j+2
@@ -515,7 +517,7 @@ contains
     do k = 1,nz
         d(m,k) = a(m,k,2)
     end do
-    
+   
     do i = mm1,1,-1
         do k = 1,nz
             d(i,k) = a(i,k,2) - a(i,k,3)*a(i+1,k,1)/d(i+1,k)
@@ -529,7 +531,7 @@ contains
         f(k) = t(m) - t(nrank)*a(m,k,1)/d(m,k)
         wrk(1,k) = wrk(1,k) - t(nrank)*wrk(nrank,k)/d(m,k)
     end do
-    
+   
     do i = mm1,1,-1
         do k = 1,nz
             wrk(1,k) = wrk(1,k) - f(k)*wrk(i+1,k)/d(i,k)
@@ -541,7 +543,7 @@ contains
     do k = 1,nz
         wrk(1,k) = wrk(1,k)/f(k)
     end do
-    
+   
     do i = 2,nrank
         do k = 1,nz
             wrk(i,k) = (wrk(i,k) - a(i-1,k,1)*wrk(i-1,k))/d(i-1,k)
@@ -615,7 +617,7 @@ contains
    
     ! First reset BCs to 0 since they may have been altered in the
     ! pressure solution
-    !$omp parallel do
+    !$omp parallel do schedule(dynamic) shared(bctop,bcbot) private(j,k)
     do k = 1,nxh
         do j = 1,nz
             bctop(j,k) = (0.0,0.0)
@@ -624,7 +626,7 @@ contains
     end do
     !$omp end parallel do 
     
-    !$omp parallel do 
+    !$omp parallel do default(shared) private(i,j,k) collapse(3)
     do k = 1,nxh
         do j = 1,nz
             do i = 1,nyp
@@ -644,7 +646,7 @@ contains
         end do
     end if
     
-    !$omp parallel do 
+    !$omp parallel do default(shared) private(i,j,k,w2) collapse(2) schedule(dynamic)
     do k = 1,nxh
         do j = 1,nz
             w2 = wavz(j)**2 + wavx(k)**2
@@ -661,7 +663,7 @@ contains
     ! Second derivative (stored in v)
     call cderiv(wrk1,v)
     
-    !$omp parallel do 
+    !$omp parallel do default(shared) private(i,j,k) schedule(dynamic)
     do k = 1,nxh
         do j = 1,nz
             do i = 1,nyp
@@ -807,6 +809,7 @@ contains
     
     ! Use module(s)
     use grid_size
+    use omp_lib
     
     ! Delcare variables
     implicit none
@@ -817,7 +820,8 @@ contains
     
     integer :: i,j,k,jp2,jm2
     real    :: rj1,rj2,rj3
-    
+   
+    !omp parallel do shared(wrk,c,s) default(private) schedule(dynamic) 
     do i = 2,nyhm
         j = 2*i - 2
         jp2 = j+2
@@ -829,6 +833,7 @@ contains
             wrk(i,k) = -c(jm2)*s(jm2,k)*rj1 + s(j,k)*rj2 - s(jp2,k)*rj3
         end do
     end do
+    !omp end parallel do
     
     j = ny-2
     jm2 = j - 2
@@ -851,7 +856,10 @@ contains
     
     subroutine pntodds(s,wrk)
     ! Sets up RHS for even tri-diagonal problem, given the results of sbr RHS
+
     use grid_size
+    use omp_lib
+
     implicit none
     
     complex, dimension(nyp,nz) :: wrk
@@ -859,7 +867,8 @@ contains
     
     integer :: i,j,k,jp2,jm2
     real    :: rj1,rj2,rj3
-    
+
+    !omp parallel do shared(wrk,s) default(private) schedule(dynamic)    
     do i = 2,nyhm-1
         j = 2*i - 1
         jp2 = j+2
@@ -871,6 +880,7 @@ contains
             wrk(i,k) = -s(jm2,k)*rj1 + s(j,k)*rj2 - s(jp2,k)*rj3
         end do
     end do
+    !omp end parallel do
     
     i = nyhm
     j = ny-3
@@ -897,6 +907,7 @@ contains
     
     ! Use module(s)
     use grid_size
+    use omp_lib
     
     ! Declare variables
     implicit none
@@ -928,25 +939,29 @@ contains
     m = n - 1
     mm1 = m - 1
     mm2 = m - 2
-    
+   
+    !omp parallel do default(shared) private(i,k) schedule(dynamic) 
     do i = 1,m
         do k = 1,nz
             gs(i,k,ip) = wrk(i,k)
             cs(i,k,ip) = a(i,k,1)
         end do
     end do
+    !omp end parallel do
     
     do k = 1,nz
         ds(m,k,ip) = a(m,k,2)
         gs(n,k,ip) = wrk(n,k)
     end do
-    
+   
+    !omp parallel do default(shared) private(i,k) collapse(2) 
     do i = mm1,1,-1
         do k = 1,nz
             ds(i,k,ip) = a(i,k,2) - a(i,k,3)*cs(i+1,k,ip)/ds(i+1,k,ip)
             gs(i+1,k,ip) = gs(i+1,k,ip) - a(i,k,3)*gs(i+2,k,ip)/ds(i+1,k,ip)
         end do
     end do
+    !omp end parallel do
     
     ! Eliminate 2nd row on ipass = 1 and 1st row on ipass = 2
     
@@ -958,13 +973,15 @@ contains
         f(js,k,ip) = t(m) - t(n)*cs(m,k,ip)/ds(m,k,ip)
         s(js,k) = s(js,k) - t(n)*gs(n,k,ip)/ds(m,k,ip)
     end do
-    
+   
+    !omp parallel do shared(s,f,gs,cs,ds,t) private(i,k) collapse(2) 
     do i = mm1,1,-1
         do k = 1,nz
             s(js,k) = s(js,k) - f(js,k,ip)*gs(i+1,k,ip)/ds(i,k,ip)
             f(js,k,ip) = t(i) - f(js,k,ip)*cs(i,k,ip)/ds(i,k,ip)
         end do
     end do
+    !omp end parallel do
     
     if (ipass .eq. 1) then
         ipass = ipass + 1
@@ -986,21 +1003,27 @@ contains
     
         ! Even u
         n = n + 1
+        !omp parallel shared(wrk,gs,cs,ds) private(i,n,ii,k)
+        !omp do schedule(static)
         do i = 2,n
             ii = 2*i - 1
             do k = 1,nz
                 wrk(ii,k) = (gs(i,k,1) - cs(i-1,k,1)*wrk(ii-2,k))/ds(i-1,k,1)
             end do
         end do
-    
+        !omp end do nowait
+ 
         ! Odd u
         n = n - 1
+        !omp do schedule(static)
         do i = 2,n
             ii = 2*i
             do k = 1,nz
                 wrk(ii,k) = (gs(i,k,2) - cs(i-1,k,2)*wrk(ii-2,k))/ds(i-1,k,2)
             end do
         end do
+        !omp end do
+        !omp end parallel
     end if
     
     end subroutine pntsolve
@@ -1713,7 +1736,7 @@ contains
     !---------------------------------------------------------------------!
     
     subroutine vcw3dp(u,v,w,omx,omy,omz,fn,gn,u11,u12,u13,u21,u22,u23,       &
-                    u31,u32,u33,Lu,Lv,Lw, &
+                    u31,u32,u33, &
 #IFDEF SCALAR
                     scalar,sclx,scly,sclz,scn,        &
 #ENDIF
@@ -1726,7 +1749,7 @@ contains
                     str11n,str12n,str13n,str22n,str23n,str33n,             &
                     qp11,qp12,qp13,qp22,qp23,qp33,  &
 #ENDIF
-                    Lu_old,Lv_old,Lw_old)
+                    Lu,Lv,Lw)
 
     !---------------------------------------------------------------------!
     !  This subroutine calculates the nonlinear term in the rotational    !
@@ -1813,7 +1836,7 @@ contains
     
     ! Calculation variables
     real, save, dimension(nyp,mz,mx) :: u_old,v_old,w_old
-    real, dimension(nyp,mz,mx) :: Lu_old,Lv_old,Lw_old
+    real, save, dimension(nyp,mz,mx) :: Lunm1,Lvnm1,Lwnm1
 
     ! FFTW variables - must be C-type arrays
     ! Input variables
@@ -1840,56 +1863,56 @@ contains
 
     real(C_DOUBLE), dimension(nyp,nz,nxh) :: fni,gni,omzi
 #IFDEF POLYMER    
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: c11r,c12r,c13r
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: c21r,c22r,c23r
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: c31r,c32r,c33r
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: c11r,c12r,c13r
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: c21r,c22r,c23r
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: c31r,c32r,c33r
 
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc111r, dc112r, dc113r
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc211r, dc212r, dc213r
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc311r, dc312r, dc313r
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc111r, dc112r, dc113r
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc211r, dc212r, dc213r
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc311r, dc312r, dc313r
     
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc121r, dc122r, dc123r
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc221r, dc222r, dc223r
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc321r, dc322r, dc323r
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc121r, dc122r, dc123r
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc221r, dc222r, dc223r
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc321r, dc322r, dc323r
     
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc131r, dc132r, dc133r
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc231r, dc232r, dc233r
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc331r, dc332r, dc333r
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc131r, dc132r, dc133r
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc231r, dc232r, dc233r
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc331r, dc332r, dc333r
 
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: c11nr,c12nr,c13nr
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: c22nr,c23nr,c33nr
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: c11nr,c12nr,c13nr
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: c22nr,c23nr,c33nr
     
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: str11nr,str12nr,str13nr
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: str22nr,str23nr,str33nr
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: str11nr,str12nr,str13nr
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: str22nr,str23nr,str33nr
     
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: qp11r,qp12r,qp13r
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: qp22r,qp23r,qp33r
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: qp11r,qp12r,qp13r
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: qp22r,qp23r,qp33r
 
 
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: c11i,c12i,c13i
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: c21i,c22i,c23i
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: c31i,c32i,c33i
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: c11i,c12i,c13i
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: c21i,c22i,c23i
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: c31i,c32i,c33i
 
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc111i, dc112i, dc113i
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc211i, dc212i, dc213i
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc311i, dc312i, dc313i
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc111i, dc112i, dc113i
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc211i, dc212i, dc213i
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc311i, dc312i, dc313i
     
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc121i, dc122i, dc123i
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc221i, dc222i, dc223i
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc321i, dc322i, dc323i
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc121i, dc122i, dc123i
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc221i, dc222i, dc223i
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc321i, dc322i, dc323i
     
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc131i, dc132i, dc133i
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc231i, dc232i, dc233i
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: dc331i, dc332i, dc333i
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc131i, dc132i, dc133i
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc231i, dc232i, dc233i
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: dc331i, dc332i, dc333i
 
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: c11ni,c12ni,c13ni
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: c22ni,c23ni,c33ni
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: c11ni,c12ni,c13ni
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: c22ni,c23ni,c33ni
     
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: str11ni,str12ni,str13ni
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: str22ni,str23ni,str33ni
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: str11ni,str12ni,str13ni
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: str22ni,str23ni,str33ni
     
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: qp11i,qp12i,qp13i
-    real(C_DOUBLE), dimension(nyp,mz,mx)  :: qp22i,qp23i,qp33i
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: qp11i,qp12i,qp13i
+    real(C_DOUBLE), dimension(nyp,nz,nxh)  :: qp22i,qp23i,qp33i
 
 
     real(C_DOUBLE), dimension(mz,mx)  :: c11p,c12p,c13p
@@ -1920,8 +1943,8 @@ contains
     real(C_DOUBLE), dimension(mz,mx)  :: qp22np,qp23np,qp33np
 #ENDIF
 #IFDEF SCALAR    
-    real(C_DOUBLE), dimension(nyp,mz,mx) :: scr,cxr,cyr,czr,scnr
-    real(C_DOUBLE), dimension(nyp,mz,mx) :: sci,cxi,cyi,czi,scni
+    real(C_DOUBLE), dimension(nyp,nz,nxh) :: scr,cxr,cyr,czr,scnr
+    real(C_DOUBLE), dimension(nyp,nz,nxh) :: sci,cxi,cyi,czi,scni
     real(C_DOUBLE), dimension(mz,mx) :: scp,cxp,cyp,czp,vc
 
     real, dimension(nyp,mz,mx) :: scsource
@@ -1953,12 +1976,6 @@ contains
     real :: xi,zj,argx,argrad,fx,fr,rsq
     real :: uxmean(mz),uzmean(nyp)
     real :: massFlux
-    
-    ! FFT variables
-    real :: trigx(2*nx),trigz(2*nz),trigy(2*ny),sine(ny),cosine(ny)
-    integer, dimension(19) :: ixfax,iyfax,izfax,ixfax32,izfax32
-    real, dimension(16000) :: trigx32
-    real, dimension(4000)  :: trigz32 
     
     ! Simulation control variables
     integer :: irstrt,nsteps,iprnfrq,print3d
@@ -2031,8 +2048,6 @@ contains
     common/slope/      slopelength
     common/flow/       re,Uinf,R_tau,dPdx
     common/domain/     xl,yl,zl
-    common/trig/       trigx,trigy,trigz,sine,cosine,trigx32,trigz32
-    common/ifax/       ixfax,iyfax,izfax,ixfax32,izfax32
     common/itime/      it
     common/dtime/      dt
     common/imat/       imatrix,kwall,kmaxsurf
@@ -2052,7 +2067,7 @@ contains
     ! =================================================================== !
     !                         Begin Calculations                          !
     ! =================================================================== !
-   
+ 
     !---------------------------------------------------------------------!
     !                    Initialize some variables                        !
     !---------------------------------------------------------------------!
@@ -2187,8 +2202,6 @@ contains
     ! to this subroutine, so all we have to do is execute them with the    !
     ! appropriate arguments.                                               !
     !----------------------------------------------------------------------!
-
-!    write(100+it,*) u
 
     ! Copy spectral variables into larger arrays for transforms 
     ! Also convert Chebyshev modes to cosine modes
@@ -2353,7 +2366,7 @@ contains
     !$omp end parallel do
 
     ! Compute Real --> Real DCT-I on real and imaginary parts of spectral variables
-    !$omp parallel do default(shared) private(j,k) collapse(2)
+    !$omp parallel do simd default(shared) private(j,k) collapse(2)
     do k = 1,nxh
         do j = 1,nz
             call fftw_execute_r2r(planY,ur(:,j,k),ur(:,j,k))
@@ -2488,14 +2501,15 @@ contains
 #ENDIF
         end do
     end do
-    !$omp end parallel do
+    !$omp end parallel do simd
 
     ! Loop over y-planes to do the Fourier transforms and compute nonlinear terms
 
-    !$omp parallel do default(shared) private(us,vs,ws,wxs,wys,wzs,u11s,u12s,  &
+    !$omp parallel do simd default(shared) private(us,vs,ws,wxs,wys,wzs,u11s,u12s,  &
     !$omp       u13s,u21s,u22s,u23s,u31s,u32s,u33s,up,vp,wp,wxp,wyp,wzp,u11p,  &
     !$omp       u12p,u13p,u21p,u22p,u23p,u31p,u32p,u33p,i,j,k,ii,jj,ipii,jpjj, &
     !$omp       idif,jdif,cflcheck,wdes,zj,rsq,argrad,fr,xi,argx,fx,segdrag,   &
+    !$omp       Lus,Lvs,Lws,Lup,Lvp,Lwp, &
 #IFDEF SCALAR
     !$omp       scs,cxs,cys,czs,scp,cxp,cyp,czp,vc,vcs,                        &
 #ENDIF
@@ -3103,10 +3117,10 @@ contains
         end do
 
     end do ! y-planes
-    !$omp end parallel do
+    !$omp end parallel do simd
 
     ! Real --> Real DCT-I
-    !$omp parallel do default(shared) private(j,k) collapse(2)
+    !$omp parallel do simd default(shared) private(j,k) collapse(2)
     do k = 1,nxh
         do j = 1,nz
             call fftw_execute_r2r(planY,fnr(:,j,k),fnr(:,j,k))
@@ -3243,28 +3257,26 @@ contains
 #ENDIF            
         end do
     end do
-    !$omp end parallel do
-
-!    write(200+it,*) up3d
-!    write(300+it,*) fn
+    !$omp end parallel do simd
 
 
     !---------------------------------------------------------------------!
     !     Calculate swirl criterion and write data for visualization      !
     !---------------------------------------------------------------------!
 
-    !$omp parallel do default(shared) private(i,j,k,swirl) schedule(dynamic)
-    do k = 1,mx
-        do j = 1,mz
-            do i = 1,nyp
-                call calcswirl(u11p3d(i,j,k),u21p3d(i,j,k),u31p3d(i,j,k),u12p3d(i,j,k),u22p3d(i,j,k), &
-                               u32p3d(i,j,k),u13p3d(i,j,k),u23p3d(i,j,k),u33p3d(i,j,k),swirl)
-    
-                swirl_3d(i,j,k) = swirl
-            end do
-        end do
-    end do
-    !$omp end parallel do
+    call calcswirl(u11p3d,u21p3d,u31p3d,u12p3d,u22p3d,u32p3d,u13p3d,u23p3d,u33p3d,swirl_3d)
+!    !$omp parallel do default(shared) private(i,j,k,swirl) schedule(dynamic)
+!    do k = 1,mx
+!        do j = 1,mz
+!            do i = 1,nyp
+!                call calcswirl(u11p3d(i,j,k),u21p3d(i,j,k),u31p3d(i,j,k),u12p3d(i,j,k),u22p3d(i,j,k), &
+!                               u32p3d(i,j,k),u13p3d(i,j,k),u23p3d(i,j,k),u33p3d(i,j,k),swirl)
+!    
+!                swirl_3d(i,j,k) = swirl
+!            end do
+!        end do
+!    end do
+!    !$omp end parallel do
 
     ! Process 3D variables (write outputs in physical space)
     if (print3d .ne. 0) then
@@ -3308,16 +3320,16 @@ contains
     if (npart .ne. 0) then
         call part_track(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,u_old,v_old,w_old,  &
                         u11p3d,u12p3d,u13p3d,u21p3d,u22p3d,u23p3d,u31p3d, &
-                        u32p3d,u33p3d,Lup3d,Lvp3d,Lwp3d,Lu_old,Lv_old,Lw_old)
+                        u32p3d,u33p3d,Lup3d,Lvp3d,Lwp3d,Lunm1,Lvnm1,Lwnm1)
     
         ! Save velocity and Laplacian for time derivatives inside particle integration
         u_old = up3d
         v_old = vp3d
         w_old = wp3d
     
-        Lu_old = Lup3d
-        Lv_old = Lvp3d
-        Lw_old = Lwp3d
+        Lunm1 = Lup3d
+        Lvnm1 = Lvp3d
+        Lwnm1 = Lwp3d
     end if
    
     ! Calculate Q-criterion at particle locations

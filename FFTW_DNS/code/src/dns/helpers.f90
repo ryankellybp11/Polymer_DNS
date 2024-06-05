@@ -368,32 +368,42 @@ contains
     ! Calls subroutine eig(...) to calculate eigenvalues of velocity gradient tensor
     
         use grid_size
-    
+        use omp_lib
+ 
         implicit none
     
         ! Passed variables  
-        real :: u11,u12,u13,u21,u22,u23,u31,u32,u33,swirl
+        real, dimension(nyp,mz,mx) :: u11,u12,u13,u21,u22,u23,u31,u32,u33,swirl
     
         ! Calculation variables
         complex :: l1, l2, l3
         real    :: l1_im, l2_im, l3_im
+        integer :: i,j,k
+   
+        !$omp parallel do simd default(shared) private(i,j,k,l1_im,l2_im,l3_im,l1,l2,l3) collapse(3) schedule(dynamic)
+        do k = 1,mx
+            do j = 1,mz
+                do i = 1,nyp 
+                    call eig(u11(i,j,k),u12(i,j,k),u13(i,j,k),u21(i,j,k),u22(i,j,k),u23(i,j,k),u31(i,j,k),u32(i,j,k),u33(i,j,k),l1,l2,l3)
     
-        call eig(u11,u12,u13,u21,u22,u23,u31,u32,u33,l1,l2,l3)
+                    l1_im = aimag(l1)
+                    l2_im = aimag(l2)
+                    l3_im = aimag(l3)
     
-        l1_im = aimag(l1)
-        l2_im = aimag(l2)
-        l3_im = aimag(l3)
+                    swirl(i,j,k) = sqrt(l1_im**2 + l2_im**2 + l3_im**2) 
     
-        swirl = sqrt(l1_im**2 + l2_im**2 + l3_im**2) 
-    
-        ! Certain velocity gradient tensors produce NaNs using the equations in
-        ! eig(...). When this happens, the actual eigenvalues are all 0. This is a
-        ! quick check to see if the swirl is a NaN. If it's any real value,
-        ! floor(swirl/swirl) will always be 1; otherwise it's a NaN (or Inf, but
-        ! that doesn't happen in this case). - Ryan 10/28/22
-        if (floor(swirl/swirl) .ne. 1) then
-            swirl = 0
-        end if
+                    ! Certain velocity gradient tensors produce NaNs using the equations in
+                    ! eig(...). When this happens, the actual eigenvalues are all 0. This is a
+                    ! quick check to see if the swirl is a NaN. If it's any real value,
+                    ! floor(swirl/swirl) will always be 1; otherwise it's a NaN (or Inf, but
+                    ! that doesn't happen in this case). - Ryan 10/28/22
+                    if (floor(swirl(i,j,k)/swirl(i,j,k)) .ne. 1) then
+                        swirl(i,j,k) = 0.0
+                    end if
+                end do
+            end do  
+        end do
+        !$omp end parallel do simd
     
     end subroutine calcswirl
     
