@@ -999,31 +999,19 @@ contains
         do k = 1,nz
             wrk(1,k) = (s(1,k)*f(2,k,2) - s(2,k)*f(1,k,2))/(f(1,k,1)*f(2,k,2) - f(2,k,1)*f(1,k,2))
             wrk(2,k) = (s(2,k)*f(1,k,1) - s(1,k)*f(2,k,1))/(f(1,k,1)*f(2,k,2) - f(2,k,1)*f(1,k,2))
-        end do
     
-        ! Even u
-        n = n + 1
-        !omp parallel shared(wrk,gs,cs,ds) private(i,n,ii,k)
-        !omp do schedule(static)
-        do i = 2,n
+            ! Even u
+            do i = 2,n+1
             ii = 2*i - 1
-            do k = 1,nz
                 wrk(ii,k) = (gs(i,k,1) - cs(i-1,k,1)*wrk(ii-2,k))/ds(i-1,k,1)
             end do
-        end do
-        !omp end do nowait
  
-        ! Odd u
-        n = n - 1
-        !omp do schedule(static)
-        do i = 2,n
-            ii = 2*i
-            do k = 1,nz
+            ! Odd u
+            do i = 2,n
+                ii = 2*i
                 wrk(ii,k) = (gs(i,k,2) - cs(i-1,k,2)*wrk(ii-2,k))/ds(i-1,k,2)
             end do
         end do
-        !omp end do
-        !omp end parallel
     end if
     
     end subroutine pntsolve

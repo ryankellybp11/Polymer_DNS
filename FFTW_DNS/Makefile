@@ -5,7 +5,7 @@ INC := -I$(TACC_FFTW3_INC) -I$(TECPLOT_360_INCLUDE) -DOUTPUTFORM=3
 #FLAGS := -r8 -fr -fpp -132 -O1 -qmkl -parallel 
 FLAGS := -r8 -fr -fpp -132 -O3 -qmkl -parallel -march=native -mtune=native -axicelake-client -unroll -shared-intel -g
 #FLAGS := -r8 -fr -fpp -mavx -132 -O0 -mcmodel=medium -shared-intel -xhost -qmkl -parallel -g -traceback -debug full -warn all -check all -check noarg_temp_created -nogen-interfaces
-OMPFLAGS := -qopenmp -lfftw3_omp
+OMPFLAGS := -qopenmp -lfftw3_omp -qopenmp-simd
 #DIR := main_test_code/src/dns/
 DIR := code/src/dns/
 POLY := -DSCALAR -DPOLYMER
