@@ -101,8 +101,6 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
 	real    :: dt
 
     ! Particle variables
-    integer :: particle_flag,CD_switch
-	real    :: ratio,a,C_mu,g
     real :: xp,yp,zp,up,vp,wp
 
     real :: p_cfl = 0.0,umax1 = 0.0
@@ -122,7 +120,6 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
 !                            Define common blocks                              !
 ! ============================================================================ !
     common/iocontrl/   irstrt,nsteps,iprnfrq,print3d
-    common/particles/  particle_flag,CD_switch,ratio,a,C_mu,g
     common/itime/      it
     common/dtime/      dt
 ! ---------------------------------------------------------------------------- !
@@ -143,7 +140,7 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
         nthreads = min(npart,OMP_GET_MAX_THREADS())
         ! Compute new particle location
         if (particle_flag .eq. 0) then ! Tracer
-            call tracer_update(u,v,w,a)
+            call tracer_update(u,v,w)
         else if (particle_flag .gt. 0) then
             !$omp parallel do simd default(shared) private(j,jj,xp,yp,zp,up,vp,wp) &
             !$omp                    reduction(max:umax1) num_threads(nthreads)
@@ -158,7 +155,7 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
                     wp = wpart(j)        
   
                     call RK4(xp,yp,zp,up,vp,wp,u,v,w,u_old,v_old,w_old,omx, &
-                             omy,omz,a,u11,u12,u13,u21,u22,u23,u31,u32,u33, &
+                             omy,omz,u11,u12,u13,u21,u22,u23,u31,u32,u33, &
                              Lu,Lv,Lw,Lu_old,Lv_old,Lw_old,umax1)
 
                     ! Update particle data
@@ -216,7 +213,7 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
 
     ! Calculate particle cfl number and check for explosions
     if (particle_flag .gt. 0) then
-        p_cfl = umax1*dt/a
+        p_cfl = umax1*dt/ap
         print *,'max relative velocity: ',umax1
         print *,'particle cfl: ',p_cfl
         if (p_cfl .ge. 10.0) then
@@ -305,6 +302,7 @@ subroutine substep_check(substep)
 ! ============================================================================ !
 !                      Declare all varibles explicitly                         !
 ! ============================================================================ !
+    use grid_size
 
     implicit none
 
@@ -321,16 +319,14 @@ subroutine substep_check(substep)
     integer :: it
 	real    :: dt
 
-    ! Particle variables
-    integer :: particle_flag,CD_switch
-	real    :: ratio,a,C_mu,g
+    integer :: j
+
 ! ============================================================================ !
 !                            Define common blocks                              !
 ! ============================================================================ !
     common/itime/      it
     common/dtime/      dt
     common/flow/       re,Uinf,R_tau,dPdx
-    common/particles/  particle_flag,CD_switch,ratio,a,C_mu,g
 ! ---------------------------------------------------------------------------- !
 
 ! ============================================================================ !
@@ -346,9 +342,9 @@ subroutine substep_check(substep)
     if (CD_switch .eq. 0) then
         tau = 1.0
     else if (CD_switch .eq. 1) then
-        tau = re*(a**2)/(6.0*Pi_f)
+        tau = re*(ap**2)/(6.0*Pi_f)
     else 
-        tau = 2.0*re*(a**2)/(9.0*Pi_f)
+        tau = 2.0*re*(ap**2)/(9.0*Pi_f)
     end if
 
     substep = ceiling(max(1.0,2.0*dt/tau))
@@ -361,7 +357,7 @@ end subroutine
 
 ! --------------------------------------------------------------------------------- !
 
-subroutine tracer_update(xp,yp,zp,up,vp,wp,u,v,w,a)
+subroutine tracer_update(u,v,w)
 ! This subroutine updates the tracer particle position using the fluid velocity.
 ! Essentially, it uses an Explicit Euler integration, which is fine since fluid
 ! time step is already (necessarily) less than Kolmogorov time scale
@@ -370,11 +366,11 @@ subroutine tracer_update(xp,yp,zp,up,vp,wp,u,v,w,a)
 !                        Decalre variables explicitly                          !
 ! ============================================================================ !
     use grid_size
+    use omp_lib
    
     implicit none
 
     ! Passed variables
-    real :: xp,yp,zp,up,vp,wp,a
     real,dimension(nyp,mz,mx) :: u,v,w
 
     ! Simulation control variables
@@ -385,7 +381,9 @@ subroutine tracer_update(xp,yp,zp,up,vp,wp,u,v,w,a)
     real    :: xl,yl,zl
 
     ! Calculation variable
-    real :: Height
+    integer :: j
+    real    :: Height
+    real    :: xp,yp,zp,up,vp,wp
 
 ! ---------------------------------------------------------------------------- !
 
@@ -402,16 +400,35 @@ subroutine tracer_update(xp,yp,zp,up,vp,wp,u,v,w,a)
 ! ============================================================================ !
 
     ! Calculate height if there are walls
-    Height = ycoord(1) - a
+    Height = ycoord(1) - ap
 
     ! Update particle position
-    xp = mod(xl + xp + up*dt,xl)
-    yp = max(min(yp + vp*dt,Height),a+ycoord(nyp))
-    zp = mod(zl + zp + wp*dt,zl)
-   
-    ! Update particle velocity 
-    call fluid_interp(xp,yp,zp,u,v,w,up,vp,wp)
+    !$omp parallel do default(shared) private(j,xp,yp,zp,up,vp,wp) schedule(dynamic)
+    do j = 1,npart
+        xp = xpart(j)
+        yp = ypart(j)
+        zp = zpart(j)
+        up = upart(j)
+        vp = vpart(j)
+        wp = wpart(j)        
+    
+        ! Update particle position    
+        xp = mod(xl + xp + up*dt,xl)
+        yp = max(min(yp + vp*dt,Height),ap+ycoord(nyp))
+        zp = mod(zl + zp + wp*dt,zl)
 
+        ! Update particle velocity 
+        call fluid_interp(xp,yp,zp,u,v,w,up,vp,wp)
+
+        xpart(j) = xp
+        ypart(j) = yp
+        zpart(j) = zp
+        upart(j) = up
+        vpart(j) = vp
+        wpart(j) = wp
+    end do
+    !$omp end parallel do
+   
 
 end subroutine
 
@@ -597,7 +614,7 @@ end subroutine
 
 ! --------------------------------------------------------------------------------- !
 
-subroutine RK4(xp0,yp0,zp0,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a, &
+subroutine RK4(xp0,yp0,zp0,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz, &
                u11,u12,u13,u21,u22,u23,u31,u32,u33,Lu,Lv,Lw,Lu_old,Lv_old,Lw_old,umax1)
 
 ! ---------------------------------------------------------------------------- !
@@ -617,7 +634,7 @@ subroutine RK4(xp0,yp0,zp0,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a, &
     real,dimension(nyp,mz,mx) :: u,v,w,u_old,v_old,w_old,omx,omy,omz
     real,dimension(nyp,mz,mx) :: u11,u12,u13,u21,u22,u23,u31,u32,u33
     real,dimension(nyp,mz,mx) :: Lu,Lv,Lw,Lu_old,Lv_old,Lw_old
-    real :: xp0,yp0,zp0,up,vp,wp,a,umax1
+    real :: xp0,yp0,zp0,up,vp,wp,umax1
 
     ! Simulation control variables
     integer :: it
@@ -657,7 +674,7 @@ subroutine RK4(xp0,yp0,zp0,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a, &
 ! ============================================================================ !
 
     ! Set height of top wall
-    Height = ycoord(1) - a
+    Height = ycoord(1) - ap
 
 
     xp = xp0
@@ -711,7 +728,7 @@ subroutine RK4(xp0,yp0,zp0,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a, &
 
     ! Update position
     xp0 = mod(xl + xp0 + dt*(up/6 + u2/3 + u3/3 + u4/6),xl)
-    yp0 = max(min(yp0 + dt*(vp/6 + v2/3 + v3/3 + v4/6),Height),a+ycoord(nyp))
+    yp0 = max(min(yp0 + dt*(vp/6 + v2/3 + v3/3 + v4/6),Height),ap+ycoord(nyp))
     zp0 = mod(zl + zp0 + dt*(wp/6 + w2/3 + w3/3 + w4/6),zl)
 
     ! Update velocity 
@@ -720,7 +737,7 @@ subroutine RK4(xp0,yp0,zp0,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a, &
     wp = wp + dt*(Kw1/6 + Kw2/3 + Kw3/3 + Kw4/6)
 
     ! Handle particles near walls
-    if ((yp0 .eq. Height .and. vp_new .gt. 0.0) .or. (yp0 .eq. a+ycoord(nyp) .and. vp_new .lt. 0.0)) then
+    if ((yp0 .eq. Height .and. vp_new .gt. 0.0) .or. (yp0 .eq. ap+ycoord(nyp) .and. vp_new .lt. 0.0)) then
         vp = -vp_new ! Bounce elastically off the walls  
     else
         vp = vp_new
@@ -773,10 +790,6 @@ subroutine RKstage(sn,un,vn,wn,xp,yp,zp,Ku,Kv,Kw,u,v,w, &
     integer :: it
 	real    :: dt
 
-    ! Particle variables
-    integer :: particle_flag,CD_switch
-	real    :: ratio,a,C_mu,g
-
     ! Calculation variables
     real :: C_D, Re_p, C_L, Height
     real :: h, Pi_f, Pi_p
@@ -792,7 +805,6 @@ subroutine RKstage(sn,un,vn,wn,xp,yp,zp,Ku,Kv,Kw,u,v,w, &
 !                            Define common blocks                              !
 ! ============================================================================ !
     common/flow/       re,Uinf,R_tau,dPdx
-    common/particles/  particle_flag,CD_switch,ratio,a,C_mu,g
     common/itime/      it
     common/dtime/      dt
     common/domain/     xl,yl,zl
@@ -809,7 +821,7 @@ subroutine RKstage(sn,un,vn,wn,xp,yp,zp,Ku,Kv,Kw,u,v,w, &
     C_L = 0.5
  
     ! Set height of top wall
-    Height = ycoord(1) - a
+    Height = ycoord(1) - ap
 
     ! Calculate fluid velocity and vorticity at particle location
     call fluid_interp(xp,yp,zp,u,v,w,ufluid,vfluid,wfluid)
@@ -821,15 +833,15 @@ subroutine RKstage(sn,un,vn,wn,xp,yp,zp,Ku,Kv,Kw,u,v,w, &
                        xp,yp,zp,u11,u12,u13,u21,u22,u23,u31,u32,u33,Lu,Lv,Lw,Lu_old,Lv_old,     &
                        Lw_old,dLufdt,dLvfdt,dLwfdt)
     
-    Re_p = 2*a*re*sqrt((ufluid - un)**2 + (vfluid - vn)**2 + (wfluid - wn)**2)
+    Re_p = 2*ap*re*sqrt((ufluid - un)**2 + (vfluid - vn)**2 + (wfluid - wn)**2)
 
     ! Drag model
     if (CD_switch .eq. 0) then
         C_D = 0.0
     elseif (CD_switch .eq. 1) then
-        C_D = 16/(2*a*re)*C_mu
+        C_D = 16/(2*ap*re)*C_mu
     elseif (CD_switch .eq. 2) then
-        C_D = 24/(2*a*re)*(1 + 0.15*Re_p**(0.687))
+        C_D = 24/(2*ap*re)*(1 + 0.15*Re_p**(0.687))
     elseif (CD_switch .eq. 3) then
        if (Re_p .gt. 1.0) then
            C_D = 16.31*Re_p**(-0.8331)
@@ -840,25 +852,25 @@ subroutine RKstage(sn,un,vn,wn,xp,yp,zp,Ku,Kv,Kw,u,v,w, &
 
     ! x forces
     PGX = 1.5*subDufDt
-    DX = C_D*3/(8*a)*(ufluid - un + a**2/6.0*Luf)
-    LX = C_L*((vfluid - vn + a**2/6.0*Lvf)*wzf - (wfluid - wn + a**2/6.0*Lwf)*wyf)
-    FX = -3.0/20.0*(a**2)*dLufdt ! Faxen correction term
+    DX = C_D*3/(8*ap)*(ufluid - un + ap**2/6.0*Luf)
+    LX = C_L*((vfluid - vn + ap**2/6.0*Lvf)*wzf - (wfluid - wn + ap**2/6.0*Lwf)*wyf)
+    FX = -3.0/20.0*(ap**2)*dLufdt ! Faxen correction term
 
     ! y forces    
     PGY = 1.5*subDvfDt
-    DY = C_D*3/(8*a)*(vfluid - vn + a**2/6.0*Lvf)
-    LY = C_L*((wfluid - wn + a**2/6.0*Lwf)*wxf - (ufluid - un + a**2/6.0*Luf)*wzf)
-    FY = -3.0/20.0*(a**2)*dLvfdt ! Faxen correction term
+    DY = C_D*3/(8*ap)*(vfluid - vn + ap**2/6.0*Lvf)
+    LY = C_L*((wfluid - wn + ap**2/6.0*Lwf)*wxf - (ufluid - un + ap**2/6.0*Luf)*wzf)
+    FY = -3.0/20.0*(ap**2)*dLvfdt ! Faxen correction term
 
     ! z forces
     PGZ = 1.5*subDwfDt
-    DZ = C_D*3/(8*a)*(wfluid - wn + a**2/6.0*Lwf)
-    LZ = C_L*((ufluid - un + a**2/6.0*Luf)*wyf - (vfluid - vn + a**2/6.0*Lvf)*wxf)
-    FZ = -3.0/20.0*(a**2)*dLwfdt ! Faxen correction term
+    DZ = C_D*3/(8*ap)*(wfluid - wn + ap**2/6.0*Lwf)
+    LZ = C_L*((ufluid - un + ap**2/6.0*Luf)*wyf - (vfluid - vn + ap**2/6.0*Lvf)*wxf)
+    FZ = -3.0/20.0*(ap**2)*dLwfdt ! Faxen correction term
 
     ! Combine to find acceleration component
     Ku = (Pi_f*(PGX + DX + LX + FX))
-    Kv = (Pi_f*(PGY + DY + LY + FY) - g*(Pi_f - Pi_p))
+    Kv = (Pi_f*(PGY + DY + LY + FY) - gravity*(Pi_f - Pi_p))
     Kw = (Pi_f*(PGZ + DZ + LZ + FZ))
 
     if (sn .eq. 3) then
@@ -873,7 +885,7 @@ subroutine RKstage(sn,un,vn,wn,xp,yp,zp,Ku,Kv,Kw,u,v,w, &
     wn = wp_old + h*Kw
 
     xp = mod(xl + xp_old + h*un,xl)
-    yp = max(min(yp_old + h*vn, Height),a+ycoord(nyp))
+    yp = max(min(yp_old + h*vn, Height),ap+ycoord(nyp))
     zp = mod(zl + zp_old + h*wn,zl)
 
 
@@ -1415,7 +1427,7 @@ end subroutine
 
 
 #ifdef OUTPUTFORM
-subroutine write_particles_szplt(xp,yp,zp,up,vp,wp,swirl)
+subroutine write_particles_szplt
 
     use iso_c_binding 
     use grid_size
@@ -1425,7 +1437,6 @@ subroutine write_particles_szplt(xp,yp,zp,up,vp,wp,swirl)
 
     integer :: it, i
     real    :: dt
-    real, dimension(npart) :: xp,yp,zp,up,vp,wp,swirl
     common/itime/ it
     common/dtime/ dt
 
@@ -1434,16 +1445,12 @@ subroutine write_particles_szplt(xp,yp,zp,up,vp,wp,swirl)
 
     integer(c_int32_t) :: numValues
     integer(c_int32_t) :: fileFormat = 1 ! 0 = .plt | 1 = .szplt
-    integer(c_int32_t) :: gridFileType = 1 ! GRID
     integer(c_int32_t) :: outputFileType = 0 ! Grid + Solution
-    integer(c_int32_t) :: gridZone = 1
-    integer(c_int32_t) :: outputZone = 1
     integer(c_int32_t) :: zoneType = 0 ! ZoneType: 0-ordered
     integer(c_int32_t), allocatable :: varTypes(:)
     integer(c_int32_t), allocatable :: shareVarFromZone(:)
     integer(c_int32_t), allocatable :: valueLocation(:)
     integer(c_int32_t), allocatable :: passiveVarList(:)
-    integer(c_int32_t) :: shareFaceNeighborsFromZone = 0
     integer(c_int32_t) :: numFaceConnections = 0
     integer(c_int32_t) :: faceNeighborMode = 0
     integer(c_int32_t) :: totalNumFaceNodes = 0
@@ -1452,9 +1459,6 @@ subroutine write_particles_szplt(xp,yp,zp,up,vp,wp,swirl)
     integer(c_int32_t) :: shareConnectivityFromZone = 0
     integer(c_int32_t) :: isDouble = 0
     real(c_float), allocatable :: floatValues(:)
-    real(c_float), allocatable :: coordinates(:,:,:,:)
-    type(c_ptr) :: gridFileHandle = C_NULL_PTR
-    type(c_ptr) :: outputFileHandle = C_NULL_PTR
 
     NULLCHR = CHAR(0)
 
@@ -1502,31 +1506,31 @@ subroutine write_particles_szplt(xp,yp,zp,up,vp,wp,swirl)
 
 
     ! Write x
-    floatValues = pack(xp, .true.)
+    floatValues = pack(xpart, .true.)
     i = tecdat142(numValues, floatValues, isDouble)
 
     ! Write y
-    floatValues = pack(yp, .true.)
+    floatValues = pack(ypart, .true.)
     i = tecdat142(numValues, floatValues, isDouble)
 
     ! Write z
-    floatValues = pack(zp, .true.)
+    floatValues = pack(zpart, .true.)
     i = tecdat142(numValues, floatValues, isDouble)
 
     ! Write u
-    floatValues = pack(up, .true.)
+    floatValues = pack(upart, .true.)
     i = tecdat142(numValues, floatValues, isDouble)
 
     ! Write v
-    floatValues = pack(vp, .true.)
+    floatValues = pack(vpart, .true.)
     i = tecdat142(numValues, floatValues, isDouble)
 
     ! Write w
-    floatValues = pack(wp, .true.)
+    floatValues = pack(wpart, .true.)
     i = tecdat142(numValues, floatValues, isDouble)
 
     ! Write swirl
-    floatValues = pack(swirl, .true.)
+    floatValues = pack(swirl_part, .true.)
     i = tecdat142(numValues, floatValues, isDouble)
 
     ! Close file

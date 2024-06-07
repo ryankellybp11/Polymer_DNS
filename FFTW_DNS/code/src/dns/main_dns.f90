@@ -133,8 +133,8 @@ program dns
 !                          Initialization Routines                             !
 ! ============================================================================ !
 
-    call system_clock(count1,count_rate)
-    time1 = count1*1.0/count_rate
+!    call system_clock(count1,count_rate)
+!    time1 = count1*1.0/count_rate
     ! -------------------------------------------------------------------- !
     ! Initializes all preliminary variables before heading into the main   !
     ! time loop. Reads data from setup/dns.config, computes preliminary    !
@@ -180,7 +180,10 @@ program dns
 #ENDIF
                  Lu,Lv,Lw)
                  
-!    write(100,*) Lu
+!    call system_clock(count2,count_rate)
+!    time2 = count2*1.0/count_rate
+!
+!    print *,'Elapsed time for initialization: ',time2-time1,' s'
 ! ---------------------------------------------------------------------------- !
 
 ! ============================================================================ !
@@ -548,7 +551,6 @@ program dns
         call norm(Lv)
         call norm(Lw)
 
-!        write(100+it,*) Lu
 #IFDEF POLYMER
         ! Calculate derivatives of conformation tensor        
         call derivscji(c11,c12,c13,c21,c22,c23,c31,c32,c33,                   &
@@ -595,6 +597,8 @@ program dns
          call norm(dc333)                                                 
 #ENDIF
 
+!    call system_clock(count1,count_rate)
+!    time1 = count1*1.0/count_rate
         ! -------------------------------------------------------------------- !
         ! Compute v x omega in physical space - FFTs are performed inside subroutine
         ! Assumes all variables are in 3D spectral space (on input and output)
@@ -614,7 +618,10 @@ program dns
 #ENDIF
                     Lu,Lv,Lw)
 
-!        write(500+it,*) Lu
+!    call system_clock(count2,count_rate)
+!    time2 = count2*1.0/count_rate
+!
+!    print *,'Elapsed time for vcw3dp: ',time2-time1,' s'
 
         ! Normalizations
         call norm(v)
@@ -827,10 +834,10 @@ program dns
 !                               Post-Processing                                !
 ! ============================================================================ !
 
-    call system_clock(count2,count_rate)
-    time2 = count2*1.0/count_rate
-
-    print *,'Elapsed time for ',OMP_GET_MAX_THREADS(),' threads: ',time2-time1,' s'
+!    call system_clock(count2,count_rate)
+!    time2 = count2*1.0/count_rate
+!
+!    print *,'Elapsed time for ',OMP_GET_MAX_THREADS(),' threads: ',time2-time1,' s'
 ! ---------------------------------------------------------------------------- !
 end program dns
 
@@ -886,10 +893,6 @@ subroutine setstuff
     integer :: it
     real    :: dt
 
-    ! Particle variables
-    integer :: particle_flag,CD_switch
-    real    :: ratio,ap,C_mu,gravity
-
     ! Vortex variables
     real    :: forbeta,xcenter,ycenter,zcenter,L,rad,bdyfx
     real    :: vortGamma,vortSigma,vortY,vortZ,vortSpace
@@ -921,7 +924,6 @@ subroutine setstuff
     common/iocontrl/   irstrt,nsteps,iprnfrq,print3d,crstrt
     common/solver/     gain,ugain,theta,alpha,beta,dyde
     common/waves/      wavx,wavz,c
-    common/particles/  particle_flag,CD_switch,ratio,ap,C_mu,gravity
     common/setup/      geomtype,flow_select,perturbtime
     common/flow/       re,Uinf,R_tau,dPdx
     common/vortexring/ forbeta,xcenter,ycenter,zcenter,L,rad,bdyfx
