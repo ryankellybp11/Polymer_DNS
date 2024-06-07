@@ -103,7 +103,6 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
     ! Particle variables
     integer :: particle_flag,CD_switch
 	real    :: ratio,a,C_mu,g
-    real,save,dimension(npart) :: xpart,ypart,zpart,upart,vpart,wpart,swirl_part
     real :: xp,yp,zp,up,vp,wp
 
     real :: p_cfl = 0.0,umax1 = 0.0
@@ -126,7 +125,6 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
     common/particles/  particle_flag,CD_switch,ratio,a,C_mu,g
     common/itime/      it
     common/dtime/      dt
-    common/part_traj/  xpart,ypart,zpart,swirl_part
 ! ---------------------------------------------------------------------------- !
 
 ! ============================================================================ !
@@ -135,22 +133,21 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
 
     ! At first time step, initialize particles
     if (it .eq. irstrt) then
-        call init_part(xpart,ypart,zpart,upart,vpart,wpart,u,v,w,rp0,trap_time)
+        call init_part(u,v,w,rp0,trap_time)
         call substep_check(substep)
 
     else
     
         ! Change dt for substep
         dt = dt/float(substep)
-        nthreads = 1!min(npart,OMP_GET_MAX_THREADS())
+        nthreads = min(npart,OMP_GET_MAX_THREADS())
         ! Compute new particle location
-        if (particle_flag .ge. 0) then
-        !$omp parallel do simd default(shared) private(j,jj,xp,yp,zp,up,vp,wp) &
-        !$omp                    reduction(max:umax1) num_threads(nthreads)
-        do j = 1,npart
-            if (particle_flag .eq. 0) then ! Tracer
-                call tracer_update(xpart(j),ypart(j),zpart(j),upart(j),vpart(j),wpart(j),u,v,w,a)
-            elseif (particle_flag .eq. 1) then ! Inertial passive particle
+        if (particle_flag .eq. 0) then ! Tracer
+            call tracer_update(u,v,w,a)
+        else if (particle_flag .gt. 0) then
+            !$omp parallel do simd default(shared) private(j,jj,xp,yp,zp,up,vp,wp) &
+            !$omp                    reduction(max:umax1) num_threads(nthreads)
+            do j = 1,npart
                 do jj = 1,substep
                     ! Store in temporary variable to avoid memory conflict
                     xp = xpart(j)
@@ -172,9 +169,8 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
                     vpart(j) = vp
                     wpart(j) = wp
                 end do
-            end if
-        end do
-        !$omp end parallel do simd
+            end do
+            !$omp end parallel do simd
         end if
 
         ! Change dt back to normal
@@ -183,7 +179,7 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
     end if
 
     ! Calculate percentage of particles in a vortex and write swirlX file
-!    call swirl_count(xpart,ypart,zpart,swirl_part,u11,u12,u13,u21,u22,u23,u31,u32,u33,area)
+!    call swirl_count(u11,u12,u13,u21,u22,u23,u31,u32,u33,area)
 
 !    ! Update trap time
 !    if (trap_time(1) .eq. -1) then
@@ -214,7 +210,7 @@ subroutine part_track(u,v,w,omx,omy,omz,u_old,v_old,w_old, &
             close(31)
         else ! Write particle data to Tecplot SZL file
             print *,'writing particle SZL file'
-            call write_particles_szplt(xpart,ypart,zpart,upart,vpart,wpart,swirl_part)
+            call write_particles_szplt
         end if
     end if
 
@@ -233,7 +229,7 @@ end subroutine
 
 ! --------------------------------------------------------------------------------- !
 
-subroutine init_part(xp,yp,zp,up,vp,wp,u,v,w,rp0,tt)
+subroutine init_part(u,v,w,rp0,tt)
 ! Initializes particle position and velocity. Reads in particle data from setup
 ! file generated in preconfigure command (before code compiles)
 
@@ -242,7 +238,7 @@ subroutine init_part(xp,yp,zp,up,vp,wp,u,v,w,rp0,tt)
     implicit none
 
     ! Input variables
-    real,dimension(npart) :: xp,yp,zp,up,vp,wp,tp,rp0,tt
+    real,dimension(npart) :: rp0,tt,tp
     real,dimension(nyp,mz,mx) :: u,v,w
 
     ! Calculation variables
@@ -267,10 +263,10 @@ subroutine init_part(xp,yp,zp,up,vp,wp,u,v,w,rp0,tt)
     open(95, file = 'setup/particles/particles.dat', status = 'old', action = 'read')
     read(95,*)
     do j = 1,npart
-        read(95,*) xp(j), yp(j), zp(j), up(j), vp(j), wp(j), tp(j)
+        read(95,*) xpart(j), ypart(j), zpart(j), upart(j), vpart(j), wpart(j), tp(j)
 
         ! Force velocity to match flowfield
-        call fluid_interp(xp(j),yp(j),zp(j),u,v,w,up(j),vp(j),wp(j))
+        call fluid_interp(xpart(j),ypart(j),zpart(j),u,v,w,upart(j),vpart(j),wpart(j))
     end do
     close(95)
 
@@ -278,12 +274,12 @@ subroutine init_part(xp,yp,zp,up,vp,wp,u,v,w,rp0,tt)
     if (flow_select .ge. 10) then
     if (vNum .eq. 1) then
         do j = 1,npart
-            rp0(j) = sqrt((yp(j) - vortY)**2 + (zp(j) - vortZ)**2)
+            rp0(j) = sqrt((ypart(j) - vortY)**2 + (zpart(j) - vortZ)**2)
         end do
     else ! assuming only other option is 2
         do j = 1,npart
-            r1 = sqrt((yp(j) - vortY)**2 + (zp(j) - vortZ)**2)
-            r2 = sqrt((yp(j) - (vortY+vortSpace))**2 + (zp(j) - vortZ)**2)
+            r1 = sqrt((ypart(j) - vortY)**2 + (zpart(j) - vortZ)**2)
+            r2 = sqrt((ypart(j) - (vortY+vortSpace))**2 + (zpart(j) - vortZ)**2)
             rp0(j) = min(r1,r2)
         end do
     end if
@@ -601,7 +597,7 @@ end subroutine
 
 ! --------------------------------------------------------------------------------- !
 
-subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a, &
+subroutine RK4(xp0,yp0,zp0,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a, &
                u11,u12,u13,u21,u22,u23,u31,u32,u33,Lu,Lv,Lw,Lu_old,Lv_old,Lw_old,umax1)
 
 ! ---------------------------------------------------------------------------- !
@@ -621,7 +617,7 @@ subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a,
     real,dimension(nyp,mz,mx) :: u,v,w,u_old,v_old,w_old,omx,omy,omz
     real,dimension(nyp,mz,mx) :: u11,u12,u13,u21,u22,u23,u31,u32,u33
     real,dimension(nyp,mz,mx) :: Lu,Lv,Lw,Lu_old,Lv_old,Lw_old
-    real :: xpart,ypart,zpart,up,vp,wp,a,umax1
+    real :: xp0,yp0,zp0,up,vp,wp,a,umax1
 
     ! Simulation control variables
     integer :: it
@@ -664,9 +660,9 @@ subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a,
     Height = ycoord(1) - a
 
 
-    xp = xpart
-    yp = ypart
-    zp = zpart
+    xp = xp0
+    yp = yp0
+    zp = zp0
     un = up
     vn = vp
     wn = wp 
@@ -674,7 +670,7 @@ subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a,
                   u_old,v_old,w_old,omx,omy,omz,       &
                   u11,u12,u13,u21,u22,u23,u31,u32,u33, &
                   Lu,Lv,Lw,Lu_old,Lv_old,Lw_old,       &
-                  xpart,ypart,zpart,up,vp,wp)
+                  xp0,yp0,zp0,up,vp,wp)
      u2 = un
      v2 = vn
      w2 = wn
@@ -685,7 +681,7 @@ subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a,
                   u_old,v_old,w_old,omx,omy,omz,       &
                   u11,u12,u13,u21,u22,u23,u31,u32,u33, &
                   Lu,Lv,Lw,Lu_old,Lv_old,Lw_old,       &
-                  xpart,ypart,zpart,up,vp,wp)
+                  xp0,yp0,zp0,up,vp,wp)
      u3 = un
      v3 = vn
      w3 = wn
@@ -696,7 +692,7 @@ subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a,
                   u_old,v_old,w_old,omx,omy,omz,       &
                   u11,u12,u13,u21,u22,u23,u31,u32,u33, &
                   Lu,Lv,Lw,Lu_old,Lv_old,Lw_old,       &
-                  xpart,ypart,zpart,up,vp,wp)
+                  xp0,yp0,zp0,up,vp,wp)
      u4 = un
      v4 = vn
      w4 = wn
@@ -707,16 +703,16 @@ subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a,
                   u_old,v_old,w_old,omx,omy,omz,       &
                   u11,u12,u13,u21,u22,u23,u31,u32,u33, &
                   Lu,Lv,Lw,Lu_old,Lv_old,Lw_old,       &
-                  xpart,ypart,zpart,up,vp,wp)
+                  xp0,yp0,zp0,up,vp,wp)
     Ku4 = Ku
     Kv4 = Kv
     Kw4 = Kw
  
 
     ! Update position
-    xpart = mod(xl + xpart + dt*(up/6 + u2/3 + u3/3 + u4/6),xl)
-    ypart = max(min(ypart + dt*(vp/6 + v2/3 + v3/3 + v4/6),Height),a+ycoord(nyp))
-    zpart = mod(zl + zpart + dt*(wp/6 + w2/3 + w3/3 + w4/6),zl)
+    xp0 = mod(xl + xp0 + dt*(up/6 + u2/3 + u3/3 + u4/6),xl)
+    yp0 = max(min(yp0 + dt*(vp/6 + v2/3 + v3/3 + v4/6),Height),a+ycoord(nyp))
+    zp0 = mod(zl + zp0 + dt*(wp/6 + w2/3 + w3/3 + w4/6),zl)
 
     ! Update velocity 
     up = up + dt*(Ku1/6 + Ku2/3 + Ku3/3 + Ku4/6)
@@ -724,7 +720,7 @@ subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a,
     wp = wp + dt*(Kw1/6 + Kw2/3 + Kw3/3 + Kw4/6)
 
     ! Handle particles near walls
-    if ((ypart .eq. Height .and. vp_new .gt. 0.0) .or. (ypart .eq. a+ycoord(nyp) .and. vp_new .lt. 0.0)) then
+    if ((yp0 .eq. Height .and. vp_new .gt. 0.0) .or. (yp0 .eq. a+ycoord(nyp) .and. vp_new .lt. 0.0)) then
         vp = -vp_new ! Bounce elastically off the walls  
     else
         vp = vp_new
@@ -732,7 +728,7 @@ subroutine RK4(xpart,ypart,zpart,up,vp,wp,u,v,w,u_old,v_old,w_old,omx,omy,omz,a,
 
 
     ! Find max particle relative velocity
-    call fluid_interp(xpart,ypart,zpart,u,v,w,ufluid,vfluid,wfluid)
+    call fluid_interp(xp0,yp0,zp0,u,v,w,ufluid,vfluid,wfluid)
 
     umax = sqrt((ufluid-up)**2 + (vfluid-vp)**2 + (wfluid-wp)**2)
     if (umax .gt. umax1) then
@@ -886,7 +882,7 @@ end subroutine
 ! --------------------------------------------------------------------------------- !
 
 subroutine SubDerivative(u,v,w,u_old,v_old,w_old,ufluid,vfluid,wfluid,subDufDt,subDvfDt,subDwfDt, &
-                         xpart,ypart,zpart,u11,u12,u13,u21,u22,u23,u31,u32,u33,Lu,Lv,Lw,Lu_old,   &
+                         xp0,yp0,zp0,u11,u12,u13,u21,u22,u23,u31,u32,u33,Lu,Lv,Lw,Lu_old,   &
                          Lv_old,Lw_old,dLufdt,dLvfdt,dLwfdt)
 
 ! ============================================================================ !
@@ -905,7 +901,7 @@ subroutine SubDerivative(u,v,w,u_old,v_old,w_old,ufluid,vfluid,wfluid,subDufDt,s
     real :: subDufDt,subDvfDt,subDwfDt
     real :: dLufdt,dLvfdt,dLwfdt
 
-    real :: xpart,ypart,zpart
+    real :: xp0,yp0,zp0
 
     ! Simulation control variables
     integer :: it
@@ -951,11 +947,11 @@ subroutine SubDerivative(u,v,w,u_old,v_old,w_old,ufluid,vfluid,wfluid,subDufDt,s
     delxm = xl /float(mx-1)
     delzm = zl /float(mz-1)
  
-    imin = mod(floor(xpart/delxm) + mx, mx) + 1
+    imin = mod(floor(xp0/delxm) + mx, mx) + 1
     imax = mod(imin,mx) + 1
-    jmin = mod(floor(zpart/delzm) + mz, mz) + 1
+    jmin = mod(floor(zp0/delzm) + mz, mz) + 1
     jmax = mod(jmin,mz) + 1
-    kmax = floor(1 + float(ny)/pi*acos(2.0*ypart/yl))
+    kmax = floor(1 + float(ny)/pi*acos(2.0*yp0/yl))
     kmin = kmax + 1
     
     xmin = float(imin-1)*delxm
@@ -982,79 +978,79 @@ subroutine SubDerivative(u,v,w,u_old,v_old,w_old,ufluid,vfluid,wfluid,subDufDt,s
     end do
 
     ! Interpolating substantial derivative at particle position
-    dufdx = interpolate3(xpart,ypart,zpart,xmin,xmax,ymin,ymax,zmin,zmax, &
+    dufdx = interpolate3(xp0,yp0,zp0,xmin,xmax,ymin,ymax,zmin,zmax, &
                          u11(kmin,jmin,imin), u11(kmin,jmin,imax), &
                          u11(kmin,jmax,imin), u11(kmin,jmax,imax), &
                          u11(kmax,jmin,imin), u11(kmax,jmin,imax), &
                          u11(kmax,jmax,imin), u11(kmax,jmax,imax))
-    dufdy = interpolate3(xpart,ypart,zpart,xmin,xmax,ymin,ymax,zmin,zmax, &
+    dufdy = interpolate3(xp0,yp0,zp0,xmin,xmax,ymin,ymax,zmin,zmax, &
                          u12(kmin,jmin,imin), u12(kmin,jmin,imax), &
                          u12(kmin,jmax,imin), u12(kmin,jmax,imax), &
                          u12(kmax,jmin,imin), u12(kmax,jmin,imax), &
                          u12(kmax,jmax,imin), u12(kmax,jmax,imax))
-    dufdz = interpolate3(xpart,ypart,zpart,xmin,xmax,ymin,ymax,zmin,zmax, &
+    dufdz = interpolate3(xp0,yp0,zp0,xmin,xmax,ymin,ymax,zmin,zmax, &
                          u13(kmin,jmin,imin), u13(kmin,jmin,imax), &
                          u13(kmin,jmax,imin), u13(kmin,jmax,imax), &
                          u13(kmax,jmin,imin), u13(kmax,jmin,imax), &
                          u13(kmax,jmax,imin), u13(kmax,jmax,imax))
-    dvfdx = interpolate3(xpart,ypart,zpart,xmin,xmax,ymin,ymax,zmin,zmax, &
+    dvfdx = interpolate3(xp0,yp0,zp0,xmin,xmax,ymin,ymax,zmin,zmax, &
                          u21(kmin,jmin,imin), u21(kmin,jmin,imax), &
                          u21(kmin,jmax,imin), u21(kmin,jmax,imax), &
                          u21(kmax,jmin,imin), u21(kmax,jmin,imax), &
                          u21(kmax,jmax,imin), u21(kmax,jmax,imax))
-    dvfdy = interpolate3(xpart,ypart,zpart,xmin,xmax,ymin,ymax,zmin,zmax, &
+    dvfdy = interpolate3(xp0,yp0,zp0,xmin,xmax,ymin,ymax,zmin,zmax, &
                          u22(kmin,jmin,imin), u22(kmin,jmin,imax), &
                          u22(kmin,jmax,imin), u22(kmin,jmax,imax), &
                          u22(kmax,jmin,imin), u22(kmax,jmin,imax), &
                          u22(kmax,jmax,imin), u22(kmax,jmax,imax))
-    dvfdz = interpolate3(xpart,ypart,zpart,xmin,xmax,ymin,ymax,zmin,zmax, &
+    dvfdz = interpolate3(xp0,yp0,zp0,xmin,xmax,ymin,ymax,zmin,zmax, &
                          u23(kmin,jmin,imin), u23(kmin,jmin,imax), &
                          u23(kmin,jmax,imin), u23(kmin,jmax,imax), &
                          u23(kmax,jmin,imin), u23(kmax,jmin,imax), &
                          u23(kmax,jmax,imin), u23(kmax,jmax,imax))
-    dwfdx = interpolate3(xpart,ypart,zpart,xmin,xmax,ymin,ymax,zmin,zmax, &
+    dwfdx = interpolate3(xp0,yp0,zp0,xmin,xmax,ymin,ymax,zmin,zmax, &
                          u31(kmin,jmin,imin), u31(kmin,jmin,imax), &
                          u31(kmin,jmax,imin), u31(kmin,jmax,imax), &
                          u31(kmax,jmin,imin), u31(kmax,jmin,imax), &
                          u31(kmax,jmax,imin), u31(kmax,jmax,imax))
-    dwfdy = interpolate3(xpart,ypart,zpart,xmin,xmax,ymin,ymax,zmin,zmax, &
+    dwfdy = interpolate3(xp0,yp0,zp0,xmin,xmax,ymin,ymax,zmin,zmax, &
                          u32(kmin,jmin,imin), u32(kmin,jmin,imax), &
                          u32(kmin,jmax,imin), u32(kmin,jmax,imax), &
                          u32(kmax,jmin,imin), u32(kmax,jmin,imax), &
                          u32(kmax,jmax,imin), u32(kmax,jmax,imax))
-    dwfdz = interpolate3(xpart,ypart,zpart,xmin,xmax,ymin,ymax,zmin,zmax, &
+    dwfdz = interpolate3(xp0,yp0,zp0,xmin,xmax,ymin,ymax,zmin,zmax, &
                          u33(kmin,jmin,imin), u33(kmin,jmin,imax), &
                          u33(kmin,jmax,imin), u33(kmin,jmax,imax), &
                          u33(kmax,jmin,imin), u33(kmax,jmin,imax), &
                          u33(kmax,jmax,imin), u33(kmax,jmax,imax))
 
     ! Interpolating time derivatives at particle position
-    dufdt(1) = interpolate3(xpart, ypart, zpart,               &
+    dufdt(1) = interpolate3(xp0, yp0, zp0,               &
                             xmin, xmax, ymin, ymax, zmin, zmax,         &
                             dudt(1,1), dudt(1,2), dudt(1,3), dudt(1,4), &
                             dudt(1,5), dudt(1,6), dudt(1,7), dudt(1,8))
  
-    dufdt(2) = interpolate3(xpart, ypart, zpart,               &
+    dufdt(2) = interpolate3(xp0, yp0, zp0,               &
                             xmin, xmax, ymin, ymax, zmin, zmax,         &
                             dudt(2,1), dudt(2,2), dudt(2,3), dudt(2,4), &
                             dudt(2,5), dudt(2,6), dudt(2,7), dudt(2,8))
     
-    dufdt(3) = interpolate3(xpart, ypart, zpart,               &
+    dufdt(3) = interpolate3(xp0, yp0, zp0,               &
                             xmin, xmax, ymin, ymax, zmin, zmax,         &
                             dudt(3,1), dudt(3,2), dudt(3,3), dudt(3,4), &
                             dudt(3,5), dudt(3,6), dudt(3,7), dudt(3,8))
              
-    dLufdt   = interpolate3(xpart, ypart, zpart,               &
+    dLufdt   = interpolate3(xp0, yp0, zp0,               &
                             xmin, xmax, ymin, ymax, zmin, zmax,         &
                             dLudt(1,1), dLudt(1,2), dLudt(1,3), dLudt(1,4), &
                             dLudt(1,5), dLudt(1,6), dLudt(1,7), dLudt(1,8))
  
-    dLvfdt   = interpolate3(xpart, ypart, zpart,               &
+    dLvfdt   = interpolate3(xp0, yp0, zp0,               &
                             xmin, xmax, ymin, ymax, zmin, zmax,         &
                             dLudt(2,1), dLudt(2,2), dLudt(2,3), dLudt(2,4), &
                             dLudt(2,5), dLudt(2,6), dLudt(2,7), dLudt(2,8))
     
-    dLwfdt   = interpolate3(xpart, ypart, zpart,               &
+    dLwfdt   = interpolate3(xp0, yp0, zp0,               &
                             xmin, xmax, ymin, ymax, zmin, zmax,         &
                             dLudt(3,1), dLudt(3,2), dLudt(3,3), dLudt(3,4), &
                             dLudt(3,5), dLudt(3,6), dLudt(3,7), dLudt(3,8))
@@ -1068,7 +1064,7 @@ end subroutine
 
 ! --------------------------------------------------------------------------------- !
 
-subroutine swirl_count(xpart,ypart,zpart,swirl_part,u11,u12,u13,u21,u22,u23,u31,u32,u33)!,area)
+subroutine swirl_count(u11,u12,u13,u21,u22,u23,u31,u32,u33)!,area)
 ! Computes swirl at each particle position and then computes percentage of
 ! particles inside a vortex using a given threshold value
 
@@ -1078,7 +1074,6 @@ subroutine swirl_count(xpart,ypart,zpart,swirl_part,u11,u12,u13,u21,u22,u23,u31,
     implicit none
 
     ! Input variables
-    real,dimension(npart) :: xpart,ypart,zpart,swirl_part
     real,dimension(nyp,mz,mx) :: u11,u12,u13,u21,u22,u23,u31,u32,u33
 !    real :: area
 
@@ -1089,6 +1084,7 @@ subroutine swirl_count(xpart,ypart,zpart,swirl_part,u11,u12,u13,u21,u22,u23,u31,
     ! Calculation variables
     integer :: swirl_cnt, j
     real    :: xl,yl,zl
+    real    :: xp,yp,zp,sp
 !    real    :: pArea,vArea
 
     ! Common block
@@ -1102,11 +1098,12 @@ subroutine swirl_count(xpart,ypart,zpart,swirl_part,u11,u12,u13,u21,u22,u23,u31,
 
     ! Compute percentage of particles in vortex
     swirl_cnt = 0;
-    !$omp parallel do default(shared) reduction(+:swirl_cnt) private(j) 
+    !$omp parallel do default(shared) reduction(+:swirl_cnt) private(j,xp,yp,zp,sp) 
     do j = 1,npart
         ! Compute swirl at particle locations
+        xp = xpart(j); yp = ypart(j); zp = zpart(j); sp = swirl_part(j)
         call interp_swirl(xpart(j),ypart(j),zpart(j),swirl_part(j),u11,u12,u13,u21,u22,u23,u31,u32,u33)
-        if (swirl_part(j) .gt. 10) then
+        if (sp .gt. 10) then
             swirl_cnt = swirl_cnt + 1
         end if
     end do
@@ -1136,39 +1133,39 @@ end subroutine
 
 ! --------------------------------------------------------------------------------- !
 
-subroutine traptime(swirl_part,trap_time)
-    ! Updates trap_time vector
-
-    use grid_size
-
-    implicit none
-
-    ! Input variables
-    real,dimension(npart) :: swirl_part,trap_time
-
-    ! Simulation control variables
-    integer :: it
-	real    :: dt
-
-    ! Calculation variables
-    integer :: j
-
-    ! Common block
-    common/itime/  it
-    common/dtime/  dt
-
-    ! -------------------------------------------------------- !
-    !                      Begin Calculations                  !
-    ! -------------------------------------------------------- !
-
-    do j = 1,npart
-        if ((trap_time(j) .eq. -1) .and. (swirl_part(j) .ge. 10.0)) then
-            trap_time(j) = it*dt
-        end if
-    end do
-
-end subroutine
-
+!subroutine traptime(trap_time)
+!    ! Updates trap_time vector
+!
+!    use grid_size
+!
+!    implicit none
+!
+!    ! Input variables
+!    real,dimension(npart) :: trap_time
+!
+!    ! Simulation control variables
+!    integer :: it
+!	real    :: dt
+!
+!    ! Calculation variables
+!    integer :: j
+!
+!    ! Common block
+!    common/itime/  it
+!    common/dtime/  dt
+!
+!    ! -------------------------------------------------------- !
+!    !                      Begin Calculations                  !
+!    ! -------------------------------------------------------- !
+!
+!    do j = 1,npart
+!        if ((trap_time(j) .eq. -1) .and. (swirl_part(j) .ge. 10.0)) then
+!            trap_time(j) = it*dt
+!        end if
+!    end do
+!
+!end subroutine
+!
 ! --------------------------------------------------------------------------------- !
 
 ! Trilinear interpolation function
@@ -1216,7 +1213,7 @@ end function interpolate3
 ! --------------------------------------------------------------------------------- !
 
 
-subroutine interp_swirl(xpart,ypart,zpart,swirl,u11,u12,u13,u21,u22,u23,u31,u32,u33)
+subroutine interp_swirl(xp0,yp0,zp0,swirl,u11,u12,u13,u21,u22,u23,u31,u32,u33)
 
     use grid_size
     use helpers
@@ -1225,7 +1222,7 @@ subroutine interp_swirl(xpart,ypart,zpart,swirl,u11,u12,u13,u21,u22,u23,u31,u32,
 
 
     ! Input variables
-    real :: xpart, ypart, zpart
+    real :: xp0, yp0, zp0
     real, dimension(nyp,mz,mx) :: u11,u12,u13,u21,u22,u23,u31,u32,u33
 
     ! Simulation control variables
@@ -1259,11 +1256,11 @@ subroutine interp_swirl(xpart,ypart,zpart,swirl,u11,u12,u13,u21,u22,u23,u31,u32,
  
 
     ! Normal interpolation
-    imin = mod(floor(xpart/delxm) + mx, mx) + 1
+    imin = mod(floor(xp0/delxm) + mx, mx) + 1
     imax = mod(imin,mx) + 1
-    jmin = mod(floor(zpart/delzm) + mz, mz) + 1
+    jmin = mod(floor(zp0/delzm) + mz, mz) + 1
     jmax = mod(jmin,mz) + 1
-    kmax = floor(1 + float(ny)/pi*acos(2.0*ypart/yl))
+    kmax = floor(1 + float(ny)/pi*acos(2.0*yp0/yl))
     kmin = kmax + 1
     
     xmin = float(imin-1)*delxm
@@ -1301,7 +1298,7 @@ subroutine interp_swirl(xpart,ypart,zpart,swirl,u11,u12,u13,u21,u22,u23,u31,u32,
 
 
     ! Interpolating swirl strength at particle position
-    swirl = interpolate3(xpart,ypart,zpart,xmin,xmax,ymin,ymax,zmin,zmax,s1,s2,s3,s4,s5,s6,s7,s8)
+    swirl = interpolate3(xp0,yp0,zp0,xmin,xmax,ymin,ymax,zmin,zmax,s1,s2,s3,s4,s5,s6,s7,s8)
 
 
 end subroutine 

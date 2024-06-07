@@ -1770,10 +1770,8 @@ contains
   
     include 'fftw3.f03'
  
-    integer, parameter :: qn = 10000
- 
     ! Passed variables
-    type(C_PTR),save :: planXZb,planY,planXZf
+    type(C_PTR),save :: planZb,planXb,planXZb,planY,planXZf,planZf,planXf
 
     ! Input/Output variables
     complex, dimension(nyp,nz,nxh) :: u,v,w,omx,omy,omz,fn,gn
@@ -2012,9 +2010,6 @@ contains
     logical :: condition
 #ENDIF
 
-    ! Particle variables
-    real,save,dimension(npart) :: xpart,ypart,zpart,swirl_part
-
 #IFDEF POLYMER
     ! Polymer variables
     integer :: ipolyflag,itarget,ipeter
@@ -2041,7 +2036,6 @@ contains
     common/imat/       imatrix,kwall,kmaxsurf
     common/vortexring/ forbeta,xcenter,ycenter,zcenter,L,rad,bdyfx
     common/setup/      geomtype,flow_select,perturbtime
-    common/part_traj/  xpart,ypart,zpart,swirl_part
 #IFDEF SCALAR
     common/scl_stuff/  sigmax,sigmay,sigmaz,deltaT,diff,scl_flag,scltarg
     common/src_time/   src_start,src_stop
@@ -2055,7 +2049,7 @@ contains
     ! =================================================================== !
     !                         Begin Calculations                          !
     ! =================================================================== !
- 
+
     !---------------------------------------------------------------------!
     !                    Initialize some variables                        !
     !---------------------------------------------------------------------!
@@ -2068,6 +2062,10 @@ contains
         planXZb = fftw_plan_dft_c2r(2,[mx,mz],bcomp,breal,FFTW_PATIENT)
         planXZf = fftw_plan_dft_r2c(2,[mx,mz],breal,bcomp,FFTW_PATIENT)
 
+        PlanZf  =     fftw_plan_many_dft(1,[mz],nxh,bcomp,[mz],1,mz,bcomp,[mz],1,mz,FFTW_FORWARD,FFTW_PATIENT)
+        PlanZb  =     fftw_plan_many_dft(1,[mz],nxh,bcomp,[mz],1,mz,bcomp,[mz],1,mz,FFTW_BACKWARD,FFTW_PATIENT)
+        planXf  = fftw_plan_many_dft_r2c(1,[mx],mz, breal,[mx],mz,1,bcomp,[mx],mz,1,FFTW_PATIENT)
+        planXb  = fftw_plan_many_dft_c2r(1,[mx],mz, bcomp,[mx],mz,1,breal,[mx],mz,1,FFTW_PATIENT)
     end if
  
     pi = 2.0*acos(0.0)
@@ -2126,7 +2124,7 @@ contains
         Qx = 0
         Qy = 0
         Qz = 0
-        call findmaxQ(u11,u12,u13,u21,u22,u23,u31,u32,u33,scalar,Qmin,Qx,Qy,Qz,beta3d)
+        call findmaxQ(u11,u12,u13,u21,u22,u23,u31,u32,u33,scalar,Qmin,Qx,Qy,Qz,beta3d,planY,planZb,planXb)
         scsource = 0.0
         n = 1
         cnt = 1
@@ -2672,80 +2670,155 @@ contains
             end do
         end do
         
-        ! Complex --> Real 2D Transform (x/z-direction)
-        call fftw_execute_dft_c2r(planXZb,us,up)
-        call fftw_execute_dft_c2r(planXZb,vs,vp)
-        call fftw_execute_dft_c2r(planXZb,ws,wp)
+        ! Complex --> Complex z-transform
+        call fftw_execute_dft(planZb,  us,  us)
+        call fftw_execute_dft(planZb,  vs,  vs)
+        call fftw_execute_dft(planZb,  ws,  ws)
 
-        call fftw_execute_dft_c2r(planXZb,wxs,wxp)
-        call fftw_execute_dft_c2r(planXZb,wys,wyp)
-        call fftw_execute_dft_c2r(planXZb,wzs,wzp)
+        call fftw_execute_dft(planZb, wxs, wxs)
+        call fftw_execute_dft(planZb, wys, wys)
+        call fftw_execute_dft(planZb, wzs, wzs)
 
-        call fftw_execute_dft_c2r(planXZb,u11s,u11p)
-        call fftw_execute_dft_c2r(planXZb,u12s,u12p)
-        call fftw_execute_dft_c2r(planXZb,u13s,u13p)
-        call fftw_execute_dft_c2r(planXZb,u21s,u21p)
-        call fftw_execute_dft_c2r(planXZb,u22s,u22p)
-        call fftw_execute_dft_c2r(planXZb,u23s,u23p)
-        call fftw_execute_dft_c2r(planXZb,u31s,u31p)
-        call fftw_execute_dft_c2r(planXZb,u32s,u32p)
-        call fftw_execute_dft_c2r(planXZb,u33s,u33p)
+        call fftw_execute_dft(planZb,u11s,u11s)
+        call fftw_execute_dft(planZb,u12s,u12s)
+        call fftw_execute_dft(planZb,u13s,u13s)
+        call fftw_execute_dft(planZb,u21s,u21s)
+        call fftw_execute_dft(planZb,u22s,u22s)
+        call fftw_execute_dft(planZb,u23s,u23s)
+        call fftw_execute_dft(planZb,u31s,u31s)
+        call fftw_execute_dft(planZb,u32s,u32s)
+        call fftw_execute_dft(planZb,u33s,u33s)
 
-        call fftw_execute_dft_c2r(planXZb,Lus,Lup)
-        call fftw_execute_dft_c2r(planXZb,Lvs,Lvp)
-        call fftw_execute_dft_c2r(planXZb,Lws,Lwp)
-
+        call fftw_execute_dft(planZb, Lus, Lus)
+        call fftw_execute_dft(planZb, Lvs, Lvs)
+        call fftw_execute_dft(planZb, Lws, Lws)
 #IFDEF SCALAR
         ! Scalar field and its gradient
-        call fftw_execute_dft_c2r(planXZb,scs,scp)
-        call fftw_execute_dft_c2r(planXZb,cxs,cxp)
-        call fftw_execute_dft_c2r(planXZb,cys,cyp)
-        call fftw_execute_dft_c2r(planXZb,czs,czp)
+        call fftw_execute_dft(planZb,scs,scs)
+        call fftw_execute_dft(planZb,cxs,cxs)
+        call fftw_execute_dft(planZb,cys,cys)
+        call fftw_execute_dft(planZb,czs,czs)
             
 #ENDIF
 #IFDEF POLYMER
         if (it .ge. (src_start-1)) then
         ! Conformation tensor
-        call fftw_execute_dft_c2r(planXZb,c11s,c11p)
-        call fftw_execute_dft_c2r(planXZb,c12s,c12p)
-        call fftw_execute_dft_c2r(planXZb,c13s,c13p)
-        call fftw_execute_dft_c2r(planXZb,c21s,c21p)
-        call fftw_execute_dft_c2r(planXZb,c22s,c22p)
-        call fftw_execute_dft_c2r(planXZb,c23s,c23p)
-        call fftw_execute_dft_c2r(planXZb,c31s,c31p)
-        call fftw_execute_dft_c2r(planXZb,c32s,c32p)
-        call fftw_execute_dft_c2r(planXZb,c33s,c33p)
+        call fftw_execute_dft(planZb,c11s,c11s)
+        call fftw_execute_dft(planZb,c12s,c12s)
+        call fftw_execute_dft(planZb,c13s,c13s)
+        call fftw_execute_dft(planZb,c21s,c21s)
+        call fftw_execute_dft(planZb,c22s,c22s)
+        call fftw_execute_dft(planZb,c23s,c23s)
+        call fftw_execute_dft(planZb,c31s,c31s)
+        call fftw_execute_dft(planZb,c32s,c32s)
+        call fftw_execute_dft(planZb,c33s,c33s)
 
         ! Conformation tensor gradient
-        call fftw_execute_dft_c2r(planXZb,dc111s,dc111p)
-        call fftw_execute_dft_c2r(planXZb,dc112s,dc112p)
-        call fftw_execute_dft_c2r(planXZb,dc113s,dc113p)
-        call fftw_execute_dft_c2r(planXZb,dc121s,dc121p)
-        call fftw_execute_dft_c2r(planXZb,dc122s,dc122p)
-        call fftw_execute_dft_c2r(planXZb,dc123s,dc123p)
-        call fftw_execute_dft_c2r(planXZb,dc131s,dc131p)
-        call fftw_execute_dft_c2r(planXZb,dc132s,dc132p)
-        call fftw_execute_dft_c2r(planXZb,dc133s,dc133p)
+        call fftw_execute_dft(planZb,dc111s,dc111s)
+        call fftw_execute_dft(planZb,dc112s,dc112s)
+        call fftw_execute_dft(planZb,dc113s,dc113s)
+        call fftw_execute_dft(planZb,dc121s,dc121s)
+        call fftw_execute_dft(planZb,dc122s,dc122s)
+        call fftw_execute_dft(planZb,dc123s,dc123s)
+        call fftw_execute_dft(planZb,dc131s,dc131s)
+        call fftw_execute_dft(planZb,dc132s,dc132s)
+        call fftw_execute_dft(planZb,dc133s,dc133s)
 
-        call fftw_execute_dft_c2r(planXZb,dc211s,dc211p)
-        call fftw_execute_dft_c2r(planXZb,dc212s,dc212p)
-        call fftw_execute_dft_c2r(planXZb,dc213s,dc213p)
-        call fftw_execute_dft_c2r(planXZb,dc221s,dc221p)
-        call fftw_execute_dft_c2r(planXZb,dc222s,dc222p)
-        call fftw_execute_dft_c2r(planXZb,dc223s,dc223p)
-        call fftw_execute_dft_c2r(planXZb,dc231s,dc231p)
-        call fftw_execute_dft_c2r(planXZb,dc232s,dc232p)
-        call fftw_execute_dft_c2r(planXZb,dc233s,dc233p)
+        call fftw_execute_dft(planZb,dc211s,dc211s)
+        call fftw_execute_dft(planZb,dc212s,dc212s)
+        call fftw_execute_dft(planZb,dc213s,dc213s)
+        call fftw_execute_dft(planZb,dc221s,dc221s)
+        call fftw_execute_dft(planZb,dc222s,dc222s)
+        call fftw_execute_dft(planZb,dc223s,dc223s)
+        call fftw_execute_dft(planZb,dc231s,dc231s)
+        call fftw_execute_dft(planZb,dc232s,dc232s)
+        call fftw_execute_dft(planZb,dc233s,dc233s)
 
-        call fftw_execute_dft_c2r(planXZb,dc311s,dc311p)
-        call fftw_execute_dft_c2r(planXZb,dc312s,dc312p)
-        call fftw_execute_dft_c2r(planXZb,dc313s,dc313p)
-        call fftw_execute_dft_c2r(planXZb,dc321s,dc321p)
-        call fftw_execute_dft_c2r(planXZb,dc322s,dc322p)
-        call fftw_execute_dft_c2r(planXZb,dc323s,dc323p)
-        call fftw_execute_dft_c2r(planXZb,dc331s,dc331p)
-        call fftw_execute_dft_c2r(planXZb,dc332s,dc332p)
-        call fftw_execute_dft_c2r(planXZb,dc333s,dc333p)
+        call fftw_execute_dft(planZb,dc311s,dc311s)
+        call fftw_execute_dft(planZb,dc312s,dc312s)
+        call fftw_execute_dft(planZb,dc313s,dc313s)
+        call fftw_execute_dft(planZb,dc321s,dc321s)
+        call fftw_execute_dft(planZb,dc322s,dc322s)
+        call fftw_execute_dft(planZb,dc323s,dc323s)
+        call fftw_execute_dft(planZb,dc331s,dc331s)
+        call fftw_execute_dft(planZb,dc332s,dc332s)
+        call fftw_execute_dft(planZb,dc333s,dc333s)
+        end if
+#ENDIF
+
+        ! Complex --> Real x-transform 
+        call fftw_execute_dft_c2r(planXb,  us,  up)
+        call fftw_execute_dft_c2r(planXb,  vs,  vp)
+        call fftw_execute_dft_c2r(planXb,  ws,  wp)
+                                                  
+        call fftw_execute_dft_c2r(planXb, wxs, wxp)
+        call fftw_execute_dft_c2r(planXb, wys, wyp)
+        call fftw_execute_dft_c2r(planXb, wzs, wzp)
+                                                  
+        call fftw_execute_dft_c2r(planXb,u11s,u11p)
+        call fftw_execute_dft_c2r(planXb,u12s,u12p)
+        call fftw_execute_dft_c2r(planXb,u13s,u13p)
+        call fftw_execute_dft_c2r(planXb,u21s,u21p)
+        call fftw_execute_dft_c2r(planXb,u22s,u22p)
+        call fftw_execute_dft_c2r(planXb,u23s,u23p)
+        call fftw_execute_dft_c2r(planXb,u31s,u31p)
+        call fftw_execute_dft_c2r(planXb,u32s,u32p)
+        call fftw_execute_dft_c2r(planXb,u33s,u33p)
+                                                  
+        call fftw_execute_dft_c2r(planXb, Lus, Lup)
+        call fftw_execute_dft_c2r(planXb, Lvs, Lvp)
+        call fftw_execute_dft_c2r(planXb, Lws, Lwp)
+#IFDEF SCALAR
+        ! Scalar field and its gradient
+        call fftw_execute_dft_c2r(planXb,scs,scp)
+        call fftw_execute_dft_c2r(planXb,cxs,cxp)
+        call fftw_execute_dft_c2r(planXb,cys,cyp)
+        call fftw_execute_dft_c2r(planXb,czs,czp)
+            
+#ENDIF
+#IFDEF POLYMER
+        if (it .ge. (src_start-1)) then
+        ! Conformation tensor
+        call fftw_execute_dft_c2r(planXb,c11s,c11p)
+        call fftw_execute_dft_c2r(planXb,c12s,c12p)
+        call fftw_execute_dft_c2r(planXb,c13s,c13p)
+        call fftw_execute_dft_c2r(planXb,c21s,c21p)
+        call fftw_execute_dft_c2r(planXb,c22s,c22p)
+        call fftw_execute_dft_c2r(planXb,c23s,c23p)
+        call fftw_execute_dft_c2r(planXb,c31s,c31p)
+        call fftw_execute_dft_c2r(planXb,c32s,c32p)
+        call fftw_execute_dft_c2r(planXb,c33s,c33p)
+
+        ! Conformation tensor gradient
+        call fftw_execute_dft_c2r(planXb,dc111s,dc111p)
+        call fftw_execute_dft_c2r(planXb,dc112s,dc112p)
+        call fftw_execute_dft_c2r(planXb,dc113s,dc113p)
+        call fftw_execute_dft_c2r(planXb,dc121s,dc121p)
+        call fftw_execute_dft_c2r(planXb,dc122s,dc122p)
+        call fftw_execute_dft_c2r(planXb,dc123s,dc123p)
+        call fftw_execute_dft_c2r(planXb,dc131s,dc131p)
+        call fftw_execute_dft_c2r(planXb,dc132s,dc132p)
+        call fftw_execute_dft_c2r(planXb,dc133s,dc133p)
+
+        call fftw_execute_dft_c2r(planXb,dc211s,dc211p)
+        call fftw_execute_dft_c2r(planXb,dc212s,dc212p)
+        call fftw_execute_dft_c2r(planXb,dc213s,dc213p)
+        call fftw_execute_dft_c2r(planXb,dc221s,dc221p)
+        call fftw_execute_dft_c2r(planXb,dc222s,dc222p)
+        call fftw_execute_dft_c2r(planXb,dc223s,dc223p)
+        call fftw_execute_dft_c2r(planXb,dc231s,dc231p)
+        call fftw_execute_dft_c2r(planXb,dc232s,dc232p)
+        call fftw_execute_dft_c2r(planXb,dc233s,dc233p)
+
+        call fftw_execute_dft_c2r(planXb,dc311s,dc311p)
+        call fftw_execute_dft_c2r(planXb,dc312s,dc312p)
+        call fftw_execute_dft_c2r(planXb,dc313s,dc313p)
+        call fftw_execute_dft_c2r(planXb,dc321s,dc321p)
+        call fftw_execute_dft_c2r(planXb,dc322s,dc322p)
+        call fftw_execute_dft_c2r(planXb,dc323s,dc323p)
+        call fftw_execute_dft_c2r(planXb,dc331s,dc331p)
+        call fftw_execute_dft_c2r(planXb,dc332s,dc332p)
+        call fftw_execute_dft_c2r(planXb,dc333s,dc333p)
         end if
 #ENDIF
         ! Compute nonlinear and IBF terms
@@ -2764,6 +2837,7 @@ contains
                 vwx(j,k) =  vp(j,k)*wzp(j,k) - wp(j,k)*wyp(j,k)
                 vwy(j,k) = -up(j,k)*wzp(j,k) + wp(j,k)*wxp(j,k)
                 vwz(j,k) =  up(j,k)*wyp(j,k) - vp(j,k)*wxp(j,k)
+    
 #IFDEF SCALAR
                  vc(j,k) = -(up(j,k)*cxp(j,k) + vp(j,k)*cyp(j,k) + wp(j,k)*czp(j,k))
 #ENDIF
@@ -3009,35 +3083,69 @@ contains
         !---------------------------------------------------------------------!
     
 
-        ! Real --> Complex 2D Transform (x/z-direction)
-        call fftw_execute_dft_r2c(planXZf,vwx,vwxs)
-        call fftw_execute_dft_r2c(planXZf,vwy,vwys)
-        call fftw_execute_dft_r2c(planXZf,vwz,vwzs)
+        ! Real --> Complex x-transform
+        call fftw_execute_dft_r2c(planXf,vwx,vwxs)
+        call fftw_execute_dft_r2c(planXf,vwy,vwys)
+        call fftw_execute_dft_r2c(planXf,vwz,vwzs)
+
 #IFDEF SCALAR
-        call fftw_execute_dft_r2c(planXZf,vc,vcs)
+        call fftw_execute_dft_r2c(planXf,vc,vcs)
 #ENDIF
 #IFDEF POLYMER
         if (it .ge. (src_start-1)) then
-        call fftw_execute_dft_r2c(planXZf,c11np,c11ns)
-        call fftw_execute_dft_r2c(planXZf,c12np,c12ns)
-        call fftw_execute_dft_r2c(planXZf,c13np,c13ns)
-        call fftw_execute_dft_r2c(planXZf,c22np,c22ns)
-        call fftw_execute_dft_r2c(planXZf,c23np,c23ns)
-        call fftw_execute_dft_r2c(planXZf,c33np,c33ns)
+        call fftw_execute_dft_r2c(planXf,c11np,c11ns)
+        call fftw_execute_dft_r2c(planXf,c12np,c12ns)
+        call fftw_execute_dft_r2c(planXf,c13np,c13ns)
+        call fftw_execute_dft_r2c(planXf,c22np,c22ns)
+        call fftw_execute_dft_r2c(planXf,c23np,c23ns)
+        call fftw_execute_dft_r2c(planXf,c33np,c33ns)
 
-        call fftw_execute_dft_r2c(planXZf,str11np,str11ns)
-        call fftw_execute_dft_r2c(planXZf,str12np,str12ns)
-        call fftw_execute_dft_r2c(planXZf,str13np,str13ns)
-        call fftw_execute_dft_r2c(planXZf,str22np,str22ns)
-        call fftw_execute_dft_r2c(planXZf,str23np,str23ns)
-        call fftw_execute_dft_r2c(planXZf,str33np,str33ns)
+        call fftw_execute_dft_r2c(planXf,str11np,str11ns)
+        call fftw_execute_dft_r2c(planXf,str12np,str12ns)
+        call fftw_execute_dft_r2c(planXf,str13np,str13ns)
+        call fftw_execute_dft_r2c(planXf,str22np,str22ns)
+        call fftw_execute_dft_r2c(planXf,str23np,str23ns)
+        call fftw_execute_dft_r2c(planXf,str33np,str33ns)
 
-        call fftw_execute_dft_r2c(planXZf,qp11np,qp11s)
-        call fftw_execute_dft_r2c(planXZf,qp12np,qp12s)
-        call fftw_execute_dft_r2c(planXZf,qp13np,qp13s)
-        call fftw_execute_dft_r2c(planXZf,qp22np,qp22s)
-        call fftw_execute_dft_r2c(planXZf,qp23np,qp23s)
-        call fftw_execute_dft_r2c(planXZf,qp33np,qp33s)
+        call fftw_execute_dft_r2c(planXf,qp11np,qp11s)
+        call fftw_execute_dft_r2c(planXf,qp12np,qp12s)
+        call fftw_execute_dft_r2c(planXf,qp13np,qp13s)
+        call fftw_execute_dft_r2c(planXf,qp22np,qp22s)
+        call fftw_execute_dft_r2c(planXf,qp23np,qp23s)
+        call fftw_execute_dft_r2c(planXf,qp33np,qp33s)
+        end if
+#ENDIF
+
+        ! Complex --> Complex z-transform
+        call fftw_execute_dft(planZf,vwxs,vwxs)
+        call fftw_execute_dft(planZf,vwys,vwys)
+        call fftw_execute_dft(planZf,vwzs,vwzs)
+        
+#IFDEF SCALAR
+        call fftw_execute_dft(planZf,vcs,vcs)
+#ENDIF
+#IFDEF POLYMER
+        if (it .ge. (src_start-1)) then
+        call fftw_execute_dft(planZf,c11ns,c11ns)
+        call fftw_execute_dft(planZf,c12ns,c12ns)
+        call fftw_execute_dft(planZf,c13ns,c13ns)
+        call fftw_execute_dft(planZf,c22ns,c22ns)
+        call fftw_execute_dft(planZf,c23ns,c23ns)
+        call fftw_execute_dft(planZf,c33ns,c33ns)
+
+        call fftw_execute_dft(planZf,str11ns,str11ns)
+        call fftw_execute_dft(planZf,str12ns,str12ns)
+        call fftw_execute_dft(planZf,str13ns,str13ns)
+        call fftw_execute_dft(planZf,str22ns,str22ns)
+        call fftw_execute_dft(planZf,str23ns,str23ns)
+        call fftw_execute_dft(planZf,str33ns,str33ns)
+
+        call fftw_execute_dft(planZf,qp11s,qp11s)
+        call fftw_execute_dft(planZf,qp12s,qp12s)
+        call fftw_execute_dft(planZf,qp13s,qp13s)
+        call fftw_execute_dft(planZf,qp22s,qp22s)
+        call fftw_execute_dft(planZf,qp23s,qp23s)
+        call fftw_execute_dft(planZf,qp33s,qp33s)
         end if
 #ENDIF
 
@@ -3247,24 +3355,18 @@ contains
     end do
     !$omp end parallel do simd
 
+!    do k = 1,nxh
+!    do j = 1,nz
+!    do i = 1,nyp
+!    write(800+it,*) gn(i,j,k)
+!    end do
+!    end do
+!    end do
 
     !---------------------------------------------------------------------!
     !     Calculate swirl criterion and write data for visualization      !
     !---------------------------------------------------------------------!
-
     call calcswirl(u11p3d,u21p3d,u31p3d,u12p3d,u22p3d,u32p3d,u13p3d,u23p3d,u33p3d,swirl_3d)
-!    !$omp parallel do default(shared) private(i,j,k,swirl) schedule(dynamic)
-!    do k = 1,mx
-!        do j = 1,mz
-!            do i = 1,nyp
-!                call calcswirl(u11p3d(i,j,k),u21p3d(i,j,k),u31p3d(i,j,k),u12p3d(i,j,k),u22p3d(i,j,k), &
-!                               u32p3d(i,j,k),u13p3d(i,j,k),u23p3d(i,j,k),u33p3d(i,j,k),swirl)
-!    
-!                swirl_3d(i,j,k) = swirl
-!            end do
-!        end do
-!    end do
-!    !$omp end parallel do
 
     ! Process 3D variables (write outputs in physical space)
     if (print3d .ne. 0) then

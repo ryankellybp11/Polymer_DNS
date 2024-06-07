@@ -40,11 +40,11 @@ nlist = list([nx,ny,nz])
 nmax1 = max(nlist)
 nlist.remove(nmax1)
 nmax2 = max(nlist)
-nmax = 4*nmax1*nmax2
+nmax = nmax1*nmax2
 
 grid_size = open('code/src/dns/grid_size.f90', 'r')
 lines = grid_size.readlines()
-lines[1] = '    integer, parameter :: nx_ = %s, ny_ = %s, nz_ = %s, bftail_ = %s, npart = %s, nmax_ = %s \n' % (nx, ny, nz, bftail, npart,nmax)
+lines[1] = '    integer, parameter :: nx_ = %s, ny_ = %s, nz_ = %s, bftail_ = %s, npart = %s, qn = %s \n' % (nx, ny, nz, bftail, npart, nmax)
 grid_size.close()
 
 grid_size_updated = open('code/src/dns/grid_size.f90', 'w+')
