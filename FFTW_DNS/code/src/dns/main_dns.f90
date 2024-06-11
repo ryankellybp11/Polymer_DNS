@@ -713,7 +713,11 @@ program dns
         do k = 1,nxh
             do j = 1,nz
                 do i = 1,nyp
-                    ysmth = exp(-3.0*((float(i-1)/float(ny))**10))
+                    if (((float(i-1)/float(ny))**10) .lt. 6) then
+                        ysmth = exp(-3.0*((float(i-1)/float(ny))**10))
+                    else
+                        ysmth = 0.0
+                    end if
                     omz(i,j,k) = omz(i,j,k)*ysmth
                     gn(i,j,k)  =  gn(i,j,k)*ysmth
                     fn(i,j,k)  =  fn(i,j,k)*ysmth
@@ -746,7 +750,11 @@ program dns
             do j = 1,nz
                 jj = j-1
                 if (j .gt. nzh) jj = nz - j + 1
-                zsmth = exp(-3.0*((float(jj)/float(nzh))**10))
+                if (((float(jj)/float(nzh))**10) .lt. 6.0) then
+                    zsmth = exp(-3.0*((float(jj)/float(nzh))**10))
+                else
+                    zsmth = 0.0
+                end if
                 do i = 1,nyp
                     omz(i,j,k) = omz(i,j,k)*zsmth
                     gn(i,j,k)  =  gn(i,j,k)*zsmth
@@ -1110,7 +1118,7 @@ subroutine setstuff
     end if
 
 ! ============================================================================ !
-!                        Initialize Variables and FFTs                         !
+!                             Initialize Variables                             !
 ! ============================================================================ !
     ! Set y coordinate vector for easy reference elsewhere
     ycoord(1) = yl/2.0
@@ -1124,7 +1132,15 @@ subroutine setstuff
     open(112,file='code/bin/geometry/geometry',form='unformatted')
     read(112) imatrix
     close(112)
-    
+   
+    ! Set initial particle locations and velocities 
+    open(95,file='setup/particles/particles.dat',status='old',action='read')
+    read(95,*)
+    do j = 1,npart
+        read(95,*) xpart(j),ypart(j),zpart(j),upart(j),vpart(j),wpart(j)
+    end do
+    close(95)
+
     ! -------------------------------------------------------------------- !
     
     ! Calculate the resolvable wave numbers in x
@@ -2235,6 +2251,7 @@ subroutine setpoly(scl,psource,wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,w
 !                             Declare Modules                                  !
 ! ============================================================================ !
     use grid_size
+    use omp_lib
 ! ---------------------------------------------------------------------------- !
 
 ! ============================================================================ !
@@ -2288,23 +2305,24 @@ subroutine setpoly(scl,psource,wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,w
     scl = 0.0
     psource = 0.0
 
+    
     ! Use initial particle data for scalar/source location(s)
+    !$omp parallel do reduction(+:scl) shared(wrk11,wrk12,wrk13, &
+    !$omp             wrk21,wrk22,wrk23,wrk31,wrk32,wrk33) schedule(dynamic)
     do n = 1,npart
-        open(95,file='setup/particles/particles.dat',status='old',action='read')
-        do j = 1,n
-            read(95,*)
-        end do
-        read(95,*) xc1,yc1,zc1
-        close(95)
-
+        xc1 = xpart(n)
+        yc1 = ypart(n)
+        zc1 = zpart(n)
         do k = 1,nx
             xcor = xl*(float(k-1)/float(nx))
             xsq  = (xcor - xc1)**2
             betax = xsq/(2.0*sigmax**2)
+            if (betax .lt. 18.0) then
             do j = 1,nz
                 zcor = zl*(float(j-1)/float(nz))
                 zsq  = (zcor - zc1)**2
                 betaz = zsq/(2.0*sigmaz**2)
+                if (betax + betaz .lt. 18.0) then
                 do i = 1,nyp
                     ysq = (ycoord(i) - yc1)**2
                     betay = ysq/(2.0*sigmay**2)
@@ -2321,11 +2339,16 @@ subroutine setpoly(scl,psource,wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,w
                     wrk33(i,j,k) = c33z
 
                     ! Initialize scalar
-                    scl(i,j,k) = deltaT*exp(-(betax + betay + betaz))
+                    if (betax + betay + betaz .lt. 18.0) then
+                        scl(i,j,k) = scl(i,j,k) + deltaT*exp(-(betax + betay + betaz))
+                    end if
                 end do
+                end if
             end do
+            end if
         end do
     end do
+    !$omp end parallel do
 
     if (scl_flag .eq. 2) then
         psource = scl

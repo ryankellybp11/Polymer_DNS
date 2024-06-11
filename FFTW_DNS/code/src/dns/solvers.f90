@@ -1960,7 +1960,7 @@ contains
     real,dimension(mz,mx) :: dragx,dragy,dragz
     
     real :: xi,zj,argx,argrad,fx,fr,rsq
-    real :: uzmean(mx),uxmean(nyp)
+    real :: uxmean(mz),uzmean(nyp)
     real :: massFlux
     
     ! Simulation control variables
@@ -2006,7 +2006,7 @@ contains
     real    :: deltaT,diff
     integer :: scl_flag,scltarg
     integer :: src_start,src_stop
-    integer :: cnt,kk,tnum
+    integer :: cnt,kk,tnum,kmin,kmax,jmin,jmax
     logical :: condition
 #ENDIF
 
@@ -2076,37 +2076,44 @@ contains
     !---------------------------------------------------------------------!
     !                    Calculate scalar source term                     !
     !---------------------------------------------------------------------!
-    if (it .eq. irstrt) then
-        open(95,file='setup/particles/particles.dat',status='old',action='read')
-        read(95,*)
-        do j = 1,npart
-            read(95,*) xpart(j),ypart(j),zpart(j),upart(j),vpart(j),wpart(j)
-        end do
-        close(95)
-    end if
-
     if (scl_flag .eq. 2 .and. it .ge. src_start .and. it .le. src_stop) then
         scsource = 0.0 !collapse(3) schedule(dynamic)
-        !$omp parallel do collapse(3) schedule(auto) 
-        do k = 1,mx
-            do j = 1,mz
-                do i = 1,nyp
-                do n = 1,npart
-                    xc1 = xpart(n)
-                    yc1 = ypart(n)
-                    zc1 = zpart(n)
+        !$omp parallel do schedule(auto) reduction(+:scsource)
+        do n = 1,npart
+        xc1 = xpart(n)
+        yc1 = ypart(n)
+        zc1 = zpart(n)
 
-                    xsq = (float(k-1)*delxm - xc1)**2
-                    betax = xsq/(2.0*sigmax**2)
-                    zsq = (float(j-1)*delzm - zc1)**2
-                    betaz = zsq/(2.0*sigmaz**2)
+!        ! Ignore anything where beta* > 18
+!        kmin = max(1,floor(1 + (xc1-6.0*sigmax)/delxm))
+!        kmax = min(mx,ceiling(1 + (xc1+6.0*sigmax)/delxm))
+!
+!        jmin = max(1,floor(1 + (zc1-6.0*sigmaz)/delzm))
+!        jmax = min(mz,ceiling(1 + (zc1+6.0*sigmaz)/delzm))
+!
+!        do k = kmin,kmax
+        do k = 1,mx
+            xsq = (float(k-1)*delxm - xc1)**2
+            betax = xsq/(2.0*sigmax**2)
+            if (betax .lt. 20.0) then
+!            do j = jmin,jmax
+            do j = 1,mz
+                zsq = (float(j-1)*delzm - zc1)**2
+                betaz = zsq/(2.0*sigmaz**2)
+                if (betax+betaz .lt. 20.0) then
+                do i = 1,nyp
+
                     ysq = (ycoord(i) - yc1)**2
                     betay = ysq/(2.0*sigmay**2)
-        
-                    scsource(i,j,k) = scsource(i,j,k) + deltaT*exp(-(betax + betay + betaz))
+       
+                    if (betax + betay + betaz .lt. 18.0) then 
+                        scsource(i,j,k) = scsource(i,j,k) + deltaT*exp(-(betax + betay + betaz))
+                    end if
                 end do
-                end do 
-            end do
+                end if
+            end do 
+            end if
+        end do
         end do
         !$omp end parallel do
 
@@ -2173,16 +2180,22 @@ contains
                 do k = 1,mx
                     xsq = (float(k-1)*delxm - xc1)**2
                     betax = xsq/(2.0*sigmax**2)
+                    if (betax .lt. 18.0) then
                     do j = 1,mz
                         zsq = (float(j-1)*delzm - zc1)**2
                         betaz = zsq/(2.0*sigmaz**2)
+                        if (betax+betaz .lt. 18.0) then
                         do i = 1,nyp
                             ysq = (ycoord(i) - yc1)**2
                             betay = ysq/(2.0*sigmay**2)
 
-                            scsource(i,j,k) = scsource(i,j,k) + deltaT*exp(-(betax + betay + betaz))
+                            if (betax + betay + betaz .lt. 18.0) then
+                                scsource(i,j,k) = scsource(i,j,k) + deltaT*exp(-(betax+betay+betaz))
+                            end if
                         end do
+                        end if
                     end do
+                    end if
                 end do
                 cnt = cnt + 1
             end if
@@ -2225,7 +2238,7 @@ contains
 
     ! Copy spectral variables into larger arrays for transforms 
     ! Also convert Chebyshev modes to cosine modes
-    !$omp parallel do default(shared) private(i,j,k,fac) schedule(dynamic)
+    !$omp parallel do default(shared) private(i,j,k,fac) schedule(auto)
     do k = 1,nxh
         do j = 1,nz 
             do i = 1,nyp
@@ -2946,7 +2959,9 @@ contains
                     ! alpha = 2.6e-03 PPM --> alpha_poly
                     ! gamma = scalar concentration (PPM) --> scp
 
-                    beta_poly(j,k) = exp(-alpha_poly*abs(scp(j,k)))
+                    if (alpha_poly*abs(scp(j,k)) .lt. 18.0) then
+                        beta_poly(j,k) = exp(-alpha_poly*abs(scp(j,k)))
+                    end if
 
                 else if (itarget .eq. 2) then ! Linear polymer model
                     ! Linear model:
@@ -3398,14 +3413,6 @@ contains
     end do
     !$omp end parallel do simd
 
-!    do k = 1,nxh
-!    do j = 1,nz
-!    do i = 1,nyp
-!    write(800+it,*) gn(i,j,k)
-!    end do
-!    end do
-!    end do
-
     !---------------------------------------------------------------------!
     !     Calculate swirl criterion and write data for visualization      !
     !---------------------------------------------------------------------!
@@ -3475,26 +3482,27 @@ contains
     !---------------------------------------------------------------------!
   
     ! Make these into subroutines later...  
-    if (flow_select .eq. 1 .or. flow_select .eq. 4) then ! Only relevant for wall-bounded turbulence
-        write(*,*) 'Writing mean U data...'
-    
-        ! Mean velocity
-!        if (irstrt .eq. it) then
-!            open(71,file = 'outputs/mean_u_data.dat')
-!        else
-!            open(71,file = 'outputs/mean_u_data.dat', position = 'append')
-!        end if
-    
-        do i = 1,nyp
-            do k = 1,mx
-                uzmean(k) = sum(up3d(i,:,k))/mz
-            end do
-            uxmean(i) = sum(uzmean)/mx
-        end do
-    
-!        close(71)
-        write(*,*) '    Done!'
-    end if
+!    if (flow_select .eq. 1 .or. flow_select .eq. 4) then ! Only relevant for wall-bounded turbulence
+!        write(*,*) 'Writing mean U data...'
+!    
+!        ! Mean velocity
+!!        if (irstrt .eq. it) then
+!!            open(71,file = 'outputs/mean_u_data.dat')
+!!        else
+!!            open(71,file = 'outputs/mean_u_data.dat', position = 'append')
+!!        end if
+!    
+!        do i = 1,nyp
+!            do j = 1,mz
+!                uxmean(j) = sum(up3d(i,j,:))/mx
+!            end do
+!            uzmean(i) = sum(uxmean)/mz
+!!            write(71,"(*(e14.6,1x))") uzmean
+!        end do
+!    
+!!        close(71)
+!        write(*,*) '    Done!'
+!    end if
    
     ! Compute mass flux: Integrate <U> over y
     if (irstrt .eq. it) then
@@ -3505,7 +3513,7 @@ contains
     
     massFlux = 0.0
     do i = 1,ny
-        massFlux = massFlux + 1.0/yl*0.5*(uxmean(i+1) + uxmean(i))*abs(ycoord(i+1) - ycoord(i)) ! Bulk velocity
+        massFlux = massFlux + 1.0/yl*0.5*(uzmean(i+1) + uzmean(i))*abs(ycoord(i+1) - ycoord(i)) ! Bulk velocity
     end do
     
     write(72,*) massFlux
@@ -3519,7 +3527,7 @@ contains
 #ELSE
                           scp3d, &
 #ENDIF
-                          u11p3d,u22p3d,u33p3d,uxmean)
+                          u11p3d,u22p3d,u33p3d,uzmean)
 #ENDIF
 #IFDEF POLYMER
     if (scl_flag .eq. 2 .and. it .le. src_stop .and. it .ge. src_start) then
