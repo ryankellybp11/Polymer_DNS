@@ -1960,7 +1960,7 @@ contains
     real,dimension(mz,mx) :: dragx,dragy,dragz
     
     real :: xi,zj,argx,argrad,fx,fr,rsq
-    real :: uxmean(mz),uzmean(nyp)
+    real :: uzmean(mx),uxmean(nyp)
     real :: massFlux
     
     ! Simulation control variables
@@ -2006,7 +2006,7 @@ contains
     real    :: deltaT,diff
     integer :: scl_flag,scltarg
     integer :: src_start,src_stop
-    integer :: cnt,kk
+    integer :: cnt,kk,tnum
     logical :: condition
 #ENDIF
 
@@ -2076,49 +2076,83 @@ contains
     !---------------------------------------------------------------------!
     !                    Calculate scalar source term                     !
     !---------------------------------------------------------------------!
+    if (it .eq. irstrt) then
+        open(95,file='setup/particles/particles.dat',status='old',action='read')
+        read(95,*)
+        do j = 1,npart
+            read(95,*) xpart(j),ypart(j),zpart(j),upart(j),vpart(j),wpart(j)
+        end do
+        close(95)
+    end if
+
     if (scl_flag .eq. 2 .and. it .ge. src_start .and. it .le. src_stop) then
-        scsource = 0.0
-        do n = 1,npart
-            if (it .eq. irstrt) then
-                open(95,file='setup/particles/particles.dat',status='old',action='read')
-                do j = 1,n
-                    read(95,*)
-                end do
-                read(95,*) xc1,yc1,zc1
-                close(95)
-            else if (it .gt. irstrt) then
-                xc1 = xpart(n)
-                yc1 = ypart(n)
-                zc1 = zpart(n)
-                swirl = swirl_part(n)
-            end if
-    
-            ! Choose targeting case
-            if (scltarg .eq. 1) then
-                condition = swirl .gt. 2000.0 ! Target high Q
-            else if (scltarg .eq. 2) then
-                condition = swirl .lt. -2000.0 ! Target low Q
-            else
-                condition = .true. ! No targeting
-            end if
-    
-            if (condition) then 
-            do k = 1,mx
-                xsq = (float(k-1)*delxm - xc1)**2
-                betax = xsq/(2.0*sigmax**2)
-                do j = 1,mz
+        scsource = 0.0 !collapse(3) schedule(dynamic)
+        !$omp parallel do collapse(3) schedule(auto) 
+        do k = 1,mx
+            do j = 1,mz
+                do i = 1,nyp
+                do n = 1,npart
+                    xc1 = xpart(n)
+                    yc1 = ypart(n)
+                    zc1 = zpart(n)
+
+                    xsq = (float(k-1)*delxm - xc1)**2
+                    betax = xsq/(2.0*sigmax**2)
                     zsq = (float(j-1)*delzm - zc1)**2
                     betaz = zsq/(2.0*sigmaz**2)
-                    do i = 1,nyp
-                        ysq = (ycoord(i) - yc1)**2
-                        betay = ysq/(2.0*sigmay**2)
-    
-                        scsource(i,j,k) = scsource(i,j,k) + deltaT*exp(-(betax + betay + betaz))
-                    end do
+                    ysq = (ycoord(i) - yc1)**2
+                    betay = ysq/(2.0*sigmay**2)
+        
+                    scsource(i,j,k) = scsource(i,j,k) + deltaT*exp(-(betax + betay + betaz))
                 end do
+                end do 
             end do
-            end if
         end do
+        !$omp end parallel do
+
+!        do n = 1,npart
+!            if (it .eq. irstrt) then
+!                tnum = 100+OMP_GET_THREAD_NUM() 
+!                open(tnum,file='setup/particles/particles.dat',status='old',action='read')
+!                do j = 1,n
+!                    read(tnum,*)
+!                end do
+!                read(tnum,*) xc1,yc1,zc1
+!                close(tnum)
+!            else if (it .gt. irstrt) then
+!                xc1 = xpart(n)
+!                yc1 = ypart(n)
+!                zc1 = zpart(n)
+!                swirl = swirl_part(n)
+!            end if
+!    
+!            ! Choose targeting case
+!            if (scltarg .eq. 1) then
+!                condition = swirl .gt. 2000.0 ! Target high Q
+!            else if (scltarg .eq. 2) then
+!                condition = swirl .lt. -2000.0 ! Target low Q
+!            else
+!                condition = .true. ! No targeting
+!            end if
+!    
+!            if (condition) then 
+!            do k = 1,mx
+!                xsq = (float(k-1)*delxm - xc1)**2
+!                betax = xsq/(2.0*sigmax**2)
+!                do j = 1,mz
+!                    zsq = (float(j-1)*delzm - zc1)**2
+!                    betaz = zsq/(2.0*sigmaz**2)
+!                    do i = 1,nyp
+!                        ysq = (ycoord(i) - yc1)**2
+!                        betay = ysq/(2.0*sigmay**2)
+!    
+!                        scsource(i,j,k) = scsource(i,j,k) + deltaT*exp(-(betax + betay + betaz))
+!                    end do
+!                end do
+!            end do
+!            end if
+!        end do
+!        !$omp end parallel do
 #IFDEF POLYMER
     else if (scl_flag .eq. 4 .and. it .ge. src_start .and. it .le. src_stop) then
         Qx = 0
@@ -2352,7 +2386,7 @@ contains
     !$omp end parallel do
 
     ! Compute Real --> Real DCT-I on real and imaginary parts of spectral variables
-    !$omp parallel do simd default(shared) private(j,k) collapse(2)
+    !$omp parallel do simd default(shared) private(j,k) collapse(2) schedule(simd: auto)
     do k = 1,nxh
         do j = 1,nz
             call fftw_execute_r2r(planY,ur(:,j,k),ur(:,j,k))
@@ -2399,6 +2433,15 @@ contains
             call fftw_execute_r2r(planY, Lvi(:,j,k), Lvi(:,j,k))
             call fftw_execute_r2r(planY, Lwi(:,j,k), Lwi(:,j,k))
 #IFDEF SCALAR
+            call fftw_execute_r2r(planY,scr(:,j,k),scr(:,j,k))
+            call fftw_execute_r2r(planY,cxr(:,j,k),cxr(:,j,k))
+            call fftw_execute_r2r(planY,cyr(:,j,k),cyr(:,j,k))
+            call fftw_execute_r2r(planY,czr(:,j,k),czr(:,j,k))
+
+            call fftw_execute_r2r(planY,sci(:,j,k),sci(:,j,k))
+            call fftw_execute_r2r(planY,cxi(:,j,k),cxi(:,j,k))
+            call fftw_execute_r2r(planY,cyi(:,j,k),cyi(:,j,k))
+            call fftw_execute_r2r(planY,czi(:,j,k),czi(:,j,k))
 #ENDIF
 #IFDEF POLYMER
             if (it .ge. (src_start-1)) then
@@ -2516,7 +2559,7 @@ contains
     !$omp       qp11s,qp12s,qp13s,qp22s,qp23s,qp33s,                            &
     !$omp       trp,zbeta1,beta_poly,                                           &
 #ENDIF
-    !$omp       dragx,dragy,dragz,vwx,vwy,vwz,vwxs,vwys,vwzs) schedule(dynamic)
+    !$omp       dragx,dragy,dragz,vwx,vwy,vwz,vwxs,vwys,vwzs) schedule(simd: auto)
     do i = 1,nyp
 
         ! Zero out 2D variables
@@ -3216,7 +3259,7 @@ contains
     !$omp end parallel do simd
 
     ! Real --> Real DCT-I
-    !$omp parallel do simd default(shared) private(j,k) collapse(2)
+    !$omp parallel do simd default(shared) private(j,k) collapse(2) schedule(simd: auto)
     do k = 1,nxh
         do j = 1,nz
             call fftw_execute_r2r(planY,fnr(:,j,k),fnr(:,j,k))
@@ -3432,27 +3475,26 @@ contains
     !---------------------------------------------------------------------!
   
     ! Make these into subroutines later...  
-!    if (flow_select .eq. 1 .or. flow_select .eq. 4) then ! Only relevant for wall-bounded turbulence
-!        write(*,*) 'Writing mean U data...'
-!    
-!        ! Mean velocity
-!!        if (irstrt .eq. it) then
-!!            open(71,file = 'outputs/mean_u_data.dat')
-!!        else
-!!            open(71,file = 'outputs/mean_u_data.dat', position = 'append')
-!!        end if
-!    
-!        do i = 1,nyp
-!            do j = 1,mz
-!                uxmean(j) = sum(up3d(i,j,:))/mx
-!            end do
-!            uzmean(i) = sum(uxmean)/mz
-!!            write(71,"(*(e14.6,1x))") uzmean
-!        end do
-!    
-!!        close(71)
-!        write(*,*) '    Done!'
-!    end if
+    if (flow_select .eq. 1 .or. flow_select .eq. 4) then ! Only relevant for wall-bounded turbulence
+        write(*,*) 'Writing mean U data...'
+    
+        ! Mean velocity
+!        if (irstrt .eq. it) then
+!            open(71,file = 'outputs/mean_u_data.dat')
+!        else
+!            open(71,file = 'outputs/mean_u_data.dat', position = 'append')
+!        end if
+    
+        do i = 1,nyp
+            do k = 1,mx
+                uzmean(k) = sum(up3d(i,:,k))/mz
+            end do
+            uxmean(i) = sum(uzmean)/mx
+        end do
+    
+!        close(71)
+        write(*,*) '    Done!'
+    end if
    
     ! Compute mass flux: Integrate <U> over y
     if (irstrt .eq. it) then
@@ -3463,7 +3505,7 @@ contains
     
     massFlux = 0.0
     do i = 1,ny
-        massFlux = massFlux + 1.0/yl*0.5*(uzmean(i+1) + uzmean(i))*abs(ycoord(i+1) - ycoord(i)) ! Bulk velocity
+        massFlux = massFlux + 1.0/yl*0.5*(uxmean(i+1) + uxmean(i))*abs(ycoord(i+1) - ycoord(i)) ! Bulk velocity
     end do
     
     write(72,*) massFlux
@@ -3477,7 +3519,7 @@ contains
 #ELSE
                           scp3d, &
 #ENDIF
-                          u11p3d,u22p3d,u33p3d,uzmean)
+                          u11p3d,u22p3d,u33p3d,uxmean)
 #ENDIF
 #IFDEF POLYMER
     if (scl_flag .eq. 2 .and. it .le. src_stop .and. it .ge. src_start) then
