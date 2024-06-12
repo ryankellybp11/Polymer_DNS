@@ -905,19 +905,20 @@ contains
     !                        Calculate Q-criterion                        !
     !---------------------------------------------------------------------!
 
-    !$omp parallel do private(i,j,k,QQ) default(shared)
-    do i = 1,nyp
-        do j = 1,mz
-            do k = 1,mx
+    call calcQ(u11p3d,u21p3d,u31p3d,u12p3d,u22p3d,u32p3d,u13p3d,u23p3d,u33p3d,Qcrit)
+!    !$omp parallel do private(i,j,k,QQ) default(shared)
+!    do i = 1,nyp
+!        do j = 1,mz
+!            do k = 1,mx
 !                call calcQ(u11p3d(i,j,k),u21p3d(i,j,k),u31p3d(i,j,k),u12p3d(i,j,k),u22p3d(i,j,k), &
 !                               u32p3d(i,j,k),u13p3d(i,j,k),u23p3d(i,j,k),u33p3d(i,j,k),QQ)
-                QQ = sqrt(u11p3d(i,j,k)**2 + u22p3d(i,j,k)**2 + u33p3d(i,j,k)**2) ! Manually calculate strain rate magnitude
-    
-                Qcrit(i,j,k) = QQ
-            end do
-        end do
-    end do
-    !$omp end parallel do
+!!                QQ = sqrt(u11p3d(i,j,k)**2 + u22p3d(i,j,k)**2 + u33p3d(i,j,k)**2) ! Manually calculate strain rate magnitude
+!    
+!                Qcrit(i,j,k) = QQ
+!            end do
+!        end do
+!    end do
+!    !$omp end parallel do
 
     ! Check for local (grid) min DO NOT PARALLELIZE (unless you use an entirely different algorithm)
     Qcrit = -1.0*Qcrit ! Sort largest -> smallest
@@ -1165,19 +1166,29 @@ contains
     ! Q < 0 ---> Strain-dominant field (presumably what we want to target for polymer drag reduction)
     
         use grid_size
+        use omp_lib
     
         implicit none
     
         ! Passed variables  
-        real :: u11,u12,u13,u21,u22,u23,u31,u32,u33,Q
+        real,dimension(nyp,mz,mx) :: u11,u12,u13,u21,u22,u23,u31,u32,u33,Q
     
         ! Calculation variables
+        integer :: i,j,k
         real :: Rot, Strain
  
         ! Begin calculations
-        Strain = u11**2 + u22**2 + u33**2
-        Rot = -2.0*(u12*u21 + u13*u31 + u23*u32)
-        Q = 0.5*(Rot - Strain)
+        !$omp parallel do default(shared) private(i,j,k,Strain,Rot) schedule(auto)
+        do k = 1,mx
+            do j = 1,mz
+                do i = 1,nyp
+                    Strain = u11(i,j,k)**2 + u22(i,j,k)**2 + u33(i,j,k)**2
+                    Rot = -2.0*(u12(i,j,k)*u21(i,j,k) + u13(i,j,k)*u31(i,j,k) + u23(i,j,k)*u32(i,j,k))
+                    Q(i,j,k) = 0.5*(Rot - Strain)
+                end do
+            end do
+        end do
+        !$omp end parallel do
          
     end subroutine calcQ
     

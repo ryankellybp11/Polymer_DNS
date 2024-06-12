@@ -2169,11 +2169,11 @@ contains
         scsource = 0.0
         n = 1
         cnt = 1
-        do while (cnt .lt. 101)
+        do while (cnt .lt. 1024)
             kk = Qx(n)
             ii = Qy(n)
             jj = Qz(n)
-            if (beta3d(ii,jj,kk) .gt. 0.9) then 
+            if (beta3d(ii,jj,kk) .gt. 0.8) then 
                 xc1 = delxm*(kk-1)
                 yc1 = ycoord(ii)
                 zc1 = delzm*(jj-1)
@@ -3416,7 +3416,8 @@ contains
     !---------------------------------------------------------------------!
     !     Calculate swirl criterion and write data for visualization      !
     !---------------------------------------------------------------------!
-    call calcswirl(u11p3d,u21p3d,u31p3d,u12p3d,u22p3d,u32p3d,u13p3d,u23p3d,u33p3d,swirl_3d)
+!    call calcswirl(u11p3d,u21p3d,u31p3d,u12p3d,u22p3d,u32p3d,u13p3d,u23p3d,u33p3d,swirl_3d)
+    call calcQ(u11p3d,u21p3d,u31p3d,u12p3d,u22p3d,u32p3d,u13p3d,u23p3d,u33p3d,swirl_3d)
 
     ! Process 3D variables (write outputs in physical space)
     if (print3d .ne. 0) then

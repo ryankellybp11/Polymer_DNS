@@ -1076,72 +1076,72 @@ end subroutine
 
 ! --------------------------------------------------------------------------------- !
 
-subroutine swirl_count(u11,u12,u13,u21,u22,u23,u31,u32,u33)!,area)
-! Computes swirl at each particle position and then computes percentage of
-! particles inside a vortex using a given threshold value
-
-    use grid_size
-    use omp_lib
-
-    implicit none
-
-    ! Input variables
-    real,dimension(nyp,mz,mx) :: u11,u12,u13,u21,u22,u23,u31,u32,u33
-!    real :: area
-
-    ! Simulation control variables
-    integer :: it
-	real    :: dt
-
-    ! Calculation variables
-    integer :: swirl_cnt, j
-    real    :: xl,yl,zl
-    real    :: xp,yp,zp,sp
-!    real    :: pArea,vArea
-
-    ! Common block
-    common/itime/  it
-    common/dtime/  dt
-    common/domain/ xl,yl,zl
-
-    ! -------------------------------------------------------- !
-    !                      Begin Calculations                  !
-    ! -------------------------------------------------------- !
-
-    ! Compute percentage of particles in vortex
-    swirl_cnt = 0;
-    !$omp parallel do default(shared) reduction(+:swirl_cnt) private(j,xp,yp,zp,sp) 
-    do j = 1,npart
-        ! Compute swirl at particle locations
-        xp = xpart(j); yp = ypart(j); zp = zpart(j); sp = swirl_part(j)
-        call interp_swirl(xpart(j),ypart(j),zpart(j),swirl_part(j),u11,u12,u13,u21,u22,u23,u31,u32,u33)
-        if (sp .gt. 10) then
-            swirl_cnt = swirl_cnt + 1
-        end if
-    end do
-    !$omp end parallel do
-
-!    pArea = float(swirl_cnt)/float(npart)
-!    vArea = area/(max(1.0,xl)*max(1.0,zl)*yl)
-!    ! Write output to data file
-!    if (it .eq. 1) then
-!        open(30, file = "outputs/swirl10_norm")
-!        open(31, file = "outputs/pArea")
-!        open(32, file = "outputs/vArea")
-!        write(30,*) (pArea-vArea)/vArea*100
-!        write(31,*) pArea
-!        write(32,*) vArea
-!    else
-!        open(30, file = "outputs/swirl10_norm", position = "append")
-!        open(31, file = "outputs/pArea", position = "append")
-!        open(32, file = "outputs/vArea", position = "append")
-!        write(30,*) (pArea-vArea)/vArea*100
-!        write(31,*) pArea
-!        write(32,*) vArea
-!    end if
-!    close(30)
-
-end subroutine
+!subroutine swirl_count(u11,u12,u13,u21,u22,u23,u31,u32,u33)!,area)
+!! Computes swirl at each particle position and then computes percentage of
+!! particles inside a vortex using a given threshold value
+!
+!    use grid_size
+!    use omp_lib
+!
+!    implicit none
+!
+!    ! Input variables
+!    real,dimension(nyp,mz,mx) :: u11,u12,u13,u21,u22,u23,u31,u32,u33
+!!    real :: area
+!
+!    ! Simulation control variables
+!    integer :: it
+!	real    :: dt
+!
+!    ! Calculation variables
+!    integer :: swirl_cnt, j
+!    real    :: xl,yl,zl
+!    real    :: xp,yp,zp,sp
+!!    real    :: pArea,vArea
+!
+!    ! Common block
+!    common/itime/  it
+!    common/dtime/  dt
+!    common/domain/ xl,yl,zl
+!
+!    ! -------------------------------------------------------- !
+!    !                      Begin Calculations                  !
+!    ! -------------------------------------------------------- !
+!
+!    ! Compute percentage of particles in vortex
+!    swirl_cnt = 0;
+!    !$omp parallel do default(shared) reduction(+:swirl_cnt) private(j,xp,yp,zp,sp) 
+!    do j = 1,npart
+!        ! Compute swirl at particle locations
+!        xp = xpart(j); yp = ypart(j); zp = zpart(j); sp = swirl_part(j)
+!        call interp_swirl(xpart(j),ypart(j),zpart(j),swirl_part(j),u11,u12,u13,u21,u22,u23,u31,u32,u33)
+!        if (sp .gt. 10) then
+!            swirl_cnt = swirl_cnt + 1
+!        end if
+!    end do
+!    !$omp end parallel do
+!
+!!    pArea = float(swirl_cnt)/float(npart)
+!!    vArea = area/(max(1.0,xl)*max(1.0,zl)*yl)
+!!    ! Write output to data file
+!!    if (it .eq. 1) then
+!!        open(30, file = "outputs/swirl10_norm")
+!!        open(31, file = "outputs/pArea")
+!!        open(32, file = "outputs/vArea")
+!!        write(30,*) (pArea-vArea)/vArea*100
+!!        write(31,*) pArea
+!!        write(32,*) vArea
+!!    else
+!!        open(30, file = "outputs/swirl10_norm", position = "append")
+!!        open(31, file = "outputs/pArea", position = "append")
+!!        open(32, file = "outputs/vArea", position = "append")
+!!        write(30,*) (pArea-vArea)/vArea*100
+!!        write(31,*) pArea
+!!        write(32,*) vArea
+!!    end if
+!!    close(30)
+!
+!end subroutine
 
 ! --------------------------------------------------------------------------------- !
 
@@ -1225,95 +1225,95 @@ end function interpolate3
 ! --------------------------------------------------------------------------------- !
 
 
-subroutine interp_swirl(xp0,yp0,zp0,swirl,u11,u12,u13,u21,u22,u23,u31,u32,u33)
-
-    use grid_size
-    use helpers
-
-    implicit none
-
-
-    ! Input variables
-    real :: xp0, yp0, zp0
-    real, dimension(nyp,mz,mx) :: u11,u12,u13,u21,u22,u23,u31,u32,u33
-
-    ! Simulation control variables
-    integer :: it
-	real    :: dt
-
-    ! Geometry variables
-    real    :: xl,yl,zl
-
-    ! Interoplation variables
-    integer :: imin, imax, jmin, jmax, kmin, kmax
-    real    :: xmin, xmax, ymin, ymax, zmin, zmax
-    real    :: delxm, delzm, interpolate3
-
-    real    :: swirl, pi
-    real    :: s1,s2,s3,s4,s5,s6,s7,s8
-
-
-    ! Common blocks
-    common/itime/      it
-    common/dtime/      dt
-    common/domain/     xl,yl,zl
-    ! -------------------------------------------------------- !
-    !                      Begin Calculations                  !
-    ! -------------------------------------------------------- !
-
-    pi = 2.0*acos(0.0)
-
-    delxm = xl /float(mx-1)
-    delzm = zl /float(mz-1)
- 
-
-    ! Normal interpolation
-    imin = mod(floor(xp0/delxm) + mx, mx) + 1
-    imax = mod(imin,mx) + 1
-    jmin = mod(floor(zp0/delzm) + mz, mz) + 1
-    jmax = mod(jmin,mz) + 1
-    kmax = floor(1 + float(ny)/pi*acos(2.0*yp0/yl))
-    kmin = kmax + 1
-    
-    xmin = float(imin-1)*delxm
-    xmax = float(imax-1)*delxm
-    ymin = ycoord(kmin)
-    ymax = ycoord(kmax)
-    zmin = float(jmin-1)*delzm
-    zmax = float(jmax-1)*delzm
-
-    ! Calculate swirl at nearest points
-    call calcQ(u11(kmin,jmin,imin),u21(kmin,jmin,imin),u31(kmin,jmin,imin), &
-               u12(kmin,jmin,imin),u22(kmin,jmin,imin),u32(kmin,jmin,imin), &
-               u13(kmin,jmin,imin),u23(kmin,jmin,imin),u33(kmin,jmin,imin),s1)
-    call calcQ(u11(kmin,jmin,imax),u21(kmin,jmin,imax),u31(kmin,jmin,imax), &
-               u12(kmin,jmin,imax),u22(kmin,jmin,imax),u32(kmin,jmin,imax), &
-               u13(kmin,jmin,imax),u23(kmin,jmin,imax),u33(kmin,jmin,imax),s2)
-    call calcQ(u11(kmin,jmax,imin),u21(kmin,jmax,imin),u31(kmin,jmax,imin), &
-               u12(kmin,jmax,imin),u22(kmin,jmax,imin),u32(kmin,jmax,imin), &
-               u13(kmin,jmax,imin),u23(kmin,jmax,imin),u33(kmin,jmax,imin),s3)
-    call calcQ(u11(kmin,jmax,imax),u21(kmin,jmax,imax),u31(kmin,jmax,imax), &
-               u12(kmin,jmax,imax),u22(kmin,jmax,imax),u32(kmin,jmax,imax), &
-               u13(kmin,jmax,imax),u23(kmin,jmax,imax),u33(kmin,jmax,imax),s4)
-    call calcQ(u11(kmax,jmin,imin),u21(kmax,jmin,imin),u31(kmax,jmin,imin), &
-               u12(kmax,jmin,imin),u22(kmax,jmin,imin),u32(kmax,jmin,imin), &
-               u13(kmax,jmin,imin),u23(kmax,jmin,imin),u33(kmax,jmin,imin),s5)
-    call calcQ(u11(kmax,jmin,imax),u21(kmax,jmin,imax),u31(kmax,jmin,imax), &
-               u12(kmax,jmin,imax),u22(kmax,jmin,imax),u32(kmax,jmin,imax), &
-               u13(kmax,jmin,imax),u23(kmax,jmin,imax),u33(kmax,jmin,imax),s6)
-    call calcQ(u11(kmax,jmax,imin),u21(kmax,jmax,imin),u31(kmax,jmax,imin), &
-               u12(kmax,jmax,imin),u22(kmax,jmax,imin),u32(kmax,jmax,imin), &
-               u13(kmax,jmax,imin),u23(kmax,jmax,imin),u33(kmax,jmax,imin),s7)
-    call calcQ(u11(kmax,jmax,imax),u21(kmax,jmax,imax),u31(kmax,jmax,imax), &
-               u12(kmax,jmax,imax),u22(kmax,jmax,imax),u32(kmax,jmax,imax), &
-               u13(kmax,jmax,imax),u23(kmax,jmax,imax),u33(kmax,jmax,imax),s8)
-
-
-    ! Interpolating swirl strength at particle position
-    swirl = interpolate3(xp0,yp0,zp0,xmin,xmax,ymin,ymax,zmin,zmax,s1,s2,s3,s4,s5,s6,s7,s8)
-
-
-end subroutine 
+!subroutine interp_swirl(xp0,yp0,zp0,swirl,u11,u12,u13,u21,u22,u23,u31,u32,u33)
+!
+!    use grid_size
+!    use helpers
+!
+!    implicit none
+!
+!
+!    ! Input variables
+!    real :: xp0, yp0, zp0
+!    real, dimension(nyp,mz,mx) :: u11,u12,u13,u21,u22,u23,u31,u32,u33
+!
+!    ! Simulation control variables
+!    integer :: it
+!	real    :: dt
+!
+!    ! Geometry variables
+!    real    :: xl,yl,zl
+!
+!    ! Interoplation variables
+!    integer :: imin, imax, jmin, jmax, kmin, kmax
+!    real    :: xmin, xmax, ymin, ymax, zmin, zmax
+!    real    :: delxm, delzm, interpolate3
+!
+!    real    :: swirl, pi
+!    real    :: s1,s2,s3,s4,s5,s6,s7,s8
+!
+!
+!    ! Common blocks
+!    common/itime/      it
+!    common/dtime/      dt
+!    common/domain/     xl,yl,zl
+!    ! -------------------------------------------------------- !
+!    !                      Begin Calculations                  !
+!    ! -------------------------------------------------------- !
+!
+!    pi = 2.0*acos(0.0)
+!
+!    delxm = xl /float(mx-1)
+!    delzm = zl /float(mz-1)
+! 
+!
+!    ! Normal interpolation
+!    imin = mod(floor(xp0/delxm) + mx, mx) + 1
+!    imax = mod(imin,mx) + 1
+!    jmin = mod(floor(zp0/delzm) + mz, mz) + 1
+!    jmax = mod(jmin,mz) + 1
+!    kmax = floor(1 + float(ny)/pi*acos(2.0*yp0/yl))
+!    kmin = kmax + 1
+!    
+!    xmin = float(imin-1)*delxm
+!    xmax = float(imax-1)*delxm
+!    ymin = ycoord(kmin)
+!    ymax = ycoord(kmax)
+!    zmin = float(jmin-1)*delzm
+!    zmax = float(jmax-1)*delzm
+!
+!    ! Calculate swirl at nearest points
+!    call calcQ(u11(kmin,jmin,imin),u21(kmin,jmin,imin),u31(kmin,jmin,imin), &
+!               u12(kmin,jmin,imin),u22(kmin,jmin,imin),u32(kmin,jmin,imin), &
+!               u13(kmin,jmin,imin),u23(kmin,jmin,imin),u33(kmin,jmin,imin),s1)
+!    call calcQ(u11(kmin,jmin,imax),u21(kmin,jmin,imax),u31(kmin,jmin,imax), &
+!               u12(kmin,jmin,imax),u22(kmin,jmin,imax),u32(kmin,jmin,imax), &
+!               u13(kmin,jmin,imax),u23(kmin,jmin,imax),u33(kmin,jmin,imax),s2)
+!    call calcQ(u11(kmin,jmax,imin),u21(kmin,jmax,imin),u31(kmin,jmax,imin), &
+!               u12(kmin,jmax,imin),u22(kmin,jmax,imin),u32(kmin,jmax,imin), &
+!               u13(kmin,jmax,imin),u23(kmin,jmax,imin),u33(kmin,jmax,imin),s3)
+!    call calcQ(u11(kmin,jmax,imax),u21(kmin,jmax,imax),u31(kmin,jmax,imax), &
+!               u12(kmin,jmax,imax),u22(kmin,jmax,imax),u32(kmin,jmax,imax), &
+!               u13(kmin,jmax,imax),u23(kmin,jmax,imax),u33(kmin,jmax,imax),s4)
+!    call calcQ(u11(kmax,jmin,imin),u21(kmax,jmin,imin),u31(kmax,jmin,imin), &
+!               u12(kmax,jmin,imin),u22(kmax,jmin,imin),u32(kmax,jmin,imin), &
+!               u13(kmax,jmin,imin),u23(kmax,jmin,imin),u33(kmax,jmin,imin),s5)
+!    call calcQ(u11(kmax,jmin,imax),u21(kmax,jmin,imax),u31(kmax,jmin,imax), &
+!               u12(kmax,jmin,imax),u22(kmax,jmin,imax),u32(kmax,jmin,imax), &
+!               u13(kmax,jmin,imax),u23(kmax,jmin,imax),u33(kmax,jmin,imax),s6)
+!    call calcQ(u11(kmax,jmax,imin),u21(kmax,jmax,imin),u31(kmax,jmax,imin), &
+!               u12(kmax,jmax,imin),u22(kmax,jmax,imin),u32(kmax,jmax,imin), &
+!               u13(kmax,jmax,imin),u23(kmax,jmax,imin),u33(kmax,jmax,imin),s7)
+!    call calcQ(u11(kmax,jmax,imax),u21(kmax,jmax,imax),u31(kmax,jmax,imax), &
+!               u12(kmax,jmax,imax),u22(kmax,jmax,imax),u32(kmax,jmax,imax), &
+!               u13(kmax,jmax,imax),u23(kmax,jmax,imax),u33(kmax,jmax,imax),s8)
+!
+!
+!    ! Interpolating swirl strength at particle position
+!    swirl = interpolate3(xp0,yp0,zp0,xmin,xmax,ymin,ymax,zmin,zmax,s1,s2,s3,s4,s5,s6,s7,s8)
+!
+!
+!end subroutine 
 
 
 ! --------------------------------------------------------------------------------- !
