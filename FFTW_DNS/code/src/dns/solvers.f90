@@ -1960,7 +1960,7 @@ contains
     real,dimension(mz,mx) :: dragx,dragy,dragz
     
     real :: xi,zj,argx,argrad,fx,fr,rsq
-    real :: uxmean(mz),uzmean(nyp)
+    real :: uzmean(mx),uxmean(nyp)
     real :: massFlux
     
     ! Simulation control variables
@@ -3483,27 +3483,26 @@ contains
     !---------------------------------------------------------------------!
   
     ! Make these into subroutines later...  
-!    if (flow_select .eq. 1 .or. flow_select .eq. 4) then ! Only relevant for wall-bounded turbulence
-!        write(*,*) 'Writing mean U data...'
-!    
-!        ! Mean velocity
-!!        if (irstrt .eq. it) then
-!!            open(71,file = 'outputs/mean_u_data.dat')
-!!        else
-!!            open(71,file = 'outputs/mean_u_data.dat', position = 'append')
-!!        end if
-!    
-!        do i = 1,nyp
-!            do j = 1,mz
-!                uxmean(j) = sum(up3d(i,j,:))/mx
-!            end do
-!            uzmean(i) = sum(uxmean)/mz
-!!            write(71,"(*(e14.6,1x))") uzmean
-!        end do
-!    
-!!        close(71)
-!        write(*,*) '    Done!'
-!    end if
+    if (flow_select .eq. 1 .or. flow_select .eq. 4) then ! Only relevant for wall-bounded turbulence
+        write(*,*) 'Writing mean U data...'
+    
+        ! Mean velocity
+!        if (irstrt .eq. it) then
+!            open(71,file = 'outputs/mean_u_data.dat')
+!        else
+!            open(71,file = 'outputs/mean_u_data.dat', position = 'append')
+!        end if
+    
+        do i = 1,nyp
+            do k = 1,mx
+                uzmean(k) = sum(up3d(i,:,k))/mz
+            end do
+            uxmean(i) = sum(uzmean)/mx
+        end do
+    
+!        close(71)
+        write(*,*) '    Done!'
+    end if
    
     ! Compute mass flux: Integrate <U> over y
     if (irstrt .eq. it) then
@@ -3514,7 +3513,7 @@ contains
     
     massFlux = 0.0
     do i = 1,ny
-        massFlux = massFlux + 1.0/yl*0.5*(uzmean(i+1) + uzmean(i))*abs(ycoord(i+1) - ycoord(i)) ! Bulk velocity
+        massFlux = massFlux + 1.0/yl*0.5*(uxmean(i+1) + uxmean(i))*abs(ycoord(i+1) - ycoord(i)) ! Bulk velocity
     end do
     
     write(72,*) massFlux
@@ -3528,10 +3527,10 @@ contains
 #ELSE
                           scp3d, &
 #ENDIF
-                          u11p3d,u22p3d,u33p3d,uzmean)
+                          u11p3d,u22p3d,u33p3d,uxmean)
 #ENDIF
 #IFDEF POLYMER
-    if (scl_flag .eq. 2 .and. it .le. src_stop .and. it .ge. src_start) then
+    if (scl_flag .ge. 4 .and. it .le. src_stop .and. it .ge. src_start) then
         call calc_total_beta(it,delxm,delzm,scp3d,beta3d)
     end if
 

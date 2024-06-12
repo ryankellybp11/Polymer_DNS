@@ -433,7 +433,7 @@ contains
         !- Common blocks -!
         common/domain/    xl,yl,zl
         common/poly_flgs/ ipolyflag,itarget,ipeter
-        common/poly_var/  alpha_poly,tpoly,zlmax,diffpoly,qbeta
+        common/poly_var/  alpha_poly,tpoly,zlmax,diffpoly,qbeta,beta_min
         common/src_time/  src_start,src_stop
 
         !- Begin Calculations -!

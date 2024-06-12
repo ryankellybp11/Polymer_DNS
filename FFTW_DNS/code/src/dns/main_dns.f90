@@ -949,7 +949,7 @@ subroutine setstuff
 #ENDIF
 #IFDEF POLYMER
     common/poly_flgs/  ipolyflag,itarget,ipeter
-    common/poly_var/   alpha_poly,tpoly,zlmax,diffpoly,qbeta
+    common/poly_var/   alpha_poly,tpoly,zlmax,diffpoly,qbeta,beta_min
     common/c_init/     c11z,c22z,c33z
 #ENDIF
 ! ---------------------------------------------------------------------------- !
