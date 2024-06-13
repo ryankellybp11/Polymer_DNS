@@ -88,7 +88,7 @@ program dns
 #ENDIF
     real,    dimension(nyhp,nz,3)  :: a
 
-    real    :: wn2,x,g,ysmth,zsmth
+    real    :: wn2,x,g,ysmth,zsmth,ysmth2,zsmth2
     integer :: i,j,k,ib,iyt,iyb,jj,uflag
 
     ! Simulation control variables
@@ -707,75 +707,37 @@ program dns
 
         ! -------------------------------------------------------------------- !
         ! Spectral smoothing, assuming force is in fn, gn, and omz
-        
-        ! y-direction smoothing
-        !$omp parallel do default(shared) private(i,j,k,ysmth) schedule(dynamic)
-        do k = 1,nxh
-            do j = 1,nz
-                do i = 1,nyp
-                    if (((float(i-1)/float(ny))**10) .lt. 6) then
-                        ysmth = exp(-3.0*((float(i-1)/float(ny))**10))
-                    else
-                        ysmth = 0.0
-                    end if
-                    omz(i,j,k) = omz(i,j,k)*ysmth
-                    gn(i,j,k)  =  gn(i,j,k)*ysmth
-                    fn(i,j,k)  =  fn(i,j,k)*ysmth
-#IFDEF SCALAR
-                    scn(i,j,k) = scn(i,j,k)*ysmth
-#ENDIF
-#IFDEF POLYMER
-                    c11n(i,j,k) = c11n(i,j,k)*ysmth
-                    c12n(i,j,k) = c12n(i,j,k)*ysmth
-                    c13n(i,j,k) = c13n(i,j,k)*ysmth
-                    c22n(i,j,k) = c22n(i,j,k)*ysmth
-                    c23n(i,j,k) = c23n(i,j,k)*ysmth
-                    c33n(i,j,k) = c33n(i,j,k)*ysmth
-                    
-                    str11n(i,j,k) = str11n(i,j,k)*ysmth
-                    str12n(i,j,k) = str12n(i,j,k)*ysmth
-                    str13n(i,j,k) = str13n(i,j,k)*ysmth
-                    str22n(i,j,k) = str22n(i,j,k)*ysmth
-                    str23n(i,j,k) = str23n(i,j,k)*ysmth
-                    str33n(i,j,k) = str33n(i,j,k)*ysmth
-#ENDIF
-                end do
-            end do
-        end do
-        !$omp end parallel do
-        
-        ! z-direction smoothing
-        !$omp parallel do default(shared) private(i,j,k,jj,zsmth) schedule(dynamic)
+        !$omp parallel do default(shared) private(i,j,k,jj,ysmth,zsmth,ysmth2,zsmth2) schedule(dynamic)
         do k = 1,nxh
             do j = 1,nz
                 jj = j-1
                 if (j .gt. nzh) jj = nz - j + 1
-                if (((float(jj)/float(nzh))**10) .lt. 6.0) then
-                    zsmth = exp(-3.0*((float(jj)/float(nzh))**10))
-                else
-                    zsmth = 0.0
-                end if
+                zsmth  = exp(-3.0*((float(jj)/float(nzh))**10))
+                zsmth2 = exp(-3.0*((float(jj)/float(nzh))**10))
                 do i = 1,nyp
-                    omz(i,j,k) = omz(i,j,k)*zsmth
-                    gn(i,j,k)  =  gn(i,j,k)*zsmth
-                    fn(i,j,k)  =  fn(i,j,k)*zsmth
+                    ysmth  = exp(-3.0*((float(i-1)/float(ny))**10))
+                    ysmth2 = exp(-3.0*((float(i-1)/float(ny))**10))
+
+                    omz(i,j,k) = omz(i,j,k)*zsmth*ysmth
+                    gn(i,j,k)  =  gn(i,j,k)*zsmth*ysmth
+                    fn(i,j,k)  =  fn(i,j,k)*zsmth*ysmth
 #IFDEF SCALAR
-                    scn(i,j,k) = scn(i,j,k)*zsmth
+                    scn(i,j,k) = scn(i,j,k)*zsmth2*ysmth2
 #ENDIF
 #IFDEF POLYMER
-                    c11n(i,j,k) = c11n(i,j,k)*zsmth
-                    c12n(i,j,k) = c12n(i,j,k)*zsmth
-                    c13n(i,j,k) = c13n(i,j,k)*zsmth
-                    c22n(i,j,k) = c22n(i,j,k)*zsmth
-                    c23n(i,j,k) = c23n(i,j,k)*zsmth
-                    c33n(i,j,k) = c33n(i,j,k)*zsmth
+                    c11n(i,j,k) = c11n(i,j,k)*zsmth2*ysmth2
+                    c12n(i,j,k) = c12n(i,j,k)*zsmth2*ysmth2
+                    c13n(i,j,k) = c13n(i,j,k)*zsmth2*ysmth2
+                    c22n(i,j,k) = c22n(i,j,k)*zsmth2*ysmth2
+                    c23n(i,j,k) = c23n(i,j,k)*zsmth2*ysmth2
+                    c33n(i,j,k) = c33n(i,j,k)*zsmth2*ysmth2
                     
-                    str11n(i,j,k) = str11n(i,j,k)*zsmth
-                    str12n(i,j,k) = str12n(i,j,k)*zsmth
-                    str13n(i,j,k) = str13n(i,j,k)*zsmth
-                    str22n(i,j,k) = str22n(i,j,k)*zsmth
-                    str23n(i,j,k) = str23n(i,j,k)*zsmth
-                    str33n(i,j,k) = str33n(i,j,k)*zsmth
+                    str11n(i,j,k) = str11n(i,j,k)*zsmth2*ysmth2
+                    str12n(i,j,k) = str12n(i,j,k)*zsmth2*ysmth2
+                    str13n(i,j,k) = str13n(i,j,k)*zsmth2*ysmth2
+                    str22n(i,j,k) = str22n(i,j,k)*zsmth2*ysmth2
+                    str23n(i,j,k) = str23n(i,j,k)*zsmth2*ysmth2
+                    str33n(i,j,k) = str33n(i,j,k)*zsmth2*ysmth2
 #ENDIF
                 end do
             end do
