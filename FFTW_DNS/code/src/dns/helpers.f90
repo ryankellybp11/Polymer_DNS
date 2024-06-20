@@ -949,7 +949,7 @@ contains
 #ENDIF    
     !---------------------------------------------------------------------!
 #IFDEF SCALAR
-    subroutine writeoutputs(u,v,w,wx,wy,wz,beta,u11,u22,u33,uzmean)
+    subroutine writeoutputs(u,v,w,wx,wy,wz,beta,u11,u22,u33,uzmean,swirl)
     ! Compute global TKE, Enstrophy, and S-gamma correlation 
     ! If scalar, beta = scp3d
 
@@ -965,7 +965,7 @@ contains
         implicit none
 
         ! Input variables
-        real, dimension(nyp,mz,mx) :: u,v,w,wx,wy,wz,beta,u11,u22,u33
+        real, dimension(nyp,mz,mx) :: u,v,w,wx,wy,wz,beta,u11,u22,u33,swirl
         real, dimension(nyp)       :: uzmean
 
         ! Common block variables
@@ -977,8 +977,9 @@ contains
         real, dimension(nyp) :: scl
         integer :: i,j,k
         real    :: delxm,delzm
-        real    :: sumens,TKE,SG,trS,scl_sum
+        real    :: sumens,TKE,SB,trS,scl_sum
         real    :: Lx,Ly,Lz
+        real    :: swirl_avg,beta_avg,volume
     !---------------------------------------------------------------------!
    
     ! Common blocks
@@ -990,13 +991,17 @@ contains
     !                         Begin Calculations                          !
     ! =================================================================== !
   
-        delxm = xl/float(mx-1)
-        delzm = zl/float(mz-1)
- 
+        delxm = xl/float(mx)
+        delzm = zl/float(mz)
+
+        volume = (xl*yl*zl)
+
         sumens = 0.0
         TKE = 0.0 
-        SG = 0.0
-        !$omp parallel do default(shared) private(i,j,k,Lx,Ly,Lz,trS) reduction(+:scl_sum,sumens,TKE,SG) schedule(dynamic)
+        SB = 0.0
+        swirl_avg = 0.0
+        beta_avg = 0.0
+        !$omp parallel do default(shared) private(i,j,k,Lx,Ly,Lz,trS) reduction(+:scl_sum,sumens,TKE,SB,swirl_avg,beta_avg) schedule(dynamic)
         do k = 1,mx
             ! Calc x length
             if (k .eq. 1 .or. k .eq. mx) then
@@ -1023,41 +1028,45 @@ contains
                         Ly = abs(ycoord(i+1) - ycoord(i))/2.0 + abs(ycoord(i) - ycoord(i-1))/2.0
                     end if
 
-                    ! Calc strain rate at grid point
-                    trS = u11(i,j,k)**2.0 + u22(i,j,k)**2.0 + u33(i,j,k)**2.0
-    
                     ! Fill out sums 
                     sumens = sumens + (wx(i,j,k)**2 + wy(i,j,k)**2 + wz(i,j,k)**2)*Lx*Ly*Lz
                     TKE = TKE + 0.5*((u(i,j,k)-uzmean(i))**2 + v(i,j,k)**2 + w(i,j,k)**2)*Lx*Ly*Lz
 #IFDEF POLYMER
-                    SG = SG + trS*(1.0 - beta(i,j,k))*Lx*Ly*Lz
+                    SB = SB + swirl(i,j,k)*(1.0 - beta(i,j,k))*Lx*Ly*Lz
 #ELSE
-                    SG = SG + beta(i,j,k)*Lx*Ly*Lz
+                    SB = SB + beta(i,j,k)*Lx*Ly*Lz
 #ENDIF
-!                    scl_sum = scl_sum + (beta(i,j,k)**2)
+
+                    ! Calculate averages for correlation
+                    swirl_avg = swirl_avg + swirl(i,j,k)*Lx*Ly*Lz
+                    beta_avg  =  beta_avg + beta(i,j,k)*Lx*Ly*Lz
 
                 end do
             end do
-!            scl(i) = sqrt(scl_sum/(float(mz)*float(mx)))*Ly
         end do
         !$omp end parallel do
+
+        ! Finish computing averages and correlation
+        swirl_avg = swirl_avg/volume
+        beta_avg = beta_avg/volume
+        SB = SB/(swirl_avg*(1.0 - beta_avg))
 
         ! Write data to output files - updated each time step        
         if (it .eq. irstrt) then
             open(73,file='outputs/enstrophy')
             open(74,file='outputs/TKE')
-            open(75,file='outputs/total_scalar')
+            open(75,file='outputs/swirl_beta')
 !            open(76,file='outputs/rms_scalar.dat')
         else
             open(73,file='outputs/enstrophy',position='append')
             open(74,file='outputs/TKE',position='append')
-            open(75,file='outputs/total_scalar',position='append')
+            open(75,file='outputs/swirl_beta',position='append')
 !            open(76,file='outputs/rms_scalar.dat',position='append')
         end if
         
         write(73,*) sumens
         write(74,*) TKE
-        write(75,*) SG
+        write(75,*) SB
         close(73)
         close(74)
         close(75) 
@@ -1108,8 +1117,8 @@ contains
     !                         Begin Calculations                          !
     ! =================================================================== !
    
-    delxm = xl/(mx-1)
-    delzm = zl/(mz-1)
+    delxm = xl/(mx)
+    delzm = zl/(mz)
 
     area = 0.0
 
@@ -1344,8 +1353,8 @@ contains
             mz_copy = 1
         end if
     
-        delxm = xl /float(mx-1)
-        delzm = zl /float(mz-1)
+        delxm = xl /float(mx)
+        delzm = zl /float(mz)
     
         print *, 'Writing data at time step ', it
         
@@ -1525,8 +1534,8 @@ contains
     
         ! Compute Coordinates
         allocate(coordinates(nyp,mz_copy,mx_copy , 3))
-        delxm = xl /float(mx-1)
-        delzm = zl /float(mz-1)
+        delxm = xl /float(mx)
+        delzm = zl /float(mz)
         do k = 1,mx_copy
             x = float(k-1) * delxm
             do j = 1,mz_copy
@@ -1676,8 +1685,8 @@ contains
 
 
         ! Calculate domain variables
-        delxm = xl/float(mx-1)
-        delzm = zl/float(mz-1)
+        delxm = xl/float(mx)
+        delzm = zl/float(mz)
 
         do i = 1,nyp
             yvec(i) = ycoord(i)

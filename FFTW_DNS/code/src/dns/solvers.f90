@@ -2069,8 +2069,8 @@ contains
     end if
  
     pi = 2.0*acos(0.0)
-    delxm = xl/float(mx-1)
-    delzm = zl/float(mz-1)
+    delxm = xl/float(mx)
+    delzm = zl/float(mz)
    
 #IFDEF SCALAR 
     !---------------------------------------------------------------------!
@@ -3416,8 +3416,8 @@ contains
     !---------------------------------------------------------------------!
     !     Calculate swirl criterion and write data for visualization      !
     !---------------------------------------------------------------------!
-!    call calcswirl(u11p3d,u21p3d,u31p3d,u12p3d,u22p3d,u32p3d,u13p3d,u23p3d,u33p3d,swirl_3d)
-    call calcQ(u11p3d,u21p3d,u31p3d,u12p3d,u22p3d,u32p3d,u13p3d,u23p3d,u33p3d,swirl_3d)
+    call calcswirl(u11p3d,u21p3d,u31p3d,u12p3d,u22p3d,u32p3d,u13p3d,u23p3d,u33p3d,swirl_3d)
+!    call calcQ(u11p3d,u21p3d,u31p3d,u12p3d,u22p3d,u32p3d,u13p3d,u23p3d,u33p3d,swirl_3d)
 
     ! Process 3D variables (write outputs in physical space)
     if (print3d .ne. 0) then
@@ -3527,10 +3527,10 @@ contains
 #ELSE
                           scp3d, &
 #ENDIF
-                          u11p3d,u22p3d,u33p3d,uxmean)
+                          u11p3d,u22p3d,u33p3d,uxmean,swirl_3d)
 #ENDIF
 #IFDEF POLYMER
-    if (scl_flag .ge. 4 .and. it .le. src_stop .and. it .ge. src_start) then
+    if (scl_flag .ge. 2 .and. it .le. src_stop .and. it .ge. src_start) then
         call calc_total_beta(it,delxm,delzm,scp3d,beta3d)
     end if
 

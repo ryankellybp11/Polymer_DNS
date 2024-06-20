@@ -478,8 +478,8 @@ subroutine fluid_interp1(xp,yp,zp,u,uf)
     pi = 2.0*acos(0.0)
 
     ! Find nearest grid nodes with fluid data
-    delxm = xl /float(mx-1)
-    delzm = zl /float(mz-1)
+    delxm = xl /float(mx)
+    delzm = zl /float(mz)
 
     imin = mod(floor(xp/delxm) + mx, mx) + 1
     imax = mod(imin,mx) + 1
@@ -560,8 +560,8 @@ subroutine fluid_interp(xp,yp,zp,u,v,w,uf,vf,wf)
     pi = 2.0*acos(0.0)
 
     ! Find nearest grid nodes with fluid data
-    delxm = xl /float(mx-1)
-    delzm = zl /float(mz-1)
+    delxm = xl /float(mx)
+    delzm = zl /float(mz)
 
     imin = mod(floor(xp/delxm) + mx, mx) + 1
     imax = mod(imin,mx) + 1
@@ -956,8 +956,8 @@ subroutine SubDerivative(u,v,w,u_old,v_old,w_old,ufluid,vfluid,wfluid,subDufDt,s
 
     pi = 2.0*acos(0.0)
 
-    delxm = xl /float(mx-1)
-    delzm = zl /float(mz-1)
+    delxm = xl /float(mx)
+    delzm = zl /float(mz)
  
     imin = mod(floor(xp0/delxm) + mx, mx) + 1
     imax = mod(imin,mx) + 1
@@ -1263,8 +1263,8 @@ end function interpolate3
 !
 !    pi = 2.0*acos(0.0)
 !
-!    delxm = xl /float(mx-1)
-!    delzm = zl /float(mz-1)
+!    delxm = xl /float(mx)
+!    delzm = zl /float(mz)
 ! 
 !
 !    ! Normal interpolation
