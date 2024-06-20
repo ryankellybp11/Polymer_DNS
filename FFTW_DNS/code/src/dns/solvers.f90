@@ -2946,9 +2946,9 @@ contains
                 end if
                
                 ! Add brownian motion terms
-                str11np(j,k)=str11np(j,k)-1.0
-                str22np(j,k)=str22np(j,k)-1.0
-                str33np(j,k)=str33np(j,k)-1.0
+                str11np(j,k)=(str11np(j,k)-1.0)/tpoly
+                str22np(j,k)=(str22np(j,k)-1.0)/tpoly
+                str33np(j,k)=(str33np(j,k)-1.0)/tpoly
 
                 ! Polymer model
                 if (itarget .eq. 0) then ! polymer ocean
@@ -2969,7 +2969,7 @@ contains
                     beta_poly(j,k) = 1.0/(alpha_poly*abs(scp(j,k)) + 1.0)
                 end if
 
-                zbeta1 = (1.0 - beta_poly(j,k))/(re*beta_poly(j,k)*tpoly) ! = (nu_0 - nu_s)
+                zbeta1 = (1.0 - beta_poly(j,k))/(re*beta_poly(j,k)) ! = (nu_0 - nu_s)
 
                 qp11np(j,k) = zbeta1*str11np(j,k)
                 qp12np(j,k) = zbeta1*str12np(j,k)
