@@ -892,23 +892,15 @@ contains
     !---------------------------------------------------------------------!
     !                        Calculate Q-criterion                        !
     !---------------------------------------------------------------------!
+    ! If we want to find the maximum values of Q (or strain), we have to flip the signs of the array,
+    ! then find local minima and sort smallest to largest. The position vectors are rearranged acccordingly,
+    ! so that the indices of the most negative Q-criterion (after being flipped) are first, and so on. The
+    ! values inside Qmin are not important after determining the local minima, so they are not flipped back.
 
+    ! Calculate Q-criterion and store in Qcrit
     call calcQ(u11p3d,u21p3d,u31p3d,u12p3d,u22p3d,u32p3d,u13p3d,u23p3d,u33p3d,Qcrit)
-!    !$omp parallel do private(i,j,k,QQ) default(shared)
-!    do i = 1,nyp
-!        do j = 1,mz
-!            do k = 1,mx
-!                call calcQ(u11p3d(i,j,k),u21p3d(i,j,k),u31p3d(i,j,k),u12p3d(i,j,k),u22p3d(i,j,k), &
-!                               u32p3d(i,j,k),u13p3d(i,j,k),u23p3d(i,j,k),u33p3d(i,j,k),QQ)
-!!                QQ = sqrt(u11p3d(i,j,k)**2 + u22p3d(i,j,k)**2 + u33p3d(i,j,k)**2) ! Manually calculate strain rate magnitude
-!    
-!                Qcrit(i,j,k) = QQ
-!            end do
-!        end do
-!    end do
-!    !$omp end parallel do
 
-    ! Check for local (grid) min DO NOT PARALLELIZE (unless you use an entirely different algorithm)
+    ! Check for local (grid) min | DO NOT PARALLELIZE (unless you use an entirely different algorithm)
     Qcrit = -1.0*Qcrit ! Sort largest -> smallest
     cnt = 1
     do k = 2,mx-1
@@ -931,6 +923,7 @@ contains
         end do
     end do
 
+    ! Sort Qmin from smallest to largest (negative --> positive), and rearrange (x,y,z) vectors accordingly
     call Shell_Sort(Qmin,Qx,Qy,Qz)
 
     end subroutine findmaxQ
@@ -967,7 +960,7 @@ contains
         real    :: delxm,delzm
         real    :: sumens,TKE,SB,trS,scl_sum
         real    :: Lx,Ly,Lz
-        real    :: swirl_avg,beta_avg,volume
+        real    :: swirl_total,beta_avg,volume
     !---------------------------------------------------------------------!
    
     ! Common blocks
@@ -987,9 +980,9 @@ contains
         sumens = 0.0
         TKE = 0.0 
         SB = 0.0
-        swirl_avg = 0.0
+        swirl_total = 0.0
         beta_avg = 0.0
-        !$omp parallel do default(shared) private(i,j,k,Lx,Ly,Lz,trS) reduction(+:scl_sum,sumens,TKE,SB,swirl_avg,beta_avg) schedule(dynamic)
+        !$omp parallel do default(shared) private(i,j,k,Lx,Ly,Lz,trS) reduction(+:scl_sum,sumens,TKE,SB,swirl_total,beta_avg) schedule(dynamic)
         do k = 1,mx
             ! Calc x length
             if (k .eq. 1 .or. k .eq. mx) then
@@ -1026,7 +1019,7 @@ contains
 #ENDIF
 
                     ! Calculate averages for correlation
-                    swirl_avg = swirl_avg + swirl(i,j,k)*Lx*Ly*Lz
+                    swirl_total = swirl_total + swirl(i,j,k)*Lx*Ly*Lz
                     beta_avg  =  beta_avg + beta(i,j,k)*Lx*Ly*Lz
 
                 end do
@@ -1035,21 +1028,18 @@ contains
         !$omp end parallel do
 
         ! Finish computing averages and correlation
-        swirl_avg = swirl_avg/volume
         beta_avg = beta_avg/volume
-        SB = SB/(swirl_avg*(1.0 - beta_avg))
+        SB = SB/(swirl_total*(1.0 - beta_avg))
 
         ! Write data to output files - updated each time step        
         if (it .eq. irstrt) then
             open(73,file='outputs/enstrophy')
             open(74,file='outputs/TKE')
             open(75,file='outputs/swirl_beta')
-!            open(76,file='outputs/rms_scalar.dat')
         else
             open(73,file='outputs/enstrophy',position='append')
             open(74,file='outputs/TKE',position='append')
             open(75,file='outputs/swirl_beta',position='append')
-!            open(76,file='outputs/rms_scalar.dat',position='append')
         end if
         
         write(73,*) sumens
@@ -1058,12 +1048,6 @@ contains
         close(73)
         close(74)
         close(75) 
-
-        ! Ensure proper order
-!        do i = 1,nyp
-!            write(76,*) scl(i)
-!        end do
-        close(76)
 
     end subroutine writeoutputs
 #ENDIF    
