@@ -97,7 +97,7 @@ program generator
         print *,'Please enter the y-coordinate of the particle plane: '
         read *,yp 
 
-        if (yp .ne. 1.0) then
+        if (yp .ne. 0.0) then
             npx = npx/2
 		end if
 
@@ -120,8 +120,8 @@ program generator
             end do
         end do
 
-		if (yp .ne. 1.0) then
-			yp = yl - yp
+		if (yp .ne. 0.0) then
+			yp = -yp
 	        do k = 1,npz
 	            do i = 1,npx
 	                xp = (i-1)*(xl/npx)

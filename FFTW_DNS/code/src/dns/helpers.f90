@@ -454,18 +454,10 @@ contains
             end if
             do j = 1,mz
                 ! Calc z length
-                if (j .eq. 1 .or. j .eq. mz) then
-                    Lz = delzm/2.0
-                else
-                    Lz = delzm
-                end if
+                Lz = delzm
                 do k = 1,mx
                     ! Calc x length
-                    if (k .eq. 1 .or. k .eq. mx) then
-                        Lx = delxm/2.0
-                    else
-                        Lx = delxm
-                    end if
+                    Lx = delxm
 
                     total_scl = total_scl + scp(i,j,k)*Lx*Ly*Lz
                     avg_beta = avg_beta + beta(i,j,k)*Lx*Ly*Lz
@@ -626,22 +618,34 @@ contains
     
     ! Calculation variables
     integer :: i,j,k
+    real    :: tpolyinv
+
+    ! Polymer variables
+    real    :: alpha_poly,tpoly,zlmax,diffpoly,qbeta
+
+    !---------------------------------------------------------------------!
+    
+    ! =================================================================== !
+    !                            Common Blocks                            !
+    ! =================================================================== !
+    common/poly_var/  alpha_poly,tpoly,zlmax,diffpoly,qbeta
     !---------------------------------------------------------------------!
     
     ! =================================================================== !
     !                         Begin Calculations                          !
     ! =================================================================== !
     
+    tpolyinv = 1.0/tpoly
     !$omp parallel do default(shared) private(i,j,k) schedule(dynamic)
     do k = 1,nxh
         do j = 1,nz
             do i = 1,nyp
-                c11NL(i,j,k) = 3.0*(c11n(i,j,k) - str11n(i,j,k)) - (c11nm1(i,j,k) - str11nm1(i,j,k))
-                c12NL(i,j,k) = 3.0*(c12n(i,j,k) - str12n(i,j,k)) - (c12nm1(i,j,k) - str12nm1(i,j,k))
-                c13NL(i,j,k) = 3.0*(c13n(i,j,k) - str13n(i,j,k)) - (c13nm1(i,j,k) - str13nm1(i,j,k))
-                c22NL(i,j,k) = 3.0*(c22n(i,j,k) - str22n(i,j,k)) - (c22nm1(i,j,k) - str22nm1(i,j,k))
-                c23NL(i,j,k) = 3.0*(c23n(i,j,k) - str23n(i,j,k)) - (c23nm1(i,j,k) - str23nm1(i,j,k))
-                c33NL(i,j,k) = 3.0*(c33n(i,j,k) - str33n(i,j,k)) - (c33nm1(i,j,k) - str33nm1(i,j,k))
+                c11NL(i,j,k) = 3.0*(c11n(i,j,k) - tpolyinv*str11n(i,j,k)) - (c11nm1(i,j,k) - tpolyinv*str11nm1(i,j,k))
+                c12NL(i,j,k) = 3.0*(c12n(i,j,k) - tpolyinv*str12n(i,j,k)) - (c12nm1(i,j,k) - tpolyinv*str12nm1(i,j,k))
+                c13NL(i,j,k) = 3.0*(c13n(i,j,k) - tpolyinv*str13n(i,j,k)) - (c13nm1(i,j,k) - tpolyinv*str13nm1(i,j,k))
+                c22NL(i,j,k) = 3.0*(c22n(i,j,k) - tpolyinv*str22n(i,j,k)) - (c22nm1(i,j,k) - tpolyinv*str22nm1(i,j,k))
+                c23NL(i,j,k) = 3.0*(c23n(i,j,k) - tpolyinv*str23n(i,j,k)) - (c23nm1(i,j,k) - tpolyinv*str23nm1(i,j,k))
+                c33NL(i,j,k) = 3.0*(c33n(i,j,k) - tpolyinv*str33n(i,j,k)) - (c33nm1(i,j,k) - tpolyinv*str33nm1(i,j,k))
             end do
         end do
     end do
@@ -993,11 +997,7 @@ contains
 
             do j = 1,mz
                 ! Calc z length
-                if (j .eq. 1 .or. j .eq. mz) then
-                    Lz = delzm/2.0
-                else
-                    Lz = delzm
-                end if
+                Lz = delzm
        
                 do i = 1,nyp
                     ! Calc y length
@@ -1106,18 +1106,11 @@ contains
         end if
         do j = 1,mz
             ! Calc z length
-            if (j .eq. 1 .or. j .eq. mz) then
-                Lz = delzm/2.0
-            else
-                Lz = delzm
-            end if
+            Lz = delzm
+            
             do k = 1,mx
                 ! Calc x length
-                if (k .eq. 1 .or. k .eq. mx) then
-                    Lx = delxm/2.0
-                else
-                    Lx = delxm
-                end if
+                Lx = delxm
 
 !                area = area + Ly*Lz*Lx*max((swirl(i,j,k) - 10.0),0.0)/(swirl(i,j,k)-10.0) ! This is a goofy way to avoid an if statement, but it was fun to come up with
                 if (swirl(i,j,k) .ge. 10.0) then
