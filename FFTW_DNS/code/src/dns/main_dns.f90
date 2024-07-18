@@ -2269,8 +2269,7 @@ subroutine setpoly(scl,psource,wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,w
 
     
     ! Use initial particle data for scalar/source location(s)
-    !$omp parallel do reduction(+:scl) shared(wrk11,wrk12,wrk13, &
-    !$omp             wrk21,wrk22,wrk23,wrk31,wrk32,wrk33) schedule(dynamic)
+    !$omp parallel do default(private) reduction(+:scl) schedule(dynamic)
     do n = 1,npart
         xc1 = xpart(n)
         yc1 = ypart(n)
@@ -2288,18 +2287,6 @@ subroutine setpoly(scl,psource,wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,w
                 do i = 1,nyp
                     ysq = (ycoord(i) - yc1)**2
                     betay = ysq/(2.0*sigmay**2)
-
-                    ! Initialize Cij
-                    wrk11(i,j,k) = c11z
-                    wrk12(i,j,k) = 0.0
-                    wrk13(i,j,k) = 0.0
-                    wrk21(i,j,k) = 0.0
-                    wrk22(i,j,k) = c22z
-                    wrk23(i,j,k) = 0.0
-                    wrk31(i,j,k) = 0.0
-                    wrk32(i,j,k) = 0.0
-                    wrk33(i,j,k) = c33z
-
                     ! Initialize scalar
                     if (betax + betay + betaz .lt. 18.0) then
                         scl(i,j,k) = scl(i,j,k) + deltaT*exp(-(betax + betay + betaz))
@@ -2308,6 +2295,25 @@ subroutine setpoly(scl,psource,wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,w
                 end if
             end do
             end if
+        end do
+    end do
+    !$omp end parallel do
+
+    ! Initialize Cij
+    !$omp parallel do default(shared) private(i,j,k)
+    do k = 1,nx
+        do j = 1,nz
+            do i = 1,nyp
+                wrk11(i,j,k) = c11z
+                wrk12(i,j,k) = 0.0
+                wrk13(i,j,k) = 0.0
+                wrk21(i,j,k) = 0.0
+                wrk22(i,j,k) = c22z
+                wrk23(i,j,k) = 0.0
+                wrk31(i,j,k) = 0.0
+                wrk32(i,j,k) = 0.0
+                wrk33(i,j,k) = c33z
+            end do
         end do
     end do
     !$omp end parallel do
