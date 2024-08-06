@@ -1,6 +1,6 @@
 #COMP := ifx
 COMP := ifort
-LIB := -L$(TACC_FFTW3_LIB) -lfftw3 -lfftw3f -lm -L$(TECPLOT_360_LIB) -lirc -ltecio
+LIB := -L$(TACC_FFTW3_LIB) -lfftw3 -lm -L$(TECPLOT_360_LIB) -lirc -ltecio
 INC := -I$(TACC_FFTW3_INC) -I$(TECPLOT_360_INCLUDE) -DOUTPUTFORM=3
 #FLAGS := -r8 -fr -fpp -132 -O1 -qmkl -parallel -unroll -shared-intel -fp-model fast=2
 FLAGS := -r8 -fr -fpp -132 -O1 -qmkl -parallel -march=native -mtune=native -axicelake-client -unroll -shared-intel -mcmodel=medium
