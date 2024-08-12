@@ -1695,4 +1695,97 @@ contains
         close(124)
     end subroutine write_FTLE_output
 
+
+    !---------------------------------------------------------------------!
+    
+    subroutine calc_WSS(u12,u21,u13,u31,u23,u32 &
+#IFDEF POLYMER
+                        ,p12,p21,p13,p31,p23,p32 &
+#ENDIF
+                        )
+
+        use grid_size
+        use omp_lib
+
+        implicit none
+
+        real,dimension(nyp,mz,mx) :: u12,u21,u13,u31,u23,u32
+#IFDEF POLYMER
+        real,dimension(nyp,mz,mx) :: p12,p21,p13,p31,p23,p32
+        real :: s_tw,s_bw,tpss,bpss
+#ENDIF
+        real :: tau_tw,tau_bw,twss,bwss
+
+        ! Common block variables
+        integer :: irstrt
+        integer :: it 
+        real    :: xl,yl,zl
+        real    :: re
+
+        integer :: j,k
+
+        ! Common blocks
+        common/iocontrl/   irstrt
+        common/itime/      it
+        common/domain/     xl,yl,zl
+        common/flow/       re
+     
+
+        ! Begin Calculations
+        tau_tw = 0.0
+        tau_bw = 0.0
+#IFDEF POLYMER
+        s_tw = 0.0
+        s_bw = 0.0
+        !$omp parallel do reduction(+:tau_tw,tau_bw,s_tw,s_bw) default(shared) private(j,k,twss,bwss,tpss,bpss)
+#ELSE
+        !$omp parallel do reduction(+:tau_tw,tau_bw) default(shared) private(j,k,twss,bwss)
+#ENDIF
+        do k = 1,mx
+            do j = 1,mz
+                twss = u12(1,j,k)   + u21(1,j,k)   + u13(1,j,k)   + u31(1,j,k)   + u23(1,j,k)   + u32(1,j,k)
+                bwss = u12(nyp,j,k) + u21(nyp,j,k) + u13(nyp,j,k) + u31(nyp,j,k) + u23(nyp,j,k) + u32(nyp,j,k)
+
+                tau_tw = tau_tw + twss/re
+                tau_bw = tau_bw + bwss/re
+#IFDEF POLYMER
+                tpss = p12(1,j,k)   + p21(1,j,k)   + p13(1,j,k)   + p31(1,j,k)   + p23(1,j,k)   + p32(1,j,k)
+                bpss = p12(nyp,j,k) + p21(nyp,j,k) + p13(nyp,j,k) + p31(nyp,j,k) + p23(nyp,j,k) + p32(nyp,j,k)
+
+                s_tw = s_tw + tpss/re
+                s_bw = s_bw + bpss/re
+#ENDIF
+            end do
+        end do
+        !$omp end parallel do                
+
+        if (it .eq. irstrt) then
+            open(101,file='outputs/twss')
+            open(102,file='outputs/bwss')
+        else
+            open(101,file='outputs/twss',position='append')
+            open(102,file='outputs/bwss',position='append')
+        end if
+
+        write(101,*) tau_tw/(mx*mz)
+        write(102,*) tau_bw/(mx*mz)
+        close(101)
+        close(102)
+
+#IFDEF POLYMER
+        if (it .eq. irstrt) then
+            open(103,file='outputs/tpss')
+            open(104,file='outputs/bpss')
+        else
+            open(103,file='outputs/tpss',position='append')
+            open(104,file='outputs/bpss',position='append')
+        end if
+
+        write(103,*) s_tw/(mx*mz)
+        write(104,*) s_bw/(mx*mz)
+        close(103)
+        close(104)
+
+#ENDIF
+    end subroutine calc_WSS
 end module helpers
