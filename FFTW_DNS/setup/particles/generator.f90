@@ -221,8 +221,7 @@ program generator
             
             else if (new_part .eq. 3) then ! Circle
     
-    !            theta = 2*pi*float(j)/float(npart)
-                theta = pi/2.0
+                theta = 2*pi*float(j)/float(npart)
                 xp = xc + 4*L
                 yp = yc + 0.25*rad*sin(theta)
                 zp = zc + 0.25*rad*cos(theta)
