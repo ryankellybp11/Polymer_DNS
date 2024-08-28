@@ -1792,7 +1792,7 @@ contains
 
     complex, dimension(nyp,nz,nxh) :: qp11,qp12,qp13,qp22,qp23,qp33
     real,    dimension(mz,mx)      :: beta_poly
-    real,    dimension(nyp,mz,mx)  :: beta3d
+    real,    dimension(nyp,mz,mx)  :: beta3d,p12
 #ENDIF
    
     ! FFT complex arrays 
@@ -3134,6 +3134,7 @@ contains
 #ENDIF
 #IFDEF POLYMER
         beta3d(i,:,:) = beta_poly
+        p12(i,:,:) = qp12np
 #ENDIF
         
         !---------------------------------------------------------------------!
@@ -3537,7 +3538,13 @@ contains
     ! Calculate correlation between beta and vortex structure (swirl/Q)
 !    call correlate_vars(beta_poly,swirl_3d,it)
 #ENDIF
- 
+
+    ! Calculate stresses - WSS + Reynolds stresses
+    call calc_stress(uxmean,up3d,vp3d,wp3d,u12p3d &
+#IFDEF POLYMER
+                 ,p12 &
+#ENDIF
+                 )
     !---------------------------------------------------------------------!
     !               Check for numerical instabilities                     !
     !---------------------------------------------------------------------!

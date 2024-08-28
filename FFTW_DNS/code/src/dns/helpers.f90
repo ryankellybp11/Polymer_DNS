@@ -1698,9 +1698,9 @@ contains
 
     !---------------------------------------------------------------------!
     
-    subroutine calc_WSS(u12,u21,u13,u31,u23,u32 &
+    subroutine calc_stress(umean,u,v,w,u12 &
 #IFDEF POLYMER
-                        ,p12,p21,p13,p31,p23,p32 &
+                        ,p12 &
 #ENDIF
                         )
 
@@ -1709,20 +1709,22 @@ contains
 
         implicit none
 
-        real,dimension(nyp,mz,mx) :: u12,u21,u13,u31,u23,u32
+        real,dimension(nyp)       :: umean
+        real,dimension(nyp,mz,mx) :: u,v,w,u12,up,vp,wp
 #IFDEF POLYMER
-        real,dimension(nyp,mz,mx) :: p12,p21,p13,p31,p23,p32
+        real,dimension(nyp,mz,mx) :: p12
         real :: s_tw,s_bw,tpss,bpss
 #ENDIF
         real :: tau_tw,tau_bw,twss,bwss
 
+        real :: R11, R12, R13, R22, R23, R33 ! Reynolds stresses (symmetric tensor)
         ! Common block variables
         integer :: irstrt
         integer :: it 
         real    :: xl,yl,zl
         real    :: re
 
-        integer :: j,k
+        integer :: i,j,k
 
         ! Common blocks
         common/iocontrl/   irstrt
@@ -1732,6 +1734,44 @@ contains
      
 
         ! Begin Calculations
+        ! Calculate fluctuating velocities
+        !$omp parallel do
+        do k = 1,mx
+            do j = 1,mz 
+                do i = 1,nyp
+                    up(i,j,k) = u(i,j,k) - umean(i)
+                    vp(i,j,k) = v(i,j,k)
+                    wp(i,j,k) = w(i,j,k)
+                end do
+            end do
+        end do
+        !$omp end parallel do
+
+        ! Average values to calculate stress terms
+        R11 = 0.0; R12 = 0.0; R13 = 0.0
+        R22 = 0.0; R23 = 0.0; R33 = 0.0
+        !$omp parallel do default(shared) reduction(+:R11,R12,R13,R22,R23,R33) private(i,j,k) collapse(3)
+        do k = 1,mx
+            do j = 1,mz 
+                do i = 1,nyp
+                    R11 = R11 + up(i,j,k)*up(i,j,k)
+                    R12 = R12 + up(i,j,k)*vp(i,j,k)
+                    R13 = R13 + up(i,j,k)*wp(i,j,k)
+                    R22 = R22 + vp(i,j,k)*vp(i,j,k)
+                    R23 = R23 + vp(i,j,k)*wp(i,j,k)
+                    R33 = R33 + wp(i,j,k)*wp(i,j,k)
+                end do
+            end do
+        end do
+        !$omp end parallel do
+
+        R11 = R11/(mx*mz*nyp)
+        R12 = R12/(mx*mz*nyp)
+        R13 = R13/(mx*mz*nyp)
+        R22 = R22/(mx*mz*nyp)
+        R23 = R23/(mx*mz*nyp)
+        R33 = R33/(mx*mz*nyp)
+
         tau_tw = 0.0
         tau_bw = 0.0
 #IFDEF POLYMER
@@ -1743,32 +1783,36 @@ contains
 #ENDIF
         do k = 1,mx
             do j = 1,mz
-                twss = u12(1,j,k)   + u21(1,j,k)   + u13(1,j,k)   + u31(1,j,k)   + u23(1,j,k)   + u32(1,j,k)
-                bwss = u12(nyp,j,k) + u21(nyp,j,k) + u13(nyp,j,k) + u31(nyp,j,k) + u23(nyp,j,k) + u32(nyp,j,k)
+                twss = u12(1,j,k)
+                bwss = u12(nyp,j,k)
 
                 tau_tw = tau_tw + twss/re
                 tau_bw = tau_bw + bwss/re
 #IFDEF POLYMER
-                tpss = p12(1,j,k)   + p21(1,j,k)   + p13(1,j,k)   + p31(1,j,k)   + p23(1,j,k)   + p32(1,j,k)
-                bpss = p12(nyp,j,k) + p21(nyp,j,k) + p13(nyp,j,k) + p31(nyp,j,k) + p23(nyp,j,k) + p32(nyp,j,k)
+                tpss = p12(1,j,k) 
+                bpss = p12(nyp,j,k) 
 
-                s_tw = s_tw + tpss/re
-                s_bw = s_bw + bpss/re
+                s_tw = s_tw + tpss
+                s_bw = s_bw + bpss
 #ENDIF
             end do
         end do
         !$omp end parallel do                
 
         if (it .eq. irstrt) then
+            open(11,file='outputs/Rey_stress',status='new')
             open(101,file='outputs/twss')
             open(102,file='outputs/bwss')
         else
+            open(11,file='outputs/Rey_stress',status='old',position='append')
             open(101,file='outputs/twss',position='append')
             open(102,file='outputs/bwss',position='append')
         end if
 
-        write(101,*) tau_tw/(mx*mz)
-        write(102,*) tau_bw/(mx*mz)
+        write(11,*) R11,R12,R13,R22,R23,R33
+        write(101,*) tau_tw/(mx*mz) - R12
+        write(102,*) tau_bw/(mx*mz) - R12
+        close(11)
         close(101)
         close(102)
 
@@ -1787,5 +1831,5 @@ contains
         close(104)
 
 #ENDIF
-    end subroutine calc_WSS
+    end subroutine calc_stress
 end module helpers
