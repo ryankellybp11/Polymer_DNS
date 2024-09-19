@@ -60,7 +60,9 @@ print('       Done!\n')
 print('    2. Generating geometry file... ')
 
 os.chdir('code/bin/geometry/')
+compiler = ['ifort']
 comp_out, comp_err = subprocess.Popen(compiler + ['-g', '-traceback','../../src/dns/grid_size.f90', '../../src/geometry/Geom.f90', '-o', 'Geom'], stdout = subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+compiler = ['mpiifort']
 # os.chmod 755 'Geom'
 exec_err = subprocess.call('./Geom', stderr=subprocess.PIPE)
 

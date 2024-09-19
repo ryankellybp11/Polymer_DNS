@@ -2504,19 +2504,19 @@ contains
 !    end if
     
     ! Compute mass flux: Integrate <U> over y
-    if (irstrt .eq. it) then
-        open(72,file='outputs/mass_flux')
-    else
-        open(72,file='outputs/mass_flux',position='append')
-    end if
-    
-    massFlux = 0.0
-    do i = 1,ny
-        massFlux = massFlux + 1.0/yl*0.5*(uzmean(i+1) + uzmean(i))*(ycoord(i+1) - ycoord(i)) ! Bulk velocity
-    end do
-    
-    write(72,*) massFlux
-    close(72)
+!    if (irstrt .eq. it) then
+!        open(72,file='outputs/mass_flux')
+!    else
+!        open(72,file='outputs/mass_flux',position='append')
+!    end if
+!    
+!    massFlux = 0.0
+!    do i = 1,ny
+!        massFlux = massFlux + 1.0/yl*0.5*(uzmean(i+1) + uzmean(i))*(ycoord(i+1) - ycoord(i)) ! Bulk velocity
+!    end do
+!    
+!    write(72,*) massFlux
+!    close(72)
     
     ! Compute average KE and Enstrophy for Vortex Ring
     if (mod(flow_select,5) .eq. 0) then
@@ -2687,6 +2687,16 @@ contains
     real, dimension(mzp,mxp2)  :: dc231p, dc232p, dc233p
     real, dimension(mzp,mxp2)  :: dc331p, dc332p, dc333p
 
+!    ! Enstrophy equation variables
+!    real, dimension(nyp,mz,mx) :: trp3d,df1,df2,df11,df12,df22,coeff
+!    real, dimension(nyp,mz,mx) :: zbeta3d,dnu1,dnu2
+!    real, dimension(nyp,mz,mx) :: c11p3d,c12p3d,c22p3d
+!    real, dimension(nyp,mz,mx) :: dc111p3d,dc112p3d
+!    real, dimension(nyp,mz,mx) :: dc121p3d,dc122p3d
+!    real, dimension(nyp,mz,mx) :: dc221p3d,dc222p3d
+!    real, dimension(nyp,mz,mx) :: dc1112,dc1222,dc1211,dc2212
+
+
     real, dimension(mzp,mxp2)  :: c11np,c12np,c13np
     real, dimension(mzp,mxp2)  :: c22np,c23np,c33np
     
@@ -2809,10 +2819,10 @@ contains
    
  
     pi = 2.0*acos(0.0)
-    delx = xl/float(nx-1)
-    delz = zl/float(nz-1)
-    delxm = xl/float(mx-1)
-    delzm = zl/float(mz-1)
+    delx = xl/float(nx)
+    delz = zl/float(nz)
+    delxm = xl/float(mx)
+    delzm = zl/float(mz)
     
     cfl = 0.0
     cflmax = 0.0
@@ -2859,7 +2869,7 @@ contains
     !---------------------------------------------------------------------!
     !         Calculate (u x omega), iterating over y-planes              !
     !---------------------------------------------------------------------!
-    
+   
     !$omp parallel do default(shared) private(i,j,k,ii,i1,i2,ipii,idif,jj,   &
     !$omp    jpjj,jdif,segdrag,xsegdrag,ysegdrag,zsegdrag,cflcheck,          &
     !$omp    up,vp,wp,wx,wy,wz,vwx,vwy,vwz,dragx,dragy,dragz,wrk,inc,isgn,   &
@@ -3563,8 +3573,33 @@ contains
                     beta_poly(j,i) = 1.0
                 end if
 
-                zbeta1 = (1.0 - beta_poly(j,i))/(re*beta_poly(j,i)*tpoly) ! = (nu_0 - nu_s)
+                zbeta1 = (1.0 - beta_poly(j,i))/(re*beta_poly(j,i)*tpoly) ! = (nu_0 - nu_s)/lambda
 
+    !---------------------------------------------------------------------!
+!                ! Calculate terms for enstrophy dissipation
+!                coeff(k,j,i) = wx(j,i)*zbeta1
+!                
+!
+!                ! Save as 3D variables for writing
+!                zbeta3d(k,j,i) = zbeta1*tpoly
+!
+!                ! Cij tensor physical terms
+!                 trp3d(k,j,i) = trp(j,i)
+!                c11p3d(k,j,i) = c11p(j,i)
+!                c12p3d(k,j,i) = c12p(j,i)
+!                c22p3d(k,j,i) = c22p(j,i)
+!                
+!                ! d(Cij) tensor physical terms
+!                dc111p3d(k,j,i) = dc111p(j,i)
+!                dc112p3d(k,j,i) = dc112p(j,i)
+!                dc121p3d(k,j,i) = dc121p(j,i)
+!                dc122p3d(k,j,i) = dc122p(j,i)
+!                dc221p3d(k,j,i) = dc221p(j,i)
+!                dc222p3d(k,j,i) = dc222p(j,i)
+!                
+    !---------------------------------------------------------------------!
+
+                ! Polymer stress
                 qp11np(j,i) = zbeta1*str11np(j,i)
                 qp12np(j,i) = zbeta1*str12np(j,i)
                 qp13np(j,i) = zbeta1*str13np(j,i)
@@ -4028,33 +4063,21 @@ contains
         sumens = 0.0
         KE = 0.0
         scl_total = 0.0
-    
+   
+        Lx = delxm; Lz = delzm 
         do i = 1,nyp
             ! Calc y length
-            if (i .eq. 1) then
-                Ly = (ycoord(2) - ycoord(1))/2.0
-            else if (i .eq. nyp) then
-                Ly = (ycoord(nyp) - ycoord(ny))/2.0
-            else
-                Ly = (ycoord(i+1) - ycoord(i))/2.0 + (ycoord(i) - ycoord(i-1))/2.0
-            end if
+            Ly = seght(i)
+!            if (i .eq. 1) then
+!                Ly = (ycoord(2) - ycoord(1))/2.0
+!            else if (i .eq. nyp) then
+!                Ly = (ycoord(nyp) - ycoord(ny))/2.0
+!            else
+!                Ly = (ycoord(i+1) - ycoord(i))/2.0 + (ycoord(i) - ycoord(i-1))/2.0
+!            end if
     
             do j = 1,mz
-                ! Calc z length
-                if (j .eq. 1 .or. j .eq. mz) then
-                    Lz = delzm/2.0
-                else
-                    Lz = delzm
-                end if
-    
                 do k = 1,mx
-                    ! Calc x length
-                    if (k .eq. 1 .or. k .eq. mx) then
-                        Lx = delxm/2.0
-                    else
-                        Lx = delxm
-                    end if
-    
                     sumens = sumens + (wx3d(i,j,k)**2 + wy3d(i,j,k)**2 + wz3d(i,j,k)**2)*Lx*Ly*Lz
                     KE = KE + 0.5*(up3d(i,j,k)**2 + vp3d(i,j,k)**2 + wp3d(i,j,k)**2)*Lx*Ly*Lz
                     scl_total = scl_total + scp3d(i,j,k)*Lx*Ly*Lz
@@ -4090,7 +4113,23 @@ contains
 !    if (scl_flag .eq. 2 .and. it .le. src_stop .and. it .ge. src_start) then
         call calc_total_beta(it,delxm,delzm,scp3d,beta3d)
 !    end if
- 
+
+!    ! Calculate enstrophy equation terms
+!    if (ipeter .eq. 1) then
+!        ! First calculate necessary derivatives 
+!        call calc_f_derivatives(trp3d,df1,df2,df11,df12,df22,    &
+!                                zbeta3d,dnu1,dnu2,               &
+!                                dc121p3d,dc1211,dc221p3d,dc2212, &
+!                                dc111p3d,dc1112,dc122p3d,dc1222)
+!
+!        ! Calculate enstrophy terms
+!!        call calc_ens_terms(coeff,df1,df2,df11,df12,df22, &
+!!                            trp3d,c11p3d,c12p3d,c22p3d,   &
+!!                            dc111p3d,dc112p3d,dc121p3d,   &
+!!                            dc122p3d,dc221p3d,dc222p3d,   &
+!!                            dc1112,dc1222,dc1211,dc2212)
+!    end if
+
     !---------------------------------------------------------------------!
     !               Check for numerical instabilities                     !
     !---------------------------------------------------------------------!

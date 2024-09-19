@@ -49,7 +49,7 @@ program dns
     complex, dimension(nyp,nz,nxh) :: str11n,str12n,str13n,str22n,str23n,str33n
     complex, dimension(nyp,nz,nxh) :: str11nm1,str12nm1,str13nm1,str22nm1,str23nm1,str33nm1
     complex, dimension(nyp,nz,nxh) :: qp11,qp12,qp13,qp22,qp23,qp33
-    complex, dimension(nyp,nz,nxh) :: t1,t2,t3
+    complex, dimension(nyp,nz,nxh) :: t1,t2,t3,Fpx,Fpy,Fpz
 
     real :: alpha_poly,tpoly,zlmax,diffpoly,qbeta
     real :: atp,btp,abp,bbp
@@ -93,7 +93,8 @@ program dns
     real, dimension(mz2,mx2)   :: fspread
 
     ! temp
-    real :: nsmth
+    real    :: nsmth
+    complex :: im
 
     ! MPI Variables
     integer :: nproc,rank,ierr
@@ -880,30 +881,43 @@ program dns
             call norm(t3)
             call subforce(gn,fn,omz,t1,t2,t3)
 
+            im = (0.0,1.0) ! imaginary number, i
+            ! Calc curl of polymer force - only need x-component = dfy/dz - dfz/dy
+            call cderiv(t3,wrk1) ! dfz/dy
+            do k = 1,nxh
+                do j = 1,nz
+                    do i = 1,nyp
+                        wrkc(i,j,k) = im*wavz(j)*t2(i,j,k) - wrk1(i,j,k) ! dfy/dz - dfz/dy
+                    end do
+                end do
+            end do
 
-         if (it .eq. (src_start-1) .or. it .eq. irstrt .and. crstrt .eq. 0) then
-         ! Set (n-1) terms equal to current terms for explicit time integration - Ryan 9/27/22
-         !$omp parallel do
-         do k=1,nxh
-            do j=1,nz
-                 do i=1,nyp
-                    c11nm1(i,j,k)   = c11n(i,j,k)
-                    c12nm1(i,j,k)   = c12n(i,j,k)
-                    c13nm1(i,j,k)   = c13n(i,j,k)
-                    c22nm1(i,j,k)   = c22n(i,j,k)
-                    c23nm1(i,j,k)   = c23n(i,j,k)
-                    c33nm1(i,j,k)   = c33n(i,j,k)
-                    str11nm1(i,j,k) = str11n(i,j,k)
-                    str12nm1(i,j,k) = str12n(i,j,k)
-                    str13nm1(i,j,k) = str13n(i,j,k)
-                    str22nm1(i,j,k) = str22n(i,j,k)
-                    str23nm1(i,j,k) = str23n(i,j,k)
-                    str33nm1(i,j,k) = str33n(i,j,k)
-                 enddo
-             enddo
-         enddo
-         !$omp end parallel do
-         end if
+            ! Calculate enstrophy terms
+            call calc_enstrophy_terms(omx,wrkc,rank)
+
+            if (it .eq. (src_start-1) .or. it .eq. irstrt .and. crstrt .eq. 0) then
+            ! Set (n-1) terms equal to current terms for explicit time integration - Ryan 9/27/22
+            !$omp parallel do
+            do k=1,nxh
+               do j=1,nz
+                    do i=1,nyp
+                       c11nm1(i,j,k)   = c11n(i,j,k)
+                       c12nm1(i,j,k)   = c12n(i,j,k)
+                       c13nm1(i,j,k)   = c13n(i,j,k)
+                       c22nm1(i,j,k)   = c22n(i,j,k)
+                       c23nm1(i,j,k)   = c23n(i,j,k)
+                       c33nm1(i,j,k)   = c33n(i,j,k)
+                       str11nm1(i,j,k) = str11n(i,j,k)
+                       str12nm1(i,j,k) = str12n(i,j,k)
+                       str13nm1(i,j,k) = str13n(i,j,k)
+                       str22nm1(i,j,k) = str22n(i,j,k)
+                       str23nm1(i,j,k) = str23n(i,j,k)
+                       str33nm1(i,j,k) = str33n(i,j,k)
+                    enddo
+                enddo
+            enddo
+            !$omp end parallel do
+            end if
         end if
 
         ! -------------------------------------------------------------------- !
@@ -2522,7 +2536,7 @@ subroutine setpoly(scl,psource,wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,w
     if (scl_flag .eq. 1) then
         xc1 = 0.0
         yc1 = vortY + vR
-        zc1 = vortZ 
+        zc1 = vortZ
         do k = 1,nx
             xcor = xl*(float(k-1)/float(nx))
             xsq  = (xcor - xc1)**2
@@ -2547,7 +2561,7 @@ subroutine setpoly(scl,psource,wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,w
                     wrk33(i,j,k) = c33z
     
                     ! Initialize scalar
-                    if (scl_flag .eq. 1) then
+                    if (scl_flag .eq. 1 .and. (betax + betay + betaz) .lt. 18.0) then
                         scl(i,j,k) = deltaT*exp(-(betax + betay + betaz))
                     else if (scl_flag .eq. 2) then  
                         if (src_start .eq. 0) then
@@ -2874,11 +2888,19 @@ subroutine write_flowfield_plt(u, v, w, wx, wy, wz, swirl, ctp, scl,rank)
     floatValues = pack(wx(:,1:mz_copy,1:mx_copy),.true.)
     i = tecZoneVarWriteFloatValues(FH,zone,4,1,numValues,floatValues) 
 
-    ! Write scalar/beta
-    floatValues = pack(scl(:,1:mz_copy,1:mx_copy), .true.)
+    ! Write wy
+    floatValues = pack(wy(:,1:mz_copy,1:mx_copy),.true.)
+    i = tecZoneVarWriteFloatValues(FH,zone,4,1,numValues,floatValues) 
+
+    ! Write wz
+    floatValues = pack(wz(:,1:mz_copy,1:mx_copy),.true.)
+    i = tecZoneVarWriteFloatValues(FH,zone,4,1,numValues,floatValues) 
+
+    ! Write beta
+    floatValues = pack(scl(:,1:mz_copy,1:mx_copy),.true.)
     i = tecZoneVarWriteFloatValues(FH,zone,5,1,numValues,floatValues) 
-    
-    ! Close file
+
+
     i = tecFileWriterClose(FH)
     i = tecFileWriterClose(gridFH)
 

@@ -1474,7 +1474,6 @@ contains
 
     end subroutine calcEnergySpectrum
 
-
     !---------------------------------------------------------------------!
 
     subroutine calcEnergySpectrum3(u,v,w,smth_flag)
@@ -1573,5 +1572,169 @@ contains
     end if
 
     end subroutine calcEnergySpectrum3
+
+    !---------------------------------------------------------------------!
+
+    subroutine calc_enstrophy_terms(omx,torqx,rank)
+
+    use grid_size
+    use omp_lib
+    use derivs
+        
+    implicit none
+
+    ! Input variables
+    complex, dimension(nyp,nz,nxh) :: omx,torqx,domxdy,domxdz
+
+    ! Calculation variables
+    integer :: i,j,k,k1,k2,jj,is,inc,isgn,jump,lot,n
+    real    :: poly_ens,flow_ens,Lx,Ly,Lz
+    complex :: im = (0.0,1.0)
+
+    ! Physical Space Variables
+    real, dimension(mzp,mxp2) :: tx,wx,dwxdy,dwxdz,wrk
+
+
+    ! FFT Variables
+    real, dimension(nmax) :: wfft1,wfft2,wfft3,wfft4 
+    real :: trigx(2*nx),trigz(2*nz),trigy(2*ny),sine(ny),cosine(ny)
+    integer, dimension(19) :: ixfax,iyfax,izfax,ixfax32,izfax32
+    real, dimension(16000) :: trigx32
+    real, dimension(4000)  :: trigz32 
+
+    integer :: rank   
+    character(10) :: syscommand
+
+    ! Common Blocks
+    integer :: irstrt
+    real    :: xl,yl,zl 
+    real    :: wavx(nxh),wavz(nz) 
+    real    :: c(nyp)
+    real    :: re
+    integer :: it
+    real    :: dt
+
+    common/iocontrl/ irstrt
+    common/domain/   xl,yl,zl
+    common/waves/    wavx,wavz,c
+    common/trig/     trigx,trigy,trigz,sine,cosine,trigx32,trigz32
+    common/ifax/     ixfax,iyfax,izfax,ixfax32,izfax32
+    common/flow/     re
+    common/itime/    it,dt
+
+    !! Begin Calculations !!
+    ! Compute vorticity derivatives
+    call cderiv(omx,domxdy) ! d(wx)/dy
+
+    do k = 1,nxh
+        do j = 1,nz
+            do i = 1,nyp
+                domxdz(i,j,k) = im*wavz(j)*omx(i,j,k) ! d(wx)/dz
+            end do
+        end do
+    end do
+
+    ! Convert variables to physical space for manipulation
+    is = 1
+  
+    ! c2c y-transform 
+    call yfft(omx,wfft1,wfft2,wfft3,wfft4,is)
+    call yfft(domxdy,wfft1,wfft2,wfft3,wfft4,is)
+    call yfft(domxdz,wfft1,wfft2,wfft3,wfft4,is)
+    call yfft(torqx,wfft1,wfft2,wfft3,wfft4,is)
+
+    poly_ens = 0.0; flow_ens = 0.0
+
+    !$omp parallel do default(shared) private(i,j,k,k1,k2,jj,inc,isgn,jump,lot,Lx,Ly,Lz, &
+    !$omp   wx,dwxdy,dwxdz,tx,wrk) reduction(+:flow_ens,poly_ens) schedule(auto)
+    do i = 1,nyp
+        do k = 1,mxp2
+            do j = 1,mzp
+                wx(j,k)    = 0.0
+                dwxdy(j,k) = 0.0
+                dwxdz(j,k) = 0.0
+                tx(j,k)    = 0.0
+            end do
+        end do
+
+        do k = 1,nxh
+            k1 = 2*(k-1) + 1
+            k2 = 2*k
+            do j = 1,nz
+                if (j .le. nzh) jj = j
+                if (j .gt. nzh) jj = (mz-nz) + j
+
+                wx(jj,k1) =  real(omx(i,j,k))
+                wx(jj,k2) = aimag(omx(i,j,k))
+                dwxdy(jj,k1) =  real(domxdy(i,j,k))
+                dwxdy(jj,k2) = aimag(domxdy(i,j,k))
+                dwxdz(jj,k1) =  real(domxdz(i,j,k))
+                dwxdz(jj,k2) = aimag(domxdz(i,j,k))
+                tx(jj,k1) =  real(torqx(i,j,k))
+                tx(jj,k2) = aimag(torqx(i,j,k))
+            end do
+        end do
+
+        ! c2r split DFT (z-direction)
+        inc  = 1
+        isgn = 1
+        jump = 2*mzp
+        lot  = nx/2
+    
+        call cfftmlt(wx(1,1),wx(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+        call cfftmlt(dwxdy(1,1),dwxdy(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+        call cfftmlt(dwxdz(1,1),dwxdz(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+        
+        call cfftmlt(tx(1,1),tx(1,2),wrk,trigz32,izfax32,inc,jump,mz,lot,isgn)
+
+        do j = 1,mz
+            wx(j,nxp) = wx(j,2)        
+            dwxdy(j,nxp) = dwxdy(j,2)        
+            dwxdz(j,nxp) = dwxdz(j,2)        
+            tx(j,nxp) = tx(j,2)        
+
+            wx(j,2) = 0.0
+            dwxdy(j,2) = 0.0
+            dwxdz(j,2) = 0.0
+            tx(j,2) = 0.0
+        end do
+
+        ! r2r DFT (x-direction)
+        isgn = 1
+        inc  = mzp
+        jump = 1
+        lot  = mz
+    
+        call rfftmlt(wx,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+        call rfftmlt(dwxdy,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+        call rfftmlt(dwxdz,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+        call rfftmlt(tx,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
+
+        ! Perform physical space calculations
+        Lx = xl/mx
+        Ly = seght(i)
+        Lz = zl/mz
+        do k = 1,mx
+            do j = 1,mz
+                poly_ens = poly_ens + wx(j,k)*tx(j,k)*Lx*Ly*Lz
+                flow_ens = flow_ens - (1.0/re)*(dwxdy(j,k)**2 + dwxdz(j,k)**2)*Lx*Ly*Lz
+            end do
+        end do
+
+    end do
+    !$omp end parallel do
+
+    ! Write outputs to file
+    write(syscommand,'("outputs",i2.2,"/")') rank
+    if (it .eq. irstrt) then
+        open(171,file=syscommand//'dEdt')
+    else
+        open(171,file=syscommand//'dEdt',position = 'append')
+    end if
+
+    write(171,*) flow_ens*dt/(zl*yl),poly_ens*dt/(zl*yl)
+    close(171)
+
+    end subroutine calc_enstrophy_terms
 
 end module helpers

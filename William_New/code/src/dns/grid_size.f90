@@ -1,5 +1,5 @@
 module grid_size
-    integer, parameter :: nx_ = 8, ny_ = 256, nz_ = 256, bftail_ = 0, npart = 0, nmax_ = 262144 
+    integer, parameter :: nx_ = 128, ny_ = 64, nz_ = 4, bftail_ = 0, npart = 1, nmax_ = 32768 
     integer, parameter :: ny = ny_
     integer, parameter :: nz = nz_
     integer, parameter :: nx = nx_ 

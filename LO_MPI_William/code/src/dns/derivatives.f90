@@ -695,6 +695,184 @@ contains
     df(1) = 0.5*df(1)
     
     end subroutine cderiv1d
+    
+    !---------------------------------------------------------------------!
+    
+    subroutine calc_f_derivatives(trp,df1,df2,df11,df12,df22, &
+                                  zbeta,dnu1,dnu2,            &
+                                  dc121,dc1211,dc221,dc2212,  &
+                                  dc111,dc1112,dc122,dc1222)
+
+    use grid_size
+
+    implicit none
+
+    ! Input variables
+    real, dimension(nyp,mz,mx) :: trp,zbeta,dc121,dc221,dc111,dc122
+
+    ! Output variables
+    real, dimension(nyp,mz,mx) :: df1,df2,df11,df12,df22,dnu1,dnu2
+    real, dimension(nyp,mz,mx) :: dc1211,dc2212,dc1112,dc1222,dummy
+
+    ! Calculation variables
+    real, dimension(nyp,mz,mx)  :: fp
+    integer :: i,j,k
+
+    ! Common Blocks
+    real    :: alpha_poly,tpoly,zlmax
+
+
+    common/poly_var/   alpha_poly,tpoly,zlmax
+
+    ! Begin Calculations
+
+    ! Calculate peterlin function
+    do k = 1,mx
+        do j = 1,mz
+            do i = 1,nyp
+                fp(i,j,k) = ((zlmax**2 - 3.0)/(zlmax**2 - trp(i,j,k)))
+            end do
+        end do
+    end do
+
+    ! Calculate first derivatives of peterlin function
+    call FDF1(fp,df1,df2)        ! Finite Difference first derivatives
+    call FDF2(fp,df11,df12,df22) ! Finite Difference second derivatives
+    
+
+    ! Calculate derivatives of d(Cij) tensor
+    call FDF1(dc111,dummy,dc1112)
+    call FDF1(dc121,dc1211,dummy)
+    call FDF1(dc122,dummy,dc1222)
+    call FDF1(dc221,dummy,dc2212)
+
+
+    end subroutine calc_f_derivatives
+    
+    !---------------------------------------------------------------------!
+    
+    subroutine FDF1(f,df1,df2)
+    ! Calculate first derivatives of f in 2D using finite difference in physical space
+    use grid_size
+
+    implicit none
+
+    ! Passed variables
+    real, dimension(nyp,mz,mx) :: f,df1,df2
+
+    ! Calculation variables
+    integer :: i,j,k
+    real    :: dz
+    real    :: xl,yl,zl
+
+    ! Common blocks
+    common/domain/     xl,yl,zl
+
+    !! Begin Calculations !!
+
+    dz = zl/mz
+    ! Finite difference for uniform z-direction derivatives
+    k = 1 ! 2D in y-z plane
+    do j = 1,mz
+        do i = 1,nyp
+            if (j .eq. 1) then ! Left end points
+                df1(i,j,k) = (-3.0*f(i,j,k) + 4.0*f(i,j+1,k) - f(i,j+2,k))/(2.0*dz)
+            else if (j .eq. mz) then ! Right end points
+                df1(i,j,k) = ( 3.0*f(i,j,k) - 4.0*f(i,j-1,k) + f(i,j-2,k))/(2.0*dz)
+            else ! Interior points
+                df1(i,j,k) = (f(i,j+1,k) - f(i,j-1,k))/(2.0*dz)
+            end if
+
+            ! y-derivatives
+            if (i .eq. 1) then ! Bottom wall
+                df2(i,j,k) = (f(i+1,j,k) - f(i,j,k))/seght(i)
+            else if (i .eq. nyp) then ! Top wall
+                df2(i,j,k) = (f(i,j,k) - f(i-1,j,k))/seght(i)
+            else ! Interior points
+                df2(i,j,k) = ((seght(i)**2)*f(i+1,j,k) + f(i,j,k)*(seght(i+1)**2 - seght(i)**2) - (seght(i+1)**2)*f(i-1,j,k))/(seght(i)*seght(i+1)*(seght(i) + seght(i+1)))
+            end if
+        end do
+    end do
+
+    end subroutine FDF1
+    
+    !---------------------------------------------------------------------!
+    
+    subroutine FDF2(f,df11,df12,df22)
+    ! Calculate first derivatives of f in 2D using finite difference in physical space
+    use grid_size
+
+    implicit none
+
+    ! Passed variables
+    real, dimension(nyp,mz,mx) :: f,df11,df12,df22,df1
+
+    ! Calculation variables
+    integer :: i,j,k
+    real    :: dz
+    real    :: xl,yl,zl
+
+    ! Common blocks
+    common/domain/     xl,yl,zl
+
+    !! Begin Calculations !!
+
+    dz = zl/mz
+    ! Finite difference for uniform z-direction derivatives
+    k = 1 ! 2D in y-z plane
+    do j = 1,mz
+        do i = 1,nyp
+            ! d^2(f)/dz^2
+            if (j .eq. 1) then ! Left end points
+                df11(i,j,k) = (2.0*f(i,j,k) - 5.0*f(i,j+1,k) + 4.0*f(i,j+2,k) - 1.0*f(i,j+3,k))/(dz**2)
+            else if (j .eq. mz) then ! Right end points
+                df11(i,j,k) = (2.0*f(i,j,k) - 5.0*f(i,j-1,k) + 4.0*f(i,j-2,k) - 1.0*f(i,j-3,k))/(dz**2) 
+            else ! Interior points
+                df11(i,j,k) = (f(i,j+1,k) - 2.0*f(i,j,k) + f(i,j-1,k))/(dz**2)
+            end if
+
+            ! -------------------------------------------------
+            ! d^2(f)/dydz - calculate df/dz first
+            if (j .eq. 1) then ! Left end points
+                df1(i,j,k) = (-3.0*f(i,j,k) + 4.0*f(i,j+1,k) - f(i,j+2,k))/(2.0*dz)
+            else if (j .eq. mz) then ! Right end points
+                df1(i,j,k) = ( 3.0*f(i,j,k) - 4.0*f(i,j-1,k) + f(i,j-2,k))/(2.0*dz)
+            else ! Interior points
+                df1(i,j,k) = (f(i,j+1,k) - f(i,j-1,k))/(2.0*dz)
+            end if
+
+            ! Then calculate d/dy(df/dz)
+            if (i .eq. 1) then ! Bottom wall
+                df12(i,j,k) = (df1(i+1,j,k) - df1(i,j,k))/seght(i)
+            else if (i .eq. nyp) then ! Top wall
+                df12(i,j,k) = (df1(i,j,k) - df1(i-1,j,k))/seght(i)
+            else ! Interior points
+                df12(i,j,k) = ((seght(i)**2)*df1(i+1,j,k) + df1(i,j,k)*(seght(i+1)**2 - seght(i)**2) - (seght(i+1)**2)*df1(i-1,j,k))/(seght(i)*seght(i+1)*(seght(i) + seght(i+1)))
+            end if
+            
+            ! -------------------------------------------------
+            ! d^2(f)/dy^2 - calculate df/dy first
+            if (i .eq. 1) then ! Bottom wall
+                df1(i,j,k) = (f(i+1,j,k) - f(i,j,k))/seght(i)
+            else if (i .eq. nyp) then ! Top wall
+                df1(i,j,k) = (f(i,j,k) - f(i-1,j,k))/seght(i)
+            else ! Interior points
+                df1(i,j,k) = ((seght(i)**2)*f(i+1,j,k) + f(i,j,k)*(seght(i+1)**2 - seght(i)**2) - (seght(i+1)**2)*f(i-1,j,k))/(seght(i)*seght(i+1)*(seght(i) + seght(i+1)))
+            end if
+
+            ! Then calculate d/dy(df/dy)
+            if (i .eq. 1) then ! Bottom wall
+                df22(i,j,k) = (df1(i+1,j,k) - df1(i,j,k))/seght(i)
+            else if (i .eq. nyp) then ! Top wall
+                df22(i,j,k) = (df1(i,j,k) - df1(i-1,j,k))/seght(i)
+            else ! Interior points
+                df22(i,j,k) = ((seght(i)**2)*df1(i+1,j,k) + df1(i,j,k)*(seght(i+1)**2 - seght(i)**2) - (seght(i+1)**2)*df1(i-1,j,k))/(seght(i)*seght(i+1)*(seght(i) + seght(i+1)))
+            end if
+            
+        end do
+    end do
+
+    end subroutine FDF2
 
 
 end module derivs

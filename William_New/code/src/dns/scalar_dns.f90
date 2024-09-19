@@ -161,10 +161,10 @@ program dns
         ib = 0
 
         ! This should be atscl*scl + btscl*d(scl)/dy = bcscltop (for top, similar for bottom)
-        atscl = 0.0
-        btscl = 1.0
-        abscl = 0.0
-        bbscl = 1.0 
+        atscl = 1.0
+        btscl = 0.0
+        abscl = 1.0
+        bbscl = 0.0 
 
         do k = 1,nxh
             x = wavx(k)**2
