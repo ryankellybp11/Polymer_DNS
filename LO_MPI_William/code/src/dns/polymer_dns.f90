@@ -881,6 +881,7 @@ program dns
             call norm(t3)
             call subforce(gn,fn,omz,t1,t2,t3)
 
+            ! ------------------------------------ !
             im = (0.0,1.0) ! imaginary number, i
             ! Calc curl of polymer force - only need x-component = dfy/dz - dfz/dy
             call cderiv(t3,wrk1) ! dfz/dy
@@ -894,6 +895,7 @@ program dns
 
             ! Calculate enstrophy terms
             call calc_enstrophy_terms(omx,wrkc,rank)
+            ! ------------------------------------ !
 
             if (it .eq. (src_start-1) .or. it .eq. irstrt .and. crstrt .eq. 0) then
             ! Set (n-1) terms equal to current terms for explicit time integration - Ryan 9/27/22

@@ -1732,7 +1732,7 @@ contains
         open(171,file=syscommand//'dEdt',position = 'append')
     end if
 
-    write(171,*) flow_ens*dt/(zl*yl),poly_ens*dt/(zl*yl)
+    write(171,*) flow_ens*dt/(xl*zl*yl),poly_ens*dt/(xl*zl*yl)
     close(171)
 
     end subroutine calc_enstrophy_terms

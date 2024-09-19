@@ -4,4 +4,4 @@ export OMP_STACKSIZE=750M
 
 rm -rf outputs*
 
-ibrun -n 8 ./code/bin/dns
+ibrun -n 1 ./code/bin/dns
