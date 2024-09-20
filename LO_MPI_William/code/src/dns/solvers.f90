@@ -4076,7 +4076,15 @@ contains
                 end do
             end do
         end do
-   
+
+        ! Fix 2D bug   
+        if (flow_select .ge. 10) then
+            sumens = sumens/xl
+            KE = KE/xl
+            scl_total = scl_total/xl
+            SG = SG/xl
+        end if
+ 
         write(dirname,'("outputs",i2.2,"/")') rank
         if (it .eq. irstrt) then
             open(73,file=dirname//'enstrophy')
