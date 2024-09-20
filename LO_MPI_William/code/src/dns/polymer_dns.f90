@@ -835,6 +835,7 @@ program dns
         call norm(fn)
         call norm(gn)
         call norm(omz)
+        call norm(omx)
 
         call norm(scalar)
         call norm(scn)
@@ -1144,11 +1145,11 @@ subroutine setstuff(rank)
     real    :: c11z,c22z,c33z
 
     ! Variable case arrays
-    real,dimension(8) :: gammaArray = (/ 8.0,  8.0, 8.0,  8.0,  8.0, 8.0,  8.0, 8.0 /)
+    real,dimension(8) :: gammaArray = (/ 4.0,  8.0, 8.0,  8.0,  8.0, 8.0,  8.0, 8.0 /)
     real,dimension(8) :: sigmaArray = (/ 0.1,  0.1, 0.1,  0.1,  0.1, 0.1,  0.1, 0.1 /)
     real,dimension(8) ::    reArray = (/ 100., 100., 100., 100., 100., 100., 100., 100. /)
     real,dimension(8) ::  diffArray = (/ 10.0, 10.0, 10.0, 10.0,  10.0, 10.0,  10.0, 10.0 /)
-    real,dimension(8) ::    vrArray = (/ .05,  .07, .10,  .12,  .15, .17,  .20, .22 /)
+    real,dimension(8) ::    vrArray = (/ .03,  .07, .10,  .12,  .15, .17,  .20, .22 /)
     real,dimension(8) :: tpolyArray = (/ 0.1,  0.1, 0.1,  0.1,  0.1, 0.1,  0.1, 0.1 /)
 ! ---------------------------------------------------------------------------- !
 
@@ -2543,9 +2544,10 @@ subroutine setpoly(scl,psource,wrk11,wrk12,wrk13,wrk21,wrk22,wrk23,wrk31,wrk32,w
         yc1 = vortY + vR
         zc1 = vortZ
         do k = 1,nx
-            xcor = xl*(float(k-1)/float(nx))
-            xsq  = (xcor - xc1)**2
-            betax = xsq/(2.0*sigmax**2)
+!            xcor = xl*(float(k-1)/float(nx))
+!            xsq  = (xcor - xc1)**2
+!            betax = xsq/(2.0*sigmax**2)
+            betax = 0.0
             do j = 1,nz
                 zcor = zl*(float(j-1)/float(nz))
                 zsq  = (zcor - zc1)**2

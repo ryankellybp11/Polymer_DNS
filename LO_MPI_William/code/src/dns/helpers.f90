@@ -1716,10 +1716,10 @@ contains
         call rfftmlt(tx,wrk,trigx32,ixfax32,inc,jump,mx,lot,isgn)
 
         ! Perform physical space calculations
-        Lx = xl/mx
+        Lx = 1.0!/mx
         Ly = seght(i)
         Lz = zl/mz
-        do k = 1,mx
+        do k = 1,1!mx
             do j = 1,mz
                 poly_ens = poly_ens + 2.0*wx(j,k)*tx(j,k)*Lx*Ly*Lz
                 flow_ens = flow_ens - (2.0/re)*(dwxdy(j,k)**2 + dwxdz(j,k)**2)*Lx*Ly*Lz

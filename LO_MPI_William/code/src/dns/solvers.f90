@@ -3575,30 +3575,6 @@ contains
 
                 zbeta1 = (1.0 - beta_poly(j,i))/(re*beta_poly(j,i)*tpoly) ! = (nu_0 - nu_s)/lambda
 
-    !---------------------------------------------------------------------!
-!                ! Calculate terms for enstrophy dissipation
-!                coeff(k,j,i) = wx(j,i)*zbeta1
-!                
-!
-!                ! Save as 3D variables for writing
-!                zbeta3d(k,j,i) = zbeta1*tpoly
-!
-!                ! Cij tensor physical terms
-!                 trp3d(k,j,i) = trp(j,i)
-!                c11p3d(k,j,i) = c11p(j,i)
-!                c12p3d(k,j,i) = c12p(j,i)
-!                c22p3d(k,j,i) = c22p(j,i)
-!                
-!                ! d(Cij) tensor physical terms
-!                dc111p3d(k,j,i) = dc111p(j,i)
-!                dc112p3d(k,j,i) = dc112p(j,i)
-!                dc121p3d(k,j,i) = dc121p(j,i)
-!                dc122p3d(k,j,i) = dc122p(j,i)
-!                dc221p3d(k,j,i) = dc221p(j,i)
-!                dc222p3d(k,j,i) = dc222p(j,i)
-!                
-    !---------------------------------------------------------------------!
-
                 ! Polymer stress
                 qp11np(j,i) = zbeta1*str11np(j,i)
                 qp12np(j,i) = zbeta1*str12np(j,i)
