@@ -761,6 +761,8 @@ program dns
         !$omp section
         call yfft(omz,wfft1,wfft2,wfft3,wfft4,is)
         !$omp section
+        call yfft(omx,wfft1,wfft2,wfft3,wfft4,is)
+        !$omp section
         call yfft(scalar,wfft1,wfft2,wfft3,wfft4,is)
         !$omp section
         call yfft(scn,wfft1,wfft2,wfft3,wfft4,is)
@@ -2224,6 +2226,7 @@ subroutine initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, 
         call norm(dc331)
         call norm(dc332) 
         call norm(dc333)                                                 
+
 
     ! -------------------------------------------------------------------- !
     ! Transform data into y-physical

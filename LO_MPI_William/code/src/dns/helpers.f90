@@ -1657,13 +1657,13 @@ contains
             end do
         end do
 
-        do k = 1,nxh
-            k1 = 2*(k-1) + 1
-            k2 = 2*k
-            do j = 1,nz
-                if (j .le. nzh) jj = j
-                if (j .gt. nzh) jj = (mz-nz) + j
+        do j = 1,nz
+            if (j .le. nzh) jj = j
+            if (j .gt. nzh) jj = (mz-nz) + j
 
+            do k = 1,nxh
+                k1 = 2*(k-1) + 1
+                k2 = 2*k
                 wx(jj,k1) =  real(omx(i,j,k))
                 wx(jj,k2) = aimag(omx(i,j,k))
                 dwxdy(jj,k1) =  real(domxdy(i,j,k))
@@ -1697,6 +1697,11 @@ contains
             dwxdy(j,2) = 0.0
             dwxdz(j,2) = 0.0
             tx(j,2) = 0.0
+
+            wx(j,nxp2) = wx(j,2)        
+            dwxdy(j,nxp2) = dwxdy(j,2)        
+            dwxdz(j,nxp2) = dwxdz(j,2)        
+            tx(j,nxp2) = tx(j,2)        
         end do
 
         ! r2r DFT (x-direction)
@@ -1716,8 +1721,8 @@ contains
         Lz = zl/mz
         do k = 1,mx
             do j = 1,mz
-                poly_ens = poly_ens + wx(j,k)*tx(j,k)*Lx*Ly*Lz
-                flow_ens = flow_ens - (1.0/re)*(dwxdy(j,k)**2 + dwxdz(j,k)**2)*Lx*Ly*Lz
+                poly_ens = poly_ens + 2.0*wx(j,k)*tx(j,k)*Lx*Ly*Lz
+                flow_ens = flow_ens - (2.0/re)*(dwxdy(j,k)**2 + dwxdz(j,k)**2)*Lx*Ly*Lz
             end do
         end do
 
@@ -1732,7 +1737,7 @@ contains
         open(171,file=syscommand//'dEdt',position = 'append')
     end if
 
-    write(171,*) flow_ens*dt/(xl*zl*yl),poly_ens*dt/(xl*zl*yl)
+    write(171,*) flow_ens*dt,poly_ens*dt
     close(171)
 
     end subroutine calc_enstrophy_terms

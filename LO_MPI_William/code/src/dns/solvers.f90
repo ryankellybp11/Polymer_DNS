@@ -2556,7 +2556,7 @@ contains
                 end do
             end do
         end do
-    
+   
         if (it .eq. irstrt) then
             open(73,file='outputs/enstrophy')
             open(74,file='outputs/KE')
@@ -3487,7 +3487,7 @@ contains
     !---------------------------------------------------------------------!
     !        Compute the cross product of velocity and vorticity          !
     !---------------------------------------------------------------------!
-    
+ 
         ! CFL Number check
         do j = 1,mz
             do i = 1,mx
@@ -4065,19 +4065,10 @@ contains
         scl_total = 0.0
    
         Lx = delxm; Lz = delzm 
-        do i = 1,nyp
-            ! Calc y length
-            Ly = seght(i)
-!            if (i .eq. 1) then
-!                Ly = (ycoord(2) - ycoord(1))/2.0
-!            else if (i .eq. nyp) then
-!                Ly = (ycoord(nyp) - ycoord(ny))/2.0
-!            else
-!                Ly = (ycoord(i+1) - ycoord(i))/2.0 + (ycoord(i) - ycoord(i-1))/2.0
-!            end if
-    
+        do k = 1,mx
             do j = 1,mz
-                do k = 1,mx
+                do i = 1,nyp
+                    Ly = seght(i)
                     sumens = sumens + (wx3d(i,j,k)**2 + wy3d(i,j,k)**2 + wz3d(i,j,k)**2)*Lx*Ly*Lz
                     KE = KE + 0.5*(up3d(i,j,k)**2 + vp3d(i,j,k)**2 + wp3d(i,j,k)**2)*Lx*Ly*Lz
                     scl_total = scl_total + scp3d(i,j,k)*Lx*Ly*Lz
