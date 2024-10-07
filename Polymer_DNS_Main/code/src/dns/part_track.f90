@@ -847,19 +847,19 @@ subroutine RKstage(sn,un,vn,wn,xp,yp,zp,Ku,Kv,Kw,u,v,w, &
     PGX = 1.5*subDufDt
     DX = C_D*3/(8*a)*(ufluid - un + a**2/6.0*Luf)
     LX = C_L*((vfluid - vn + a**2/6.0*Lvf)*wzf - (wfluid - wn + a**2/6.0*Lwf)*wyf)
-    FX = -3.0/20.0*(a**2)*dLufdt ! Faxen correction term
+    FX = 3.0/20.0*(a**2)*dLufdt ! Faxen correction term
 
     ! y forces    
     PGY = 1.5*subDvfDt
     DY = C_D*3/(8*a)*(vfluid - vn + a**2/6.0*Lvf)
     LY = C_L*((wfluid - wn + a**2/6.0*Lwf)*wxf - (ufluid - un + a**2/6.0*Luf)*wzf)
-    FY = -3.0/20.0*(a**2)*dLvfdt ! Faxen correction term
+    FY = 3.0/20.0*(a**2)*dLvfdt ! Faxen correction term
 
     ! z forces
     PGZ = 1.5*subDwfDt
     DZ = C_D*3/(8*a)*(wfluid - wn + a**2/6.0*Lwf)
     LZ = C_L*((ufluid - un + a**2/6.0*Luf)*wyf - (vfluid - vn + a**2/6.0*Lvf)*wxf)
-    FZ = -3.0/20.0*(a**2)*dLwfdt ! Faxen correction term
+    FZ = 3.0/20.0*(a**2)*dLwfdt ! Faxen correction term
 
     ! Combine to find acceleration component
     Ku = (Pi_f*(PGX + DX + LX + FX))
