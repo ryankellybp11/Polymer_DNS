@@ -16,20 +16,19 @@ This branch has a self-contained case: all the necessary code, binaries, and fil
     │   │   ├── geometry                 # Contains geometry generator and geometry file
     │   │   │   ├── Geom                 # Compiled geometry generator
     │   │   │   └── grid_size.mod        # Binary module for grid size data
-    │   │   ├── grid_size.mod            # Binary module for grid size data
+    │   │   ├── ***.mod                  # Binary module files for use in main DNS code
     │   └── src                          # Contains all the source files
     │       ├── dns                      # Contains DNS source files
     │       │   ├── derivatives.f90      # Contains subroutines related to gradients and derivatives
-    │       │   ├── ffts.f90             # Useful FFT functions for dns.f90
     │       │   ├── grid_size.f90        # Module with all grid size data
-    │       │   ├── init_flow.f90        # Defines flow type (Channel, Couette, BL, etc.)
     │       │   ├── helpers.f90          # Contains various helpful functions and subroutines
+    │       │   ├── init_flow.f90        # Defines flow type (Channel, Couette, BL, etc.)
     │       │   ├── main_dns.f90         # Main DNS source file 
     │       │   ├── part_track.f90       # Particle tracking integrator
     │       │   └── solvers.f90          # Contains the solvers used in the code, including vcw3dp
     │       ├── geometry                 # Contains geometry generator source code
     │       │   └── Geom.f90             # Geometry generator source code
-    │       └── preconfigure.py          # preconfigure tool: compiles all the necessary files. Run with Python >=2.7.13 
+    │       └── preconfigure.py          # preconfigure tool: compiles grid and geometry files. Run with Python >=2.7.13 
     ├── outputs                          # Contails all the outputs produced by the DNS
     │   ├── flowfield                    # Contains tecplot-readable binary data files of the flow field
     │   │   ├── grid.plt                 # Grid file
@@ -52,11 +51,11 @@ This branch has a self-contained case: all the necessary code, binaries, and fil
     │       ├── generator.f90            # Generates random particles in flow domain 
     │       ├── particles.dat            # Contains particle trajectory info (ASCII)
     │       └── pgen					 # Binary particle generator file   
-    ├── batch_movie.mcr                  # Tecplot macro file for generating a movie in batch mode (must be edited, somewhat complicated)
-    ├── clean                            # File for cleaning outputs directory. Usage: `. clean'
+    ├── bash_clean                       # File for cleaning outputs directory. Usage: `. bash_clean'
     ├── err_comp.txt                     # Output file for any compilation errors (empty if no errors)
     ├── hushrun                          # Same as `run' but runs the code in the background
     ├── jobcode                          # File for submitting a job to TACC. Usage: `sbatch jobcode`
+    ├── Makefile                         # Makefile for compiling DNS code - uses preconfigure.py
     └── run                              # File for running the code locally (or on a work node). Usage: `. run'
 
 
@@ -153,7 +152,3 @@ git config credential.helper store
 git pull
 ```
 from within this repo, and enter your username and **access token instead of your password**.
-
-## Known issues with current version of code:
-- Polymer targeting unexpectedly causes CFL failure 
--> working on possible fixes (numerical instability issue)
