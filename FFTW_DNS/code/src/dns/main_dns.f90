@@ -165,9 +165,9 @@ program dns
 
     ! Compute start-up condition to use Adams-Bashforth later
     call initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, &
-                 wrk1,wrkc,u11,u12,u13,u21,u22,u23,u31,u32,u33, &
+                 wrk1,wrkc,u11,u12,u13,u21,u22,u23,u31,u32,u33,               &
 #IFDEF SCALAR
-                 scalar,sclx,scly,sclz,scn,scnm1,     &
+                 scalar,sclx,scly,sclz,scn,scnm1,                             &
 #ENDIF
 #IFDEF POLYMER
                  t1,t2,t3,c11,c12,c13,c21,c22,c23,c31,c32,c33,dc111,dc112,    &
