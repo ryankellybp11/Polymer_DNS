@@ -1332,7 +1332,7 @@ contains
 #ELSE
         write(6,9711) 'filetype = solution, variables = "swirl", "u", "v", "w", "wx", "wy", "wz"'
 #ENDIF
-        write(6,9712) 'zone f=point t="Field", solutiontime=', it/iprnfrq,',i=',mx, 'j=',1, 'k=', nyp, new_line('a')
+        write(6,9712) 'zone f=point t="Field", solutiontime=', it/iprnfrq,',i=',mx, 'j=',mz_copy, 'k=', nyp, new_line('a')
         
         do k = 1,nyp
             y = ycoord(k)
@@ -1362,7 +1362,7 @@ contains
             open(5, file = "outputs/flowfield/grid.dat", status = "replace")
         
             write(5,*) 'filetype = grid, variables = "x", "y", "z"'
-            write(5,*) 'zone f=point t="Grid", i=', mx, ' j=', 1, 'k=', nyp
+            write(5,*) 'zone f=point t="Grid", i=', mx, ' j=', mz_copy, 'k=', nyp
             do k = 1,nyp
                 y = ycoord(k)
                 do j = 1,mz_copy
