@@ -3447,6 +3447,7 @@ contains
 #ENDIF
             else if (print3d .eq. 2) then ! Write outputs specifically for FTLE
 !                call write_FTLE_output(up,vp,wp)
+                call write_flowfield_hdf5(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,swirl_3d)
             else
                 write(*,*) 'Warning: Unknown print type. No output data will be written.'
             end if
@@ -3563,5 +3564,3 @@ contains
     
     end subroutine vcw3dp
 end module solvers
-
-

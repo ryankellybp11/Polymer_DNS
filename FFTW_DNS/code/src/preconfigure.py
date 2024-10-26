@@ -1,3 +1,79 @@
+
+def write_xml_file(nsteps,iprnfrq,nx,ny,nz):
+        # Define parameters
+        nt = int(nsteps/iprnfrq) + 1# Number of time steps used for printing
+        mx = int(nx*3/2)
+        nyp = int(ny+1)
+        mz = int(nz*3/2)
+
+        # Open the .xmf file for writing
+        with open('flowfield.xmf', 'w') as f:
+                # Write the header
+                f.write('<?xml version="1.0" ?>\n')
+                f.write('<Xdmf Version="2.0">\n')
+                f.write('  <Domain>\n')
+                f.write('    <Grid Name="TimeSeries" GridType="Collection" CollectionType="Temporal">\n')
+
+                # Loop over time steps
+                for t in range(nt):
+                        f.write(f'      <Grid Name="TimeStep_{t}" GridType="Uniform">\n')
+                        f.write(f'        <Time Value="{t}"/>\n')
+                        f.write(f'        <Topology TopologyType="3DRectMesh" Dimensions="{mx} {mz} {nyp}"/>\n')
+                        f.write('        <Geometry GeometryType="VXVYVZ">\n')
+                        f.write(f'          <DataItem Name="y" Dimensions="{nyp}" NumberType="Float" Precision="8" Format="HDF">\n')
+                        f.write(f'            flowfield_{t}.h5:/y\n')
+                        f.write('          </DataItem>\n')
+                        f.write(f'          <DataItem Name="z" Dimensions="{mz}" NumberType="Float" Precision="8" Format="HDF">\n')
+                        f.write(f'            flowfield_{t}.h5:/z\n')
+                        f.write('          </DataItem>\n')
+                        f.write(f'          <DataItem Name="x" Dimensions="{mx}" NumberType="Float" Precision="8" Format="HDF">\n')
+                        f.write(f'            flowfield_{t}.h5:/x\n')
+                        f.write('          </DataItem>\n')
+                        f.write('        </Geometry>\n')
+                        f.write(f'        <Attribute Name="u" AttributeType="Scalar" Center="Node">\n')
+                        f.write(f'          <DataItem Dimensions="{mx} {mz} {nyp}" NumberType="Float" Precision="8" Format="HDF">\n')
+                        f.write(f'            flowfield_{t}.h5:/u\n')
+                        f.write('          </DataItem>\n')
+                        f.write('        </Attribute>\n')
+                        f.write(f'        <Attribute Name="v" AttributeType="Scalar" Center="Node">\n')
+                        f.write(f'          <DataItem Dimensions="{mx} {mz} {nyp}" NumberType="Float" Precision="8" Format="HDF">\n')
+                        f.write(f'            flowfield_{t}.h5:/v\n')
+                        f.write('          </DataItem>\n')
+                        f.write('        </Attribute>\n')
+                        f.write(f'        <Attribute Name="w" AttributeType="Scalar" Center="Node">\n')
+                        f.write(f'          <DataItem Dimensions="{mx} {mz} {nyp}" NumberType="Float" Precision="8" Format="HDF">\n')
+                        f.write(f'            flowfield_{t}.h5:/w\n')
+                        f.write('          </DataItem>\n')
+                        f.write('        </Attribute>\n')
+#                        f.write(f'        <Attribute Name="wx" AttributeType="Scalar" Center="Node">\n')
+#                        f.write(f'          <DataItem Dimensions="{mx} {mz} {nyp}" NumberType="Float" Precision="8" Format="HDF">\n')
+#                        f.write(f'            flowfield_{t}.h5:/wx\n')
+#                        f.write('          </DataItem>\n')
+#                        f.write('        </Attribute>\n')
+#                        f.write(f'        <Attribute Name="wy" AttributeType="Scalar" Center="Node">\n')
+#                        f.write(f'          <DataItem Dimensions="{mx} {mz} {nyp}" NumberType="Float" Precision="8" Format="HDF">\n')
+#                        f.write(f'            flowfield_{t}.h5:/wy\n')
+#                        f.write('          </DataItem>\n')
+#                        f.write('        </Attribute>\n')
+#                        f.write(f'        <Attribute Name="wz" AttributeType="Scalar" Center="Node">\n')
+#                        f.write(f'          <DataItem Dimensions="{mx} {mz} {nyp}" NumberType="Float" Precision="8" Format="HDF">\n')
+#                        f.write(f'            flowfield_{t}.h5:/wz\n')
+#                        f.write('          </DataItem>\n')
+#                        f.write('        </Attribute>\n')
+                        f.write(f'        <Attribute Name="swirl" AttributeType="Scalar" Center="Node">\n')
+                        f.write(f'          <DataItem Dimensions="{mx} {mz} {nyp}" NumberType="Float" Precision="8" Format="HDF">\n')
+                        f.write(f'            flowfield_{t}.h5:/swirl\n')
+                        f.write('          </DataItem>\n')
+                        f.write('        </Attribute>\n')
+                        f.write('      </Grid>\n')
+
+                # Write the footer
+                f.write('    </Grid>\n')
+                f.write('  </Domain>\n')
+                f.write('</Xdmf>\n')
+
+
+
 # Preconfigure dns code before running
 
 from os.path import expanduser
@@ -23,12 +99,14 @@ setup_data = list([line.strip().split() for line in setup_dns])
 setup_dns.close()
 
 # Remember that Python indexing starts at 0
+nsteps = int(setup_data[3][0])
+iprnfrq = int(setup_data[4][0])
 ny = int(setup_data[9][0])
 nz = int(setup_data[10][0])
 nx = int(setup_data[11][0])
 bftail = int(setup_data[12][0])
 
-output_format = int(setup_data[30][0]) # For writing Tecplot files
+print3d = int(setup_data[30][0]) # For writing Tecplot files
 
 ipoly = int(setup_data[36][0])
 iscl = int(setup_data[37][0])
@@ -54,6 +132,9 @@ grid_size_updated.close()
 
 print('       Done!\n')
 
+# Set up .xmf file if using hdf5 writing
+if print3d == 2: 
+        write_xml_file(nsteps,iprnfrq,nx,ny,nz)
 
 # 2. Make geometry
 
@@ -198,3 +279,4 @@ else:
 #    print('    ************************************    \n')
 #    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n')
 #
+

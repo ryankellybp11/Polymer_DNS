@@ -1328,11 +1328,11 @@ contains
         ! Write 3d-data 
         open(6, file = filename)
 #IFDEF SCALAR
-        write(6,9711) 'filetype = solution, variables = "swirl", "u", "v", "w", "wx", "wy", "wz", "scl"'
+        write(6,*) 'filetype = solution, variables = "swirl", "u", "v", "w", "wx", "wy", "wz", "scl"'
 #ELSE
         write(6,9711) 'filetype = solution, variables = "swirl", "u", "v", "w", "wx", "wy", "wz"'
 #ENDIF
-        write(6,9712) 'zone f=point t="Field", solutiontime=', it/iprnfrq,',i=',mx, 'j=',mz_copy, 'k=', nyp, new_line('a')
+        write(6,9712) 'zone f=point t="Flowfield", solutiontime=', it/iprnfrq,', i=',mx, ' j=', mz_copy, ' k=', nyp, new_line('a')
         
         do k = 1,nyp
             y = ycoord(k)
@@ -1362,7 +1362,7 @@ contains
             open(5, file = "outputs/flowfield/grid.dat", status = "replace")
         
             write(5,*) 'filetype = grid, variables = "x", "y", "z"'
-            write(5,*) 'zone f=point t="Grid", i=', mx, ' j=', mz_copy, 'k=', nyp
+            write(5,*) 'zone f=point, t="Grid", i=', mx, ' j=', mz_copy, 'k=', nyp
             do k = 1,nyp
                 y = ycoord(k)
                 do j = 1,mz_copy
@@ -1695,7 +1695,6 @@ contains
         close(124)
     end subroutine write_FTLE_output
 
-
     !---------------------------------------------------------------------!
     
     subroutine calc_stress(umean,u,v,w,u12 &
@@ -1832,4 +1831,137 @@ contains
 
 #ENDIF
     end subroutine calc_stress
+
+    !---------------------------------------------------------------------!
+
+    subroutine write_flowfield_hdf5(u,v,w,wx,wy,wz,swirl)
+        use grid_size
+        use hdf5
+
+        implicit none
+
+        ! HDF5 variables
+        integer(HID_T) :: file_id, dset_id, dataspace_id, timespace_id, timeset_id,dxpl
+        integer :: hdferr
+        integer(HSIZE_T), dimension(3) :: dims
+        integer(HSIZE_T), dimension(1) :: dimt
+
+        ! Data variables
+        real, dimension(nyp,mz,mx) :: u,v,w,wx,wy,wz,swirl
+        real, dimension(nyp,mz,mx,3) :: xyz
+
+        ! Grid variables
+        real :: xl,yl,zl
+        real :: delxm,delzm
+        real :: x(mx),y(nyp),z(mz)
+!        real :: x,z
+        
+        ! Time variables
+        real,dimension(1) :: times
+        integer :: irstrt,nsteps,iprnfrq
+        integer :: it
+
+        ! Misc
+        integer :: i,j,k
+        character (len=23) :: base_filename = 'outputs/flowfield/time-'
+        character (len=80) :: filename
+        common/iocontrl/ irstrt,nsteps,iprnfrq
+        common/itime/    it
+        common/domain/   xl,yl,zl
+
+        ! --------------------------------------------------------------------------------- !
+        ! --------------------------------------------------------------------------------- !
+
+        ! Initialize the HDF5 library
+        call h5open_f(hdferr)
+
+        ! Create a new file using default properties
+        call h5fcreate_f('outputs/flowfield/flowfield'//'_'//trim(adjustl(itoa(it/iprnfrq)))//'.h5', H5F_ACC_TRUNC_F, file_id, hdferr)
+
+        delxm = xl/mx
+        delzm = zl/mz
+        do k = 1,mx
+            x(k) = float(k-1)*delxm
+            do j = 1,mz
+                z(j) = float(j-1)*delzm
+                do i = 1,nyp
+                    y(i) = ycoord(i)
+                end do
+            end do
+        end do
+
+        ! x grid
+        dimt = (/ mx /)
+        call h5screate_simple_f(1, dimt, dataspace_id, hdferr)
+        call h5dcreate_f(file_id, 'x', H5T_NATIVE_DOUBLE, dataspace_id, dset_id, hdferr)
+        call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, dimt, hdferr)
+        call h5dclose_f(dset_id, hdferr)
+        call h5sclose_f(dataspace_id, hdferr)
+        
+        ! y grid 
+        dimt = (/ nyp /)
+        call h5screate_simple_f(1, dimt, dataspace_id, hdferr)
+        call h5dcreate_f(file_id, 'y', H5T_NATIVE_DOUBLE, dataspace_id, dset_id, hdferr)
+        call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, y, dimt, hdferr)
+        call h5dclose_f(dset_id, hdferr)
+        call h5sclose_f(dataspace_id, hdferr)
+
+        ! z grid
+        dimt = (/ mz /)
+        call h5screate_simple_f(1, dimt, dataspace_id, hdferr)
+        call h5dcreate_f(file_id, 'z', H5T_NATIVE_DOUBLE, dataspace_id, dset_id, hdferr)
+        call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, z, dimt, hdferr)
+        call h5dclose_f(dset_id, hdferr)
+        call h5sclose_f(dataspace_id, hdferr)
+
+        ! ------------------------------------------------------------------------------ !
+
+        dims = (/ nyp,mz,mx /)  
+        call h5screate_simple_f(3, dims, dataspace_id,hdferr)
+
+        call write_3d_dataset(file_id,'u',u,dataspace_id,dims,it/iprnfrq)
+        call write_3d_dataset(file_id,'v',v,dataspace_id,dims,it/iprnfrq)
+        call write_3d_dataset(file_id,'w',w,dataspace_id,dims,it/iprnfrq)
+!        call write_3d_dataset(file_id,'wx',wx,dataspace_id,dims,it/iprnfrq)
+!        call write_3d_dataset(file_id,'wy',wy,dataspace_id,dims,it/iprnfrq)
+!        call write_3d_dataset(file_id,'wz',wz,dataspace_id,dims,it/iprnfrq)
+        call write_3d_dataset(file_id,'swirl',swirl,dataspace_id,dims,it/iprnfrq)
+
+        ! Close dataspace
+        call h5sclose_f(dataspace_id, hdferr)
+
+        ! Close file
+        call h5fclose_f(file_id, hdferr)
+
+        ! Close the HDF5 library
+        call h5close_f(hdferr)
+
+    end subroutine
+
+    subroutine write_3d_dataset(file_id,nam,dat,dspace_id,dims,t)
+        use hdf5
+        implicit none
+        integer(HID_T) :: file_id, dspace_id
+        integer(HSIZE_T), dimension(3) :: dims
+        character(len=*) :: nam
+        real, dimension(:,:,:) :: dat
+        integer(HID_T) :: dset_id, plist_id
+        integer :: herror,t
+
+        ! Create dataset
+        call h5dcreate_f(file_id,nam,H5T_NATIVE_DOUBLE,dspace_id,dset_id,herror)
+
+        ! Write data to dataset
+        call h5dwrite_f(dset_id,H5T_NATIVE_DOUBLE,dat,dims,herror)
+
+        ! Close datatset
+        call h5dclose_f(dset_id,herror)
+    end subroutine
+
+    ! Convert int to string
+    character(len=32) function itoa(i)
+        integer :: i
+        write(itoa, '(I0)') i
+    end function
+
 end module helpers
