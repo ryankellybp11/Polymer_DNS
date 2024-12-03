@@ -3484,83 +3484,56 @@ contains
     ! Write Mean U Data, calculate mass flux, & KE/enstrophy if relevant  !
     !---------------------------------------------------------------------!
   
-    ! Make these into subroutines later...  
     if (flow_select .eq. 1 .or. flow_select .eq. 4) then ! Only relevant for wall-bounded turbulence
-        write(*,*) 'Writing mean U data...'
-    
         ! Mean velocity
-!        if (irstrt .eq. it) then
-!            open(71,file = 'outputs/mean_u_data.dat')
-!        else
-!            open(71,file = 'outputs/mean_u_data.dat', position = 'append')
-!        end if
-    
         do i = 1,nyp
             do k = 1,mx
                 uzmean(k) = sum(up3d(i,:,k))/mz
             end do
             uxmean(i) = sum(uzmean)/mx
         end do
-    
-!        close(71)
-        write(*,*) '    Done!'
     end if
-   
-    ! Compute mass flux: Integrate <U> over y
-    if (irstrt .eq. it) then
-        open(72,file='outputs/mass_flux')
-    else
-        open(72,file='outputs/mass_flux',position='append')
-    end if
-    
-    massFlux = 0.0
-    do i = 1,ny
-        massFlux = massFlux + 1.0/yl*0.5*(uxmean(i+1) + uxmean(i))*abs(ycoord(i+1) - ycoord(i)) ! Bulk velocity
-    end do
-    
-    write(72,*) massFlux
-    close(72)
+  
 
-#IFDEF SCALAR
-    ! Calculate global enstrophy, TKE, and S-gamma correlation
-        call writeoutputs(up3d,vp3d,wp3d,wx3d,wy3d,wz3d, &
-#IFDEF POLYMER
-                          beta3d, &
-#ELSE
-                          scp3d, &
-#ENDIF
-                          u11p3d,u22p3d,u33p3d,uxmean,swirl_3d)
-#ENDIF
-#IFDEF POLYMER
-    if (scl_flag .ge. 2 .and. it .le. src_stop .and. it .ge. src_start) then
-        call calc_total_beta(it,delxm,delzm,scp3d,beta3d)
-    end if
-
-    ! Calculate correlation between beta and vortex structure (swirl/Q)
-!    call correlate_vars(beta_poly,swirl_3d,it)
-#ENDIF
-
-    ! Calculate stresses - WSS + Reynolds stresses
-    call calc_stress(uxmean,up3d,vp3d,wp3d,u12p3d &
-#IFDEF POLYMER
-                 ,p12 &
-#ENDIF
-                 )
     !---------------------------------------------------------------------!
     !               Check for numerical instabilities                     !
     !---------------------------------------------------------------------!
     
+    ! Check CFL condition 
     do i = 1,nyp
         if (cfl(i) > cflmax) cflmax = cfl(i)
     end do
-    
-    write(*,*) 'max CFL = ',cflmax
+   
+    if (mod(it,cadence) .eq. 1) then 
+    end if
     
     ! Check CFL condition
     if (cflmax .gt. 1.0) then
         write(*,*) 'CFL failure at time step ',it
         stop
     end if
+
+    ! Calculate output data and write to outputs/<file>
+    if (mod(it,cadence) .eq. 1) then ! only write every <cadence> time steps
+        write(*,*) '    max CFL = ',cflmax
+        write(*,*) '    Writing output data...'
+    call writeoutputs(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,u12p3d,uxmean,swirl_3d &
+#IFDEF POLYMER
+                      ,beta3d,p12 &
+#ELIF DEFINED SCALAR
+                      ,scp3d &
+#ENDIF
+                      )
+
+        write(*,*) '    Done!'
+    end if
+
+#IFDEF POLYMER
+    ! Check to see if we can stop adding polymer
+    if (scl_flag .ge. 2 .and. it .le. src_stop .and. it .ge. src_start) then
+        call calc_total_beta(it,delxm,delzm,scp3d,beta3d)
+    end if
+#ENDIF
     
     end subroutine vcw3dp
 end module solvers

@@ -41,4 +41,6 @@ module grid_size
     integer :: particle_flag,CD_switch
 	real    :: ratio,ap,C_mu,gravity
 
+    integer :: cadence
+
 end module grid_size

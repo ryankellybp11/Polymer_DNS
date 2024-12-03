@@ -933,9 +933,16 @@ contains
     end subroutine findmaxQ
 #ENDIF    
     !---------------------------------------------------------------------!
+
+    subroutine writeoutputs(u,v,w,wx,wy,wz,u12,umean,swirl &
 #IFDEF SCALAR
-    subroutine writeoutputs(u,v,w,wx,wy,wz,beta,u11,u22,u33,uzmean,swirl)
-    ! Compute global TKE, Enstrophy, and S-gamma correlation 
+                            ,beta &
+#IFDEF POLYMER
+                            ,p12 &
+#ENDIF
+#ENDIF
+                           )
+    ! Compute output data
     ! If scalar, beta = scp3d
 
     use grid_size
@@ -950,55 +957,67 @@ contains
         implicit none
 
         ! Input variables
-        real, dimension(nyp,mz,mx) :: u,v,w,wx,wy,wz,beta,u11,u22,u33,swirl
-        real, dimension(nyp)       :: uzmean
+        real, dimension(nyp,mz,mx) :: u,v,w,wx,wy,wz,beta,u12,swirl
+#IFDEF POLYMER
+        real, dimension(nyp,mz,mx) :: p12
+        ! Shear stress (polymer)
+        real :: s_tw,s_bw,tpss,bpss
+#ENDIF
+        real, dimension(nyp,mz,mx) :: up ! fluctuating streamwise velocity
+        real, dimension(nyp)       :: umean,betay,swirly,urms,vrms,wrms,R12,T12
 
         ! Common block variables
         integer :: irstrt
         integer :: it 
         real    :: xl,yl,zl
+        real    :: re
 
         ! Calculation variables
-        real, dimension(nyp) :: scl
+        ! Shear stress (fluid)
+        real :: tau_tw,tau_bw,twss,bwss
+
+        ! Indexing/domain
         integer :: i,j,k
-        real    :: delxm,delzm
-        real    :: sumens,TKE,SB,trS,scl_sum
         real    :: Lx,Ly,Lz
-        real    :: swirl_total,beta_avg,volume
+
+        ! Misc
+        real    :: beta_avg,volume,massFlux
+
     !---------------------------------------------------------------------!
    
     ! Common blocks
-        common/iocontrl/   irstrt
-        common/itime/      it
-        common/domain/     xl,yl,zl
+        common/iocontrl/ irstrt
+        common/itime/    it
+        common/domain/   xl,yl,zl
+        common/flow/     re
      
     ! =================================================================== !
     !                         Begin Calculations                          !
     ! =================================================================== !
   
-        delxm = xl/float(mx)
-        delzm = zl/float(mz)
-
+        Lx = xl/float(mx)
+        Lz = zl/float(mz)
         volume = (xl*yl*zl)
 
-        sumens = 0.0
-        TKE = 0.0 
-        SB = 0.0
-        swirl_total = 0.0
         beta_avg = 0.0
-        !$omp parallel do default(shared) private(i,j,k,Lx,Ly,Lz,trS) reduction(+:scl_sum,sumens,TKE,SB,swirl_total,beta_avg) schedule(dynamic)
+        betay = 0.0
+        swirly = 0.0
+        tau_tw = 0.0
+        tau_bw = 0.0
+        urms = 0.0
+        vrms = 0.0
+        wrms = 0.0
+        R12 = 0.0
+        T12 = 0.0
+#IFDEF POLYMER
+        s_tw = 0.0
+        s_bw = 0.0
+        !$omp parallel do reduction(+:tau_tw,tau_bw,s_tw,s_bw,swirly,beta_avg,betay,urms,vrms,wrms,R12,T12) default(shared) private(i,j,k,twss,bwss,tpss,bpss,Lx,Ly,Lz) schedule(dynamic)
+#ELSE
+        !$omp parallel do reduction(+:tau_tw,tau_bw,swirly,urms,vrms,wrms,R12,T12) default(shared) private(i,j,k,twss,bwss,Lx,Ly,Lz) schedule(dynamic)
+#ENDIF
         do k = 1,mx
-            ! Calc x length
-            if (k .eq. 1 .or. k .eq. mx) then
-                Lx = delxm/2.0
-            else
-                Lx = delxm
-            end if
-
             do j = 1,mz
-                ! Calc z length
-                Lz = delzm
-       
                 do i = 1,nyp
                     ! Calc y length
                     if (i .eq. 1) then
@@ -1009,48 +1028,129 @@ contains
                         Ly = abs(ycoord(i+1) - ycoord(i))/2.0 + abs(ycoord(i) - ycoord(i-1))/2.0
                     end if
 
-                    ! Fill out sums 
-                    sumens = sumens + (wx(i,j,k)**2 + wy(i,j,k)**2 + wz(i,j,k)**2)*Lx*Ly*Lz
-                    TKE = TKE + 0.5*((u(i,j,k)-uzmean(i))**2 + v(i,j,k)**2 + w(i,j,k)**2)*Lx*Ly*Lz
-#IFDEF POLYMER
-                    SB = SB + swirl(i,j,k)*(1.0 - beta(i,j,k))*Lx*Ly*Lz
-#ELSE
-                    SB = SB + beta(i,j,k)*Lx*Ly*Lz
-#ENDIF
+                    ! Calculate u'
+                    up(i,j,k) = u(i,j,k) - umean(i)
 
                     ! Calculate averages for correlation
-                    swirl_total = swirl_total + swirl(i,j,k)*Lx*Ly*Lz
-                    beta_avg  =  beta_avg + beta(i,j,k)*Lx*Ly*Lz
+                    beta_avg = beta_avg + beta(i,j,k)*Lx*Ly*Lz
 
+                    ! Calcualte average profiles vs y
+                     betay(i) =  betay(i) + beta(i,j,k)*Lx*Lz ! beta vs y
+                    swirly(i) = swirly(i) + swirl(i,j,k)*Lx*Lz ! swirl vs y
+                      urms(i) =   urms(i) + up(i,j,k)**2.0 ! u'_rms
+                      vrms(i) =   vrms(i) +  v(i,j,k)**2.0 ! v'_rms
+                      wrms(i) =   wrms(i) +  w(i,j,k)**2.0 ! w'_rms
+                       R12(i) =    R12(i) + up(i,j,k)*v(i,j,k) ! RSS
+#IFDEF POLYMER
+                       T12(i) =    T12(i) + u12(i,j,k) + p12(i,j,k) ! tau_xy (total shear stress)
+#ELSE
+                       T12(i) =    T12(i) + u12(i,j,k) ! tau_xy
+#ENDIF
                 end do
+
+                ! Calc stress on top and bottom walls only
+                twss = u12(1,j,k)
+                bwss = u12(nyp,j,k)
+
+                tau_tw = tau_tw + twss/re
+                tau_bw = tau_bw + bwss/re
+#IFDEF POLYMER
+                tpss = p12(1,j,k) 
+                bpss = p12(nyp,j,k) 
+
+                s_tw = s_tw + tpss
+                s_bw = s_bw + bpss
+#ENDIF
             end do
         end do
         !$omp end parallel do
 
+        massFlux = 0.0
+        do i = 1,nyp
+             R12(i) = R12(i)/(mx*mz)
+             T12(i) = T12(i)/(mx*mz)
+            urms(i) = sqrt(urms(i)/(mx*mz))
+            vrms(i) = sqrt(vrms(i)/(mx*mz))
+            wrms(i) = sqrt(wrms(i)/(mx*mz))
+            massFlux = massFlux + 1.0/yl*0.5*(umean(i+1) + umean(i))*abs(ycoord(i+1) - ycoord(i)) ! Bulk velocity
+        end do
+
         ! Finish computing averages and correlation
         beta_avg = beta_avg/volume
-        SB = SB/(swirl_total*(1.0 - beta_avg))
+        betay = betay/(xl*zl)
+        swirly = swirly/(xl*zl)
+
 
         ! Write data to output files - updated each time step        
         if (it .eq. irstrt) then
-            open(73,file='outputs/enstrophy')
-            open(74,file='outputs/TKE')
-            open(75,file='outputs/swirl_beta')
+            open(10,     file='outputs/Txy1')
+            open(11,    file='outputs/urms1')
+            open(12,     file='outputs/RSS1')
+            open(22,    file='outputs/vrms1')
+            open(33,    file='outputs/wrms1')
+            open(99,file='outputs/massflux1')
+            open(100, file='outputs/mean_u1')
+            open(101,  file='outputs/betay1')
+            open(102, file='outputs/swirly1')
+            open(103,   file='outputs/twss1')
+            open(104,   file='outputs/bwss1')
+#IFDEF POLYMER
+            open(105,   file='outputs/tpss1')
+            open(106,   file='outputs/bpss1')
         else
-            open(73,file='outputs/enstrophy',position='append')
-            open(74,file='outputs/TKE',position='append')
-            open(75,file='outputs/swirl_beta',position='append')
+            open(105,   file='outputs/tpss1',position='append')
+            open(106,   file='outputs/bpss1',position='append')
+#ELSE
+        else
+#ENDIF
+            open(10,     file='outputs/Txy1',position='append')
+            open(11,    file='outputs/urms1',position='append')
+            open(12,     file='outputs/RSS1',position='append')
+            open(22,    file='outputs/vrms1',position='append')
+            open(33,    file='outputs/wrms1',position='append')
+            open(99,file='outputs/massflux1',position='append')
+            open(100, file='outputs/mean_u1',position='append')
+            open(101,  file='outputs/betay1',position='append')
+            open(102, file='outputs/swirly1',position='append')
+            open(103,   file='outputs/twss1',position='append')
+            open(104,   file='outputs/bwss1',position='append')
         end if
-        
-        write(73,*) sumens
-        write(74,*) TKE
-        write(75,*) SB
-        close(73)
-        close(74)
-        close(75) 
+
+        ! Write y-profile data in order
+        do i = 1,nyp
+            write(10,*)  T12(i)
+            write(11,*) urms(i)
+            write(12,*)  R12(i)
+            write(22,*) vrms(i)
+            write(33,*) wrms(i)
+            write(100,*) umean(i)
+            write(101,*) betay(i)
+            write(102,*) swirly(i)
+        end do
+        write(99,*) massFlux
+        write(103,*) tau_tw/(mx*mz)
+        write(104,*) tau_bw/(mx*mz)
+
+        close(10)
+        close(11)
+        close(12)
+        close(22)
+        close(33)
+        close(99)
+        close(101)
+        close(102)
+        close(103)
+        close(104)
+
+#IFDEF POLYMER
+        write(105,*) s_tw/(mx*mz)
+        write(106,*) s_bw/(mx*mz)
+        close(105)
+        close(106)
+#ENDIF
 
     end subroutine writeoutputs
-#ENDIF    
+
     !---------------------------------------------------------------------!
 
     subroutine vortArea(swirl,area)
@@ -1694,143 +1794,6 @@ contains
         write(124) u,v,w
         close(124)
     end subroutine write_FTLE_output
-
-    !---------------------------------------------------------------------!
-    
-    subroutine calc_stress(umean,u,v,w,u12 &
-#IFDEF POLYMER
-                        ,p12 &
-#ENDIF
-                        )
-
-        use grid_size
-        use omp_lib
-
-        implicit none
-
-        real,dimension(nyp)       :: umean
-        real,dimension(nyp,mz,mx) :: u,v,w,u12,up,vp,wp
-#IFDEF POLYMER
-        real,dimension(nyp,mz,mx) :: p12
-        real :: s_tw,s_bw,tpss,bpss
-#ENDIF
-        real :: tau_tw,tau_bw,twss,bwss
-
-        real :: R11, R12, R13, R22, R23, R33 ! Reynolds stresses (symmetric tensor)
-        ! Common block variables
-        integer :: irstrt
-        integer :: it 
-        real    :: xl,yl,zl
-        real    :: re
-
-        integer :: i,j,k
-
-        ! Common blocks
-        common/iocontrl/   irstrt
-        common/itime/      it
-        common/domain/     xl,yl,zl
-        common/flow/       re
-     
-
-        ! Begin Calculations
-        ! Calculate fluctuating velocities
-        !$omp parallel do
-        do k = 1,mx
-            do j = 1,mz 
-                do i = 1,nyp
-                    up(i,j,k) = u(i,j,k) - umean(i)
-                    vp(i,j,k) = v(i,j,k)
-                    wp(i,j,k) = w(i,j,k)
-                end do
-            end do
-        end do
-        !$omp end parallel do
-
-        ! Average values to calculate stress terms
-        R11 = 0.0; R12 = 0.0; R13 = 0.0
-        R22 = 0.0; R23 = 0.0; R33 = 0.0
-        !$omp parallel do default(shared) reduction(+:R11,R12,R13,R22,R23,R33) private(i,j,k) collapse(3)
-        do k = 1,mx
-            do j = 1,mz 
-                do i = 1,nyp
-                    R11 = R11 + up(i,j,k)*up(i,j,k)
-                    R12 = R12 + up(i,j,k)*vp(i,j,k)
-                    R13 = R13 + up(i,j,k)*wp(i,j,k)
-                    R22 = R22 + vp(i,j,k)*vp(i,j,k)
-                    R23 = R23 + vp(i,j,k)*wp(i,j,k)
-                    R33 = R33 + wp(i,j,k)*wp(i,j,k)
-                end do
-            end do
-        end do
-        !$omp end parallel do
-
-        R11 = R11/(mx*mz*nyp)
-        R12 = R12/(mx*mz*nyp)
-        R13 = R13/(mx*mz*nyp)
-        R22 = R22/(mx*mz*nyp)
-        R23 = R23/(mx*mz*nyp)
-        R33 = R33/(mx*mz*nyp)
-
-        tau_tw = 0.0
-        tau_bw = 0.0
-#IFDEF POLYMER
-        s_tw = 0.0
-        s_bw = 0.0
-        !$omp parallel do reduction(+:tau_tw,tau_bw,s_tw,s_bw) default(shared) private(j,k,twss,bwss,tpss,bpss)
-#ELSE
-        !$omp parallel do reduction(+:tau_tw,tau_bw) default(shared) private(j,k,twss,bwss)
-#ENDIF
-        do k = 1,mx
-            do j = 1,mz
-                twss = u12(1,j,k)
-                bwss = u12(nyp,j,k)
-
-                tau_tw = tau_tw + twss/re
-                tau_bw = tau_bw + bwss/re
-#IFDEF POLYMER
-                tpss = p12(1,j,k) 
-                bpss = p12(nyp,j,k) 
-
-                s_tw = s_tw + tpss
-                s_bw = s_bw + bpss
-#ENDIF
-            end do
-        end do
-        !$omp end parallel do                
-
-        if (it .eq. irstrt) then
-            open(11,file='outputs/Rey_stress',status='new')
-            open(101,file='outputs/twss')
-            open(102,file='outputs/bwss')
-        else
-            open(11,file='outputs/Rey_stress',status='old',position='append')
-            open(101,file='outputs/twss',position='append')
-            open(102,file='outputs/bwss',position='append')
-        end if
-
-        write(11,*) R11,R12,R13,R22,R23,R33
-        write(101,*) tau_tw/(mx*mz) - R12
-        write(102,*) tau_bw/(mx*mz) - R12
-        close(11)
-        close(101)
-        close(102)
-
-#IFDEF POLYMER
-        if (it .eq. irstrt) then
-            open(103,file='outputs/tpss')
-            open(104,file='outputs/bpss')
-        else
-            open(103,file='outputs/tpss',position='append')
-            open(104,file='outputs/bpss',position='append')
-        end if
-
-        write(103,*) s_tw/(mx*mz)
-        write(104,*) s_bw/(mx*mz)
-        close(103)
-        close(104)
-
-#ENDIF
-    end subroutine calc_stress
 
     !---------------------------------------------------------------------!
 

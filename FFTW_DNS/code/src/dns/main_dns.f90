@@ -110,7 +110,7 @@ program dns
 ! ============================================================================ !
 
     common/iocontrl/  irstrt,nsteps,iprnfrq,print3d,crstrt
-    common/init/     initu,initv,initw
+    common/init/      initu,initv,initw
     common/waves/     wavx,wavz
     common/u0bcs/     atu,btu,gtu,abu,bbu,gbu
     common/grnfcn/    nt,nb,p1t,p1b,p2t,p2b
@@ -133,8 +133,9 @@ program dns
 !                          Initialization Routines                             !
 ! ============================================================================ !
 
-!    call system_clock(count1,count_rate)
-!    time1 = count1*1.0/count_rate
+    print *,'Setting up...'
+    call system_clock(count1,count_rate)
+    time1 = count1*1.0/count_rate
     ! -------------------------------------------------------------------- !
     ! Initializes all preliminary variables before heading into the main   !
     ! time loop. Reads data from setup/dns.config, computes preliminary    !
@@ -165,9 +166,9 @@ program dns
 
     ! Compute start-up condition to use Adams-Bashforth later
     call initial(u,u0,v,w,w0,omx,omy,omz,fn,fnm1,gn,gnm1,h1n,h1nm1,h3n,h3nm1, &
-                 wrk1,wrkc,u11,u12,u13,u21,u22,u23,u31,u32,u33,               &
+                 wrk1,wrkc,u11,u12,u13,u21,u22,u23,u31,u32,u33, &
 #IFDEF SCALAR
-                 scalar,sclx,scly,sclz,scn,scnm1,                             &
+                 scalar,sclx,scly,sclz,scn,scnm1,     &
 #ENDIF
 #IFDEF POLYMER
                  t1,t2,t3,c11,c12,c13,c21,c22,c23,c31,c32,c33,dc111,dc112,    &
@@ -180,19 +181,24 @@ program dns
 #ENDIF
                  Lu,Lv,Lw)
                  
-!    call system_clock(count2,count_rate)
-!    time2 = count2*1.0/count_rate
-!
-!    print *,'Elapsed time for initialization: ',time2-time1,' s'
+
+    if (irstrt .eq. 0) then 
+        call system_clock(count2,count_rate)
+        time2 = count2*1.0/count_rate
+        print *,'Elapsed time for setup: ',time2-time1,' s'
+        call system_clock(count1,count_rate)
+        time1 = count1*1.0/count_rate
+    end if
+
 ! ---------------------------------------------------------------------------- !
 
 ! ============================================================================ !
 !                                 Main Loop                                    !
 ! ============================================================================ !
-
     do it = 1,nsteps
-
-        write(*,*) '   it = ',it
+        if (mod(it,cadence) .eq. 1) then
+            write(*,*) 'it = ',it
+        end if
 
 #IFDEF POLYMER
         ! -------------------------------------------------------------------- !
@@ -597,8 +603,6 @@ program dns
          call norm(dc333)                                                 
 #ENDIF
 
-!    call system_clock(count1,count_rate)
-!    time1 = count1*1.0/count_rate
         ! -------------------------------------------------------------------- !
         ! Compute v x omega in physical space - FFTs are performed inside subroutine
         ! Assumes all variables are in 3D spectral space (on input and output)
@@ -618,10 +622,6 @@ program dns
 #ENDIF
                     Lu,Lv,Lw)
 
-!    call system_clock(count2,count_rate)
-!    time2 = count2*1.0/count_rate
-!
-!    print *,'Elapsed time for vcw3dp: ',time2-time1,' s'
 
         ! Normalizations
         call norm(v)
@@ -794,6 +794,19 @@ program dns
         end if
 
         ! -------------------------------------------------------------------- !
+        if (it .eq. irstrt) then ! this only happens when it = 1 = irstrt
+            call system_clock(count2,count_rate)
+            time2 = count2*1.0/count_rate
+            write(*,'("   Elapsed time for setup: ",f16.3," s")')time2-time1
+            call system_clock(count1,count_rate)
+            time1 = count1*1.0/count_rate
+        else if (mod(it,cadence) .eq. 1 .and. it .gt. 1) then
+            call system_clock(count2,count_rate)
+            time2 = count2*1.0/count_rate
+            write(*,'("   Average time step speed: ",f16.3," s")')(time2-time1)/float(cadence)
+            call system_clock(count1,count_rate)
+            time1 = count1*1.0/count_rate
+        end if
         ! -------------------------------------------------------------------- !
     end do ! it
 
@@ -804,10 +817,6 @@ program dns
 !                               Post-Processing                                !
 ! ============================================================================ !
 
-!    call system_clock(count2,count_rate)
-!    time2 = count2*1.0/count_rate
-!
-!    print *,'Elapsed time for ',OMP_GET_MAX_THREADS(),' threads: ',time2-time1,' s'
 ! ---------------------------------------------------------------------------- !
 end program dns
 
@@ -1038,7 +1047,23 @@ subroutine setstuff
     read(110,*) src_start
     read(110,*) src_stop
     read(110,*) scltarg
+#ELSE
+    read(110,*) 
+    read(110,*) 
+    read(110,*) 
+    read(110,*) 
+    read(110,*) 
+    read(110,*) 
 #ENDIF
+
+    read(110,*) 
+    read(110,*) 
+    read(110,*) 
+    read(110,*) 
+    read(110,*) 
+   
+    read(110,*) cadence
+ 
     close(110)
 
 #IFDEF SCALAR
