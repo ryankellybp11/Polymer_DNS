@@ -1,7 +1,0 @@
-ulimit -s unlimited
-export OMP_NUM_THREADS=16
-export OMP_STACKSIZE=750M
-
-rm -rf outputs*
-
-ibrun -n 1 ./code/bin/dns

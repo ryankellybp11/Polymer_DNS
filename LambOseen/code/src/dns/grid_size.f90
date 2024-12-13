@@ -1,5 +1,5 @@
 module grid_size
-    integer, parameter :: nx_ = 256, ny_ = 128, nz_ = 128, bftail_ = 0, npart = 0, qn = 32768 
+    integer, parameter :: nx_ = 2, ny_ = 256, nz_ = 256, bftail_ = 0, npart = 0, qn = 65536 
     integer, parameter :: ny = ny_
     integer, parameter :: nz = nz_
     integer, parameter :: nx = nx_ 
@@ -41,6 +41,10 @@ module grid_size
     integer :: particle_flag,CD_switch
 	real    :: ratio,ap,C_mu,gravity
 
+    ! Logger 
     integer :: cadence
+
+    ! Lamb Oseen variable
+    real    :: vortR
 
 end module grid_size
