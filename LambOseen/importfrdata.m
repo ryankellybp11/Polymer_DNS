@@ -7,7 +7,7 @@ function [R,WX,SCL,USQ] = importfrdata(filename, nsteps, startRow, endRow)
 %   [r,wx,scl,usq] = IMPORTFRDATA(FILENAME, STARTROW, ENDROW)
 %   Reads data from rows STARTROW through ENDROW of text file FILENAME.
 %
-%   Outputs are (nsteps) x (npts) arrays where npts are the number of
+%   Outputs are (npts) x (nsteps) arrays where npts are the number of
 %   data points generated in the DNS code and nsteps = (nsteps + 1) from
 %   the DNS code (because the initial step at it=0 is printed as the first
 %   step)
@@ -61,13 +61,13 @@ usq = dataArray{:, 4};
 
 %% Split arrays into time-based chunks
 npts = length(r)/nsteps; % # of points printed per time step
-R = zeros(nsteps,npts);
+R = zeros(npts,nsteps);
 WX = R;
 SCL = R;
 USQ = R;
-for ii = 1:npts
-    istart = (ii-1)*nsteps + 1;
-    istop  = ii*nsteps;
+for ii = 1:nsteps
+    istart = (ii-1)*npts + 1;
+    istop  = ii*npts;
     thisstep = istart:istop;
     R(:,ii) = r(thisstep);
     WX(:,ii) = wx(thisstep);

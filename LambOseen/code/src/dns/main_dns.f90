@@ -1061,7 +1061,6 @@ subroutine setstuff
     read(110,*) 
    
     read(110,*) cadence
-    read(110,*) vortR
  
     close(110)
 
@@ -1099,6 +1098,7 @@ subroutine setstuff
         read(111,*) vortY, vortZ
         read(111,*) vNum 
         read(111,*) vortSpace
+        read(111,*) vortR
     
         close(111)
     end if

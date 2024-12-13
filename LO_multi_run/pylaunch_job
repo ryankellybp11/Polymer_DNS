@@ -1,0 +1,19 @@
+#!/bin/bash
+#SBATCH  -J  my_jobname
+#SBATCH  -o  pylaunch.log
+#SBATCH  -e  pylaunch.err
+#SBATCH  -p  spr
+#SBATCH  -N  8
+#SBATCH  -n  8
+#SBATCH  -t  1:00:00
+#SBATCH  -A  CTS24014
+
+#SBATCH --mail-user=username@email.com
+#SBATCH --mail-type=end     # email me when the job finishes
+
+
+module load pylauncher
+
+rm -rf pylauncher_tmp*
+
+python3 multi_DNS.py
