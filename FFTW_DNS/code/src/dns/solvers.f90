@@ -3066,46 +3066,26 @@ contains
         !---------------------------------------------------------------------!
         !            Apply the force field to the solid surface               !
         !---------------------------------------------------------------------!
-                if (i .le. kmaxsurf) then
                 do ii = -2, 2
-                    ipii = k + ii
                     idif = 1 + iabs(ii)        
+                    ipii = k + ii
                     if(ipii .lt. 1 ) ipii = ipii + mx         
                     if(ipii .gt. mx) ipii = ipii - mx
                     do jj = -2, 2
                         jdif = 1 + iabs(jj)
                         segdrag = fspread(jdif,idif)
+                        jpjj = j + jj
+                        if(jpjj .lt. 1 ) jpjj = jpjj + mz
+                        if(jpjj .gt. mz) jpjj = jpjj - mz
         
-                        if (j .ge. 3 .or. j .le. mz-2) then 
-                            jpjj = j + jj
-                            xsegdrag = segdrag*dragx(j,k)
-                            ysegdrag = segdrag*dragy(j,k)
-                            zsegdrag = segdrag*dragz(j,k)
-                            vwx(jpjj,ipii) = vwx(jpjj,ipii) + xsegdrag
-                            vwy(jpjj,ipii) = vwy(jpjj,ipii) + ysegdrag
-                            vwz(jpjj,ipii) = vwz(jpjj,ipii) + zsegdrag
-                        else if (j .eq. 1 .or. j .eq. 2) then 
-                            jpjj = j + jj
-                            if(jpjj .lt. 1 ) jpjj = jpjj + mz
-                            xsegdrag = segdrag*dragx(j,k)
-                            ysegdrag = segdrag*dragy(j,k)
-                            zsegdrag = segdrag*dragz(j,k)
-                            vwx(jpjj,ipii) = vwx(jpjj,ipii) + xsegdrag
-                            vwy(jpjj,ipii) = vwy(jpjj,ipii) + ysegdrag
-                            vwz(jpjj,ipii) = vwz(jpjj,ipii) + zsegdrag
-                        else 
-                            jpjj = j + jj
-                            if(jpjj .gt. mz) jpjj = jpjj - mz
-                            xsegdrag = segdrag*dragx(j,k)
-                            ysegdrag = segdrag*dragy(j,k)
-                            zsegdrag = segdrag*dragz(j,k)
-                            vwx(jpjj,ipii) = vwx(jpjj,ipii) + xsegdrag
-                            vwy(jpjj,ipii) = vwy(jpjj,ipii) + ysegdrag
-                            vwz(jpjj,ipii) = vwz(jpjj,ipii) + zsegdrag
-                        end if
+                        xsegdrag = segdrag*dragx(j,k)
+                        ysegdrag = segdrag*dragy(j,k)
+                        zsegdrag = segdrag*dragz(j,k)
+                        vwx(jpjj,ipii) = vwx(jpjj,ipii) + xsegdrag
+                        vwy(jpjj,ipii) = vwy(jpjj,ipii) + ysegdrag
+                        vwz(jpjj,ipii) = vwz(jpjj,ipii) + zsegdrag
                     end do ! jj
                 end do ! ii
-                end if
             end do ! k
         end do ! j
 

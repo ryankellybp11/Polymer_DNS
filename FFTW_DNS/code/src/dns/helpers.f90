@@ -1042,9 +1042,9 @@ contains
                       wrms(i) =   wrms(i) +  w(i,j,k)**2.0 ! w'_rms
                        R12(i) =    R12(i) + up(i,j,k)*v(i,j,k) ! RSS
 #IFDEF POLYMER
-                       T12(i) =    T12(i) + u12(i,j,k) + p12(i,j,k) ! tau_xy (total shear stress)
+                       T12(i) =    T12(i) + u12(i,j,k)/re + p12(i,j,k) ! tau_xy (total shear stress)
 #ELSE
-                       T12(i) =    T12(i) + u12(i,j,k) ! tau_xy
+                       T12(i) =    T12(i) + u12(i,j,k)/re ! tau_xy
 #ENDIF
                 end do
 
@@ -1072,7 +1072,9 @@ contains
             urms(i) = sqrt(urms(i)/(mx*mz))
             vrms(i) = sqrt(vrms(i)/(mx*mz))
             wrms(i) = sqrt(wrms(i)/(mx*mz))
-            massFlux = massFlux + 1.0/yl*0.5*(umean(i+1) + umean(i))*abs(ycoord(i+1) - ycoord(i)) ! Bulk velocity
+            if (i .lt. nyp) then
+                massFlux = massFlux + 1.0/yl*0.5*(umean(i+1) + umean(i))*abs(ycoord(i+1) - ycoord(i)) ! Bulk velocity
+            end if
         end do
 
         ! Finish computing averages and correlation
