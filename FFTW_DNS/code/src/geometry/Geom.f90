@@ -106,12 +106,12 @@ program geom
       xmax = xmin + 0.1*XL
       zmin = ZL*0.2
       zmax = ZL*0.8
-      ygeom = 0.1*YL
+      ygeom = YL/2.0*(0.9)
       kbuff = kwall
       ybuff = ycoord(kbuff)
       ywidth = 0.25*YL
-      ymin = ygeom
-      ymax = ygeom + ywidth
+      ymax = ygeom
+      ymin = ygeom - ywidth
       do i = bftail+1,mx
            xlocation = (float(i-1))*delxm
            if ((xlocation .le. xmax) .and. (xlocation .ge. xmin)) then
