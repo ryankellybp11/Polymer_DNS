@@ -245,7 +245,7 @@ program dns
                         str11nm1,str12nm1,str13nm1,str22nm1,str23nm1,str33nm1)
 
             ! Note: The arguments are chosen such that I can still use phirhs for the C tensor solver
-            !$omp parallel sections default(shared) private(wrkc,wrk1,bcbot,bctop) num_threads(6)
+            !$omp parallel sections default(shared) private(wrkc,wrk1,bcbot,bctop)
             !$omp section
             call phirhs(c11,wrkc,wrk1,c11NL,2.0*c11NL,bcbot,bctop,diffpoly)
             !$omp section
@@ -491,7 +491,7 @@ program dns
         uflag = 3
         call uzero(w0,h3n,h3nm1,uflag)
 
-        !$omp parallel do default(shared) private(i) num_threads(nyh) schedule(dynamic)
+        !$omp parallel do default(shared) private(i) schedule(dynamic)
         do i = 1,nyp
             ! Because of periodicity, the (0,0) mode for omy is always zero
             omy(i,1,1) = (0.0,0.0)
