@@ -42,5 +42,6 @@ module grid_size
 	real    :: ratio,ap,C_mu,gravity
 
     integer :: cadence
+    real    :: spts
 
 end module grid_size

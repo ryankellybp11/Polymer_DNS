@@ -467,9 +467,15 @@ contains
         !$omp end parallel do
 
         avg_beta = avg_beta/volume
-        print *,'avg beta = ',avg_beta
-        print *,'total scalar = ',total_scl
-        if (avg_beta .le. beta_min) src_stop = it
+        if (mod(it,cadence) .eq. 1) then
+            print *,'avg beta = ',avg_beta
+            print *,'avg scalar = ',total_scl/volume
+        end if
+        ! Check stop condition on polymer release
+        if (avg_beta .le. beta_min) then
+            src_stop = it
+            print *,'Final polymer addition @ time step: ',it
+        end if
         qbeta = avg_beta
     end subroutine calc_total_beta
 
@@ -931,6 +937,275 @@ contains
     call Shell_Sort(Qmin,Qx,Qy,Qz)
 
     end subroutine findmaxQ
+
+    !---------------------------------------------------------------------!
+
+    subroutine newtarget(u11,u12,u13,u21,u22,u23,u31,u32,u33,scsource,planY,planZb,planXb)
+    ! This subroutine is specifically for targeting regions of low Q/high strain.
+    ! I suppose it could be easily modified to target other regions without particles,
+    ! but I'll worry about that later.
+
+    ! This takes the velocity gradient tensor and scalar field as inputs and outputs
+    ! the grid indices of the minimum Q coordinates and the corresponding beta field
+    ! for checking local concentration. These quantities must be in 3/2 interpolated 
+    ! physical space for whatever reason that I don't really know, but that's why all
+    ! these FFTs are necessary.
+
+    ! Transform velocity gradient terms to 3/2 physical space 
+
+    use,intrinsic :: iso_c_binding
+    use grid_size
+    use omp_lib
+    use derivs
+
+    !---------------------------------------------------------------------!
+    
+    ! =================================================================== !
+    !                   Declare all variables explicitly                  !
+    ! =================================================================== !
+
+    implicit none
+
+    include 'fftw3.f03'
+
+    ! Inputs  
+    complex, dimension(nyp,nz,nxh), intent(in) :: u11,u12,u13,u21,u22,u23,u31,u32,u33
+
+    ! Outputs
+    real,    dimension(nyp,mz,mx)          :: scsource
+
+    ! FFTW Variables
+    type(C_PTR) :: planY,planZb,planXb
+
+    ! Real/Imaginary parts of spectral variables
+    real(C_DOUBLE), dimension(nyp,nz,nxh) :: u11r,u12r,u13r,u21r,u22r,u23r,u31r,u32r,u33r
+    real(C_DOUBLE), dimension(nyp,nz,nxh) :: u11i,u12i,u13i,u21i,u22i,u23i,u31i,u32i,u33i
+    
+
+    ! Intermediate physical y-plane variables
+    complex(C_DOUBLE_COMPLEX), dimension(mz,mx) :: u11s,u12s,u13s
+    complex(C_DOUBLE_COMPLEX), dimension(mz,mx) :: u21s,u22s,u23s
+    complex(C_DOUBLE_COMPLEX), dimension(mz,mx) :: u31s,u32s,u33s
+
+    real(C_DOUBLE), dimension(mz,mx) :: u11p,u12p,u13p
+    real(C_DOUBLE), dimension(mz,mx) :: u21p,u22p,u23p
+    real(C_DOUBLE), dimension(mz,mx) :: u31p,u32p,u33p
+
+    ! Intermediate 3D physical variables
+    real, dimension(nyp,mz,mx) :: u11p3d,u12p3d,u13p3d
+    real, dimension(nyp,mz,mx) :: u21p3d,u22p3d,u23p3d
+    real, dimension(nyp,mz,mx) :: u31p3d,u32p3d,u33p3d
+    real, dimension(nyp,mz,mx) :: Qcrit
+
+    ! Calculation Variables
+    integer :: i,j,k,jj,cnt
+    real    :: xl,yl,zl
+    real    :: Lx,Ly,Lz,volume,scsum,var1,Qmax
+
+    real    :: wavx(nxh),wavz(nz) 
+    real    :: c(nyp)
+    real    :: fac
+ 
+    ! Polymer variables
+    real    :: alpha_poly
+    !---------------------------------------------------------------------!
+
+    ! =================================================================== !
+    !                            Common Blocks                            !
+    ! =================================================================== !
+    common/waves/      wavx,wavz,c
+    common/poly_var/   alpha_poly
+    common/domain/     xl,yl,zl
+    !---------------------------------------------------------------------!
+    
+    ! =================================================================== !
+    !                         Begin Calculations                          !
+    ! =================================================================== !
+
+    !---------------------------------------------------------------------!
+    !          Transform spectral variables to 3/2 physical space         !
+    !---------------------------------------------------------------------!
+    ! Convert Chebyshev modes to cosine modes for DCT
+    !$omp parallel do default(shared) private(i,j,k,fac) schedule(dynamic)
+    do k = 1,nxh
+        do j = 1,nz
+            do i = 1,nyp
+
+                fac = c(i)/2.0
+ 
+                u11r(i,j,k) = real(u11(i,j,k))*fac
+                u12r(i,j,k) = real(u12(i,j,k))*fac
+                u13r(i,j,k) = real(u13(i,j,k))*fac
+                u21r(i,j,k) = real(u21(i,j,k))*fac
+                u22r(i,j,k) = real(u22(i,j,k))*fac
+                u23r(i,j,k) = real(u23(i,j,k))*fac
+                u31r(i,j,k) = real(u31(i,j,k))*fac
+                u32r(i,j,k) = real(u32(i,j,k))*fac
+                u33r(i,j,k) = real(u33(i,j,k))*fac
+
+                u11i(i,j,k) = aimag(u11(i,j,k))*fac
+                u12i(i,j,k) = aimag(u12(i,j,k))*fac
+                u13i(i,j,k) = aimag(u13(i,j,k))*fac
+                u21i(i,j,k) = aimag(u21(i,j,k))*fac
+                u22i(i,j,k) = aimag(u22(i,j,k))*fac
+                u23i(i,j,k) = aimag(u23(i,j,k))*fac
+                u31i(i,j,k) = aimag(u31(i,j,k))*fac
+                u32i(i,j,k) = aimag(u32(i,j,k))*fac
+                u33i(i,j,k) = aimag(u33(i,j,k))*fac
+            end do
+        end do
+    end do
+    !$omp end parallel do
+
+    
+    ! Compute Real --> Real DCT-I on real and imaginary parts of spectral variables
+    !$omp parallel do default(shared) private(j,k) collapse(2)
+    do k = 1,nxh
+        do j = 1,nz
+
+            call fftw_execute_r2r(planY,u11r(:,j,k),u11r(:,j,k))
+            call fftw_execute_r2r(planY,u12r(:,j,k),u12r(:,j,k))
+            call fftw_execute_r2r(planY,u13r(:,j,k),u13r(:,j,k))
+            call fftw_execute_r2r(planY,u21r(:,j,k),u21r(:,j,k))
+            call fftw_execute_r2r(planY,u22r(:,j,k),u22r(:,j,k))
+            call fftw_execute_r2r(planY,u23r(:,j,k),u23r(:,j,k))
+            call fftw_execute_r2r(planY,u31r(:,j,k),u31r(:,j,k))
+            call fftw_execute_r2r(planY,u32r(:,j,k),u32r(:,j,k))
+            call fftw_execute_r2r(planY,u33r(:,j,k),u33r(:,j,k))
+
+            call fftw_execute_r2r(planY,u11i(:,j,k),u11i(:,j,k))
+            call fftw_execute_r2r(planY,u12i(:,j,k),u12i(:,j,k))
+            call fftw_execute_r2r(planY,u13i(:,j,k),u13i(:,j,k))
+            call fftw_execute_r2r(planY,u21i(:,j,k),u21i(:,j,k))
+            call fftw_execute_r2r(planY,u22i(:,j,k),u22i(:,j,k))
+            call fftw_execute_r2r(planY,u23i(:,j,k),u23i(:,j,k))
+            call fftw_execute_r2r(planY,u31i(:,j,k),u31i(:,j,k))
+            call fftw_execute_r2r(planY,u32i(:,j,k),u32i(:,j,k))
+            call fftw_execute_r2r(planY,u33i(:,j,k),u33i(:,j,k))
+        end do
+    end do
+    !$omp end parallel do 
+
+    ! Do the rest of the transforms in parallel over y-planes
+    !$omp parallel do default(shared) private(           &
+    !$omp       u11s,u12s,u13s,u21s,u22s,u23s,u31s,u32s,u33s, &
+    !$omp       u11p,u12p,u13p,u21p,u22p,u23p,u31p,u32p,u33p, &
+    !$omp       i,j,k,jj) schedule(dynamic)
+    do i = 1,nyp    
+    !---------------------------------------------------------------------!
+    !       Calculate beta then store it and grad(V) in 3D variables      !
+    !---------------------------------------------------------------------!
+        ! Zero out 2D variables
+
+        u11s = 0.0
+        u12s = 0.0
+        u13s = 0.0
+        u21s = 0.0
+        u22s = 0.0
+        u23s = 0.0
+        u31s = 0.0
+        u32s = 0.0
+        u33s = 0.0
+
+        ! Copy data to 2D variables
+        do k = 1,nxh
+            do j = 1,nz
+                if (j .le. nzh) jj = j
+                if (j .gt. nzh) jj = (mz-nz) + j
+
+                u11s(jj,k) = cmplx(u11r(i,j,k),u11i(i,j,k))
+                u12s(jj,k) = cmplx(u12r(i,j,k),u12i(i,j,k))
+                u13s(jj,k) = cmplx(u13r(i,j,k),u13i(i,j,k))
+                u21s(jj,k) = cmplx(u21r(i,j,k),u21i(i,j,k))
+                u22s(jj,k) = cmplx(u22r(i,j,k),u22i(i,j,k))
+                u23s(jj,k) = cmplx(u23r(i,j,k),u23i(i,j,k))
+                u31s(jj,k) = cmplx(u31r(i,j,k),u31i(i,j,k))
+                u32s(jj,k) = cmplx(u32r(i,j,k),u32i(i,j,k))
+                u33s(jj,k) = cmplx(u33r(i,j,k),u33i(i,j,k))
+
+            end do
+        end do
+        
+        ! Complex --> Complex z-transform
+        call fftw_execute_dft(planZb,u11s,u11s)
+        call fftw_execute_dft(planZb,u12s,u12s)
+        call fftw_execute_dft(planZb,u13s,u13s)
+        call fftw_execute_dft(planZb,u21s,u21s)
+        call fftw_execute_dft(planZb,u22s,u22s)
+        call fftw_execute_dft(planZb,u23s,u23s)
+        call fftw_execute_dft(planZb,u31s,u31s)
+        call fftw_execute_dft(planZb,u32s,u32s)
+        call fftw_execute_dft(planZb,u33s,u33s)
+
+        ! Complex --> Real x-transform
+        call fftw_execute_dft_c2r(planXb,u11s,u11p)
+        call fftw_execute_dft_c2r(planXb,u12s,u12p)
+        call fftw_execute_dft_c2r(planXb,u13s,u13p)
+        call fftw_execute_dft_c2r(planXb,u21s,u21p)
+        call fftw_execute_dft_c2r(planXb,u22s,u22p)
+        call fftw_execute_dft_c2r(planXb,u23s,u23p)
+        call fftw_execute_dft_c2r(planXb,u31s,u31p)
+        call fftw_execute_dft_c2r(planXb,u32s,u32p)
+        call fftw_execute_dft_c2r(planXb,u33s,u33p)
+
+ 
+        do k = 1,mx
+            do j = 1,mz
+                u11p3d(i,j,k) = u11p(j,k) 
+                u12p3d(i,j,k) = u12p(j,k) 
+                u13p3d(i,j,k) = u13p(j,k) 
+                u21p3d(i,j,k) = u21p(j,k) 
+                u22p3d(i,j,k) = u22p(j,k) 
+                u23p3d(i,j,k) = u23p(j,k) 
+                u31p3d(i,j,k) = u31p(j,k) 
+                u32p3d(i,j,k) = u32p(j,k) 
+                u33p3d(i,j,k) = u33p(j,k) 
+            end do
+        end do
+    end do ! k
+    !$omp end parallel do
+
+    !---------------------------------------------------------------------!
+    !                        Calculate Q-criterion                        !
+    !---------------------------------------------------------------------!
+
+    ! Calculate Q-criterion and store in Qcrit
+    call calcswirl(u11p3d,u21p3d,u31p3d,u12p3d,u22p3d,u32p3d,u13p3d,u23p3d,u33p3d,Qcrit)
+
+    Qmax = maxval(Qcrit)
+    Lx = xl/float(mx)
+    Lz = zl/float(mz)
+    volume = xl*yl*zl
+    !$omp parallel do default(shared) private(i,j,k,Ly) reduction(+:scsum)
+    do k = 1,mx
+        do j = 1,mz
+            do i = 1,nyp
+                if (i .eq. 1) then
+                    Ly = abs(ycoord(2) - ycoord(1))/2.0
+                else if (i .eq. nyp) then
+                    Ly = abs(ycoord(nyp) - ycoord(ny))/2.0
+                else
+                    Ly = abs(ycoord(i+1) - ycoord(i))/2.0 + abs(ycoord(i) - ycoord(i-1))/2.0
+                end if
+
+                scsource(i,j,k) = Qcrit(i,j,k)/Qmax ! scaled from 0 to 1
+                scsum = scsum + scsource(i,j,k)*Lx*Ly*Lz
+            end do
+        end do  
+    end do
+    !$omp end parallel do
+
+    ! Scale scalar by total amount to add per time step
+    var1 = spts/scsum ! Compare total scalar added to target value (spts)
+    do k = 1,mx
+        do j = 1,mz
+            do i = 1,nyp
+                scsource(i,j,k) = scsource(i,j,k)*var1
+            end do
+        end do
+    end do
+
+    end subroutine newtarget
 #ENDIF    
     !---------------------------------------------------------------------!
 

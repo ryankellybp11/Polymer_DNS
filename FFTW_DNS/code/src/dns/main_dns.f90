@@ -1063,6 +1063,7 @@ subroutine setstuff
     read(110,*) 
    
     read(110,*) cadence
+    read(110,*) spts
  
     close(110)
 

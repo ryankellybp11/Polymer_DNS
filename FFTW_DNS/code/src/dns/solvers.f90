@@ -2202,8 +2202,8 @@ contains
             n = n+1
         end do
 #ENDIF
-    else if (scl_flag .eq. 3 .and. it .eq. 1 .and. irstrt .eq. 1) then
-        scsource = 1.0
+    else if (scl_flag .eq. 5 .and. it .ge. src_start .and. it .le. src_stop) then
+        call newtarget(u11,u12,u13,u21,u22,u23,u31,u32,u33,scsource,planY,planZb,planXb)
     else
         scsource = 0.0
     end if
