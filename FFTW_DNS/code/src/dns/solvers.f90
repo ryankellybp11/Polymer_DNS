@@ -1792,7 +1792,7 @@ contains
 
     complex, dimension(nyp,nz,nxh) :: qp11,qp12,qp13,qp22,qp23,qp33
     real,    dimension(mz,mx)      :: beta_poly
-    real,    dimension(nyp,mz,mx)  :: beta3d,p12
+    real,    dimension(nyp,mz,mx)  :: beta3d,p12,trC
 #ENDIF
    
     ! FFT complex arrays 
@@ -3066,26 +3066,46 @@ contains
         !---------------------------------------------------------------------!
         !            Apply the force field to the solid surface               !
         !---------------------------------------------------------------------!
+                if (i .le. kmaxsurf) then
                 do ii = -2, 2
-                    idif = 1 + iabs(ii)        
                     ipii = k + ii
+                    idif = 1 + iabs(ii)        
                     if(ipii .lt. 1 ) ipii = ipii + mx         
                     if(ipii .gt. mx) ipii = ipii - mx
                     do jj = -2, 2
                         jdif = 1 + iabs(jj)
                         segdrag = fspread(jdif,idif)
-                        jpjj = j + jj
-                        if(jpjj .lt. 1 ) jpjj = jpjj + mz
-                        if(jpjj .gt. mz) jpjj = jpjj - mz
         
-                        xsegdrag = segdrag*dragx(j,k)
-                        ysegdrag = segdrag*dragy(j,k)
-                        zsegdrag = segdrag*dragz(j,k)
-                        vwx(jpjj,ipii) = vwx(jpjj,ipii) + xsegdrag
-                        vwy(jpjj,ipii) = vwy(jpjj,ipii) + ysegdrag
-                        vwz(jpjj,ipii) = vwz(jpjj,ipii) + zsegdrag
+                        if (j .ge. 3 .or. j .le. mz-2) then 
+                            jpjj = j + jj
+                            xsegdrag = segdrag*dragx(j,k)
+                            ysegdrag = segdrag*dragy(j,k)
+                            zsegdrag = segdrag*dragz(j,k)
+                            vwx(jpjj,ipii) = vwx(jpjj,ipii) + xsegdrag
+                            vwy(jpjj,ipii) = vwy(jpjj,ipii) + ysegdrag
+                            vwz(jpjj,ipii) = vwz(jpjj,ipii) + zsegdrag
+                        else if (j .eq. 1 .or. j .eq. 2) then 
+                            jpjj = j + jj
+                            if(jpjj .lt. 1 ) jpjj = jpjj + mz
+                            xsegdrag = segdrag*dragx(j,k)
+                            ysegdrag = segdrag*dragy(j,k)
+                            zsegdrag = segdrag*dragz(j,k)
+                            vwx(jpjj,ipii) = vwx(jpjj,ipii) + xsegdrag
+                            vwy(jpjj,ipii) = vwy(jpjj,ipii) + ysegdrag
+                            vwz(jpjj,ipii) = vwz(jpjj,ipii) + zsegdrag
+                        else 
+                            jpjj = j + jj
+                            if(jpjj .gt. mz) jpjj = jpjj - mz
+                            xsegdrag = segdrag*dragx(j,k)
+                            ysegdrag = segdrag*dragy(j,k)
+                            zsegdrag = segdrag*dragz(j,k)
+                            vwx(jpjj,ipii) = vwx(jpjj,ipii) + xsegdrag
+                            vwy(jpjj,ipii) = vwy(jpjj,ipii) + ysegdrag
+                            vwz(jpjj,ipii) = vwz(jpjj,ipii) + zsegdrag
+                        end if
                     end do ! jj
                 end do ! ii
+                end if
             end do ! k
         end do ! j
 
@@ -3113,6 +3133,7 @@ contains
         scp3d(i,:,:) = scp
 #ENDIF
 #IFDEF POLYMER
+        trC(i,:,:) = trp
         beta3d(i,:,:) = beta_poly
         p12(i,:,:) = qp12np
 #ENDIF
@@ -3427,7 +3448,6 @@ contains
 #ENDIF
             else if (print3d .eq. 2) then ! Write outputs specifically for FTLE
 !                call write_FTLE_output(up,vp,wp)
-                call write_flowfield_hdf5(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,swirl_3d)
             else
                 write(*,*) 'Warning: Unknown print type. No output data will be written.'
             end if
@@ -3461,7 +3481,7 @@ contains
     end do
  
     !---------------------------------------------------------------------!
-    ! Write Mean U Data, calculate mass flux, & KE/enstrophy if relevant  !
+    ! Write Mean U Data, calculate output data and check polymer addition !
     !---------------------------------------------------------------------!
   
     if (flow_select .eq. 1 .or. flow_select .eq. 4) then ! Only relevant for wall-bounded turbulence
@@ -3497,13 +3517,13 @@ contains
     if (mod(it,cadence) .eq. 1) then ! only write every <cadence> time steps
         write(*,*) '    max CFL = ',cflmax
         write(*,*) '    Writing output data...'
-    call writeoutputs(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,u12p3d,uxmean,swirl_3d &
+        call writeoutputs(up3d,vp3d,wp3d,wx3d,wy3d,wz3d,u12p3d,uxmean,swirl_3d &
 #IFDEF POLYMER
-                      ,beta3d,p12 &
+                          ,beta3d,p12,trC &
 #ELIF DEFINED SCALAR
-                      ,scp3d &
+                          ,scp3d &
 #ENDIF
-                      )
+                          )
 
         write(*,*) '    Done!'
     end if
@@ -3517,3 +3537,5 @@ contains
     
     end subroutine vcw3dp
 end module solvers
+
+

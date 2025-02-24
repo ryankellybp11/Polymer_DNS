@@ -423,6 +423,7 @@ contains
         real    :: avg_beta,total_scl,volume
 
         ! Domain variables
+        integer :: irstrt
         integer :: src_start,src_stop
         real    :: xl,yl,zl
 
@@ -431,6 +432,7 @@ contains
         real    :: alpha_poly,tpoly,zlmax,diffpoly,qbeta,beta_min
 
         !- Common blocks -!
+        common/iocontrl/  irstrt
         common/domain/    xl,yl,zl
         common/poly_flgs/ ipolyflag,itarget,ipeter
         common/poly_var/  alpha_poly,tpoly,zlmax,diffpoly,qbeta,beta_min
@@ -467,10 +469,22 @@ contains
         !$omp end parallel do
 
         avg_beta = avg_beta/volume
+
         if (mod(it,cadence) .eq. 1) then
             print *,'avg beta = ',avg_beta
             print *,'avg scalar = ',total_scl/volume
         end if
+
+!        ! Write data to output files - updated each time step        
+!        if (it .eq. irstrt) then
+!            open(75,file='outputs/total_scl')
+!        else
+!            open(75,file='outputs/total_scl',position='append')
+!        end if
+!        
+!        write(75,*) total_scl/volume*1.0e-6 ! PPM --> weight/weight raw #
+!        close(75) 
+
         ! Check stop condition on polymer release
         if (avg_beta .le. beta_min) then
             src_stop = it
@@ -1206,14 +1220,15 @@ contains
     end do
 
     end subroutine newtarget
-#ENDIF    
+#ENDIF   
+ 
     !---------------------------------------------------------------------!
 
     subroutine writeoutputs(u,v,w,wx,wy,wz,u12,umean,swirl &
 #IFDEF SCALAR
                             ,beta &
 #IFDEF POLYMER
-                            ,p12 &
+                            ,p12,trC &
 #ENDIF
 #ENDIF
                            )
@@ -1233,13 +1248,12 @@ contains
 
         ! Input variables
         real, dimension(nyp,mz,mx) :: u,v,w,wx,wy,wz,beta,u12,swirl
-#IFDEF POLYMER
-        real, dimension(nyp,mz,mx) :: p12
+        real, dimension(nyp,mz,mx) :: p12,trC
+
         ! Shear stress (polymer)
-        real :: s_tw,s_bw,tpss,bpss
-#ENDIF
+        real :: s_tw,s_bw,tpss,bpss,Ckk
         real, dimension(nyp,mz,mx) :: up ! fluctuating streamwise velocity
-        real, dimension(nyp)       :: umean,betay,swirly,urms,vrms,wrms,R12,T12
+        real, dimension(nyp)       :: umean,betay,swirly,urms,vrms,wrms,R12,T12,py12
 
         ! Common block variables
         integer :: irstrt
@@ -1256,7 +1270,7 @@ contains
         real    :: Lx,Ly,Lz
 
         ! Misc
-        real    :: beta_avg,volume,massFlux
+        real    :: volume,massFlux
 
     !---------------------------------------------------------------------!
    
@@ -1269,12 +1283,11 @@ contains
     ! =================================================================== !
     !                         Begin Calculations                          !
     ! =================================================================== !
-  
+ 
         Lx = xl/float(mx)
         Lz = zl/float(mz)
         volume = (xl*yl*zl)
 
-        beta_avg = 0.0
         betay = 0.0
         swirly = 0.0
         tau_tw = 0.0
@@ -1284,13 +1297,11 @@ contains
         wrms = 0.0
         R12 = 0.0
         T12 = 0.0
-#IFDEF POLYMER
+        py12 = 0.0
         s_tw = 0.0
         s_bw = 0.0
-        !$omp parallel do reduction(+:tau_tw,tau_bw,s_tw,s_bw,swirly,beta_avg,betay,urms,vrms,wrms,R12,T12) default(shared) private(i,j,k,twss,bwss,tpss,bpss,Lx,Ly,Lz) schedule(dynamic)
-#ELSE
-        !$omp parallel do reduction(+:tau_tw,tau_bw,swirly,urms,vrms,wrms,R12,T12) default(shared) private(i,j,k,twss,bwss,Lx,Ly,Lz) schedule(dynamic)
-#ENDIF
+        Ckk = 0.0
+        !$omp parallel do reduction(+:tau_tw,tau_bw,s_tw,s_bw,swirly,betay,urms,vrms,wrms,R12,T12,py12,Ckk) default(shared) private(i,j,k,twss,bwss,tpss,bpss,Ly) schedule(dynamic)
         do k = 1,mx
             do j = 1,mz
                 do i = 1,nyp
@@ -1306,9 +1317,6 @@ contains
                     ! Calculate u'
                     up(i,j,k) = u(i,j,k) - umean(i)
 
-                    ! Calculate averages for correlation
-                    beta_avg = beta_avg + beta(i,j,k)*Lx*Ly*Lz
-
                     ! Calcualte average profiles vs y
                      betay(i) =  betay(i) + beta(i,j,k)*Lx*Lz ! beta vs y
                     swirly(i) = swirly(i) + swirl(i,j,k)*Lx*Lz ! swirl vs y
@@ -1316,11 +1324,9 @@ contains
                       vrms(i) =   vrms(i) +  v(i,j,k)**2.0 ! v'_rms
                       wrms(i) =   wrms(i) +  w(i,j,k)**2.0 ! w'_rms
                        R12(i) =    R12(i) + up(i,j,k)*v(i,j,k) ! RSS
-#IFDEF POLYMER
-                       T12(i) =    T12(i) + u12(i,j,k)/re + p12(i,j,k) ! tau_xy (total shear stress)
-#ELSE
-                       T12(i) =    T12(i) + u12(i,j,k)/re ! tau_xy
-#ENDIF
+                       T12(i) =    T12(i) + u12(i,j,k)/re ! Mean shear stress
+                      py12(i) =   py12(i) + p12(i,j,k) ! polymer shear stress
+                       Ckk = Ckk + trC(i,j,k)*Lx*Ly*Lz
                 end do
 
                 ! Calc stress on top and bottom walls only
@@ -1329,13 +1335,11 @@ contains
 
                 tau_tw = tau_tw + twss/re
                 tau_bw = tau_bw + bwss/re
-#IFDEF POLYMER
                 tpss = p12(1,j,k) 
                 bpss = p12(nyp,j,k) 
 
                 s_tw = s_tw + tpss
                 s_bw = s_bw + bpss
-#ENDIF
             end do
         end do
         !$omp end parallel do
@@ -1344,53 +1348,53 @@ contains
         do i = 1,nyp
              R12(i) = R12(i)/(mx*mz)
              T12(i) = T12(i)/(mx*mz)
+            py12(i) = py12(i)/(mx*mz)
             urms(i) = sqrt(urms(i)/(mx*mz))
             vrms(i) = sqrt(vrms(i)/(mx*mz))
             wrms(i) = sqrt(wrms(i)/(mx*mz))
+
             if (i .lt. nyp) then
-                massFlux = massFlux + 1.0/yl*0.5*(umean(i+1) + umean(i))*abs(ycoord(i+1) - ycoord(i)) ! Bulk velocity
+            massFlux = massFlux + 1.0/yl*0.5*(umean(i+1) + umean(i))*abs(ycoord(i+1) - ycoord(i)) ! Bulk velocity
             end if
         end do
 
         ! Finish computing averages and correlation
-        beta_avg = beta_avg/volume
         betay = betay/(xl*zl)
         swirly = swirly/(xl*zl)
 
-
         ! Write data to output files - updated each time step        
         if (it .eq. irstrt) then
-            open(10,     file='outputs/Txy1')
-            open(11,    file='outputs/urms1')
-            open(12,     file='outputs/RSS1')
-            open(22,    file='outputs/vrms1')
-            open(33,    file='outputs/wrms1')
-            open(99,file='outputs/massflux1')
-            open(100, file='outputs/mean_u1')
-            open(101,  file='outputs/betay1')
-            open(102, file='outputs/swirly1')
-            open(103,   file='outputs/twss1')
-            open(104,   file='outputs/bwss1')
-#IFDEF POLYMER
-            open(105,   file='outputs/tpss1')
-            open(106,   file='outputs/bpss1')
+            open(10,     file='outputs/Txy0')
+            open(11,    file='outputs/urms0')
+            open(12,     file='outputs/RSS0')
+            open(22,    file='outputs/vrms0')
+            open(33,    file='outputs/wrms0')
+            open(99,file='outputs/massflux0')
+            open(100, file='outputs/mean_u0')
+            open(101,  file='outputs/betay0')
+            open(102, file='outputs/swirly0')
+            open(103,   file='outputs/twss0')
+            open(104,   file='outputs/bwss0')
+            open(105,   file='outputs/tpss0')
+            open(106,   file='outputs/bpss0')
+            open(107,    file='outputs/Ckk0')
+            open(108,    file='outputs/PSS0')
         else
-            open(105,   file='outputs/tpss1',position='append')
-            open(106,   file='outputs/bpss1',position='append')
-#ELSE
-        else
-#ENDIF
-            open(10,     file='outputs/Txy1',position='append')
-            open(11,    file='outputs/urms1',position='append')
-            open(12,     file='outputs/RSS1',position='append')
-            open(22,    file='outputs/vrms1',position='append')
-            open(33,    file='outputs/wrms1',position='append')
-            open(99,file='outputs/massflux1',position='append')
-            open(100, file='outputs/mean_u1',position='append')
-            open(101,  file='outputs/betay1',position='append')
-            open(102, file='outputs/swirly1',position='append')
-            open(103,   file='outputs/twss1',position='append')
-            open(104,   file='outputs/bwss1',position='append')
+            open(105,   file='outputs/tpss0',position='append')
+            open(106,   file='outputs/bpss0',position='append')
+            open(107,    file='outputs/Ckk0',position='append')
+            open(108,    file='outputs/PSS0',position='append')
+            open(10,     file='outputs/Txy0',position='append')
+            open(11,    file='outputs/urms0',position='append')
+            open(12,     file='outputs/RSS0',position='append')
+            open(22,    file='outputs/vrms0',position='append')
+            open(33,    file='outputs/wrms0',position='append')
+            open(99,file='outputs/massflux0',position='append')
+            open(100, file='outputs/mean_u0',position='append')
+            open(101,  file='outputs/betay0',position='append')
+            open(102, file='outputs/swirly0',position='append')
+            open(103,   file='outputs/twss0',position='append')
+            open(104,   file='outputs/bwss0',position='append')
         end if
 
         ! Write y-profile data in order
@@ -1403,6 +1407,7 @@ contains
             write(100,*) umean(i)
             write(101,*) betay(i)
             write(102,*) swirly(i)
+            write(108,*) py12(i)
         end do
         write(99,*) massFlux
         write(103,*) tau_tw/(mx*mz)
@@ -1414,17 +1419,19 @@ contains
         close(22)
         close(33)
         close(99)
+        close(100)
         close(101)
         close(102)
         close(103)
         close(104)
 
-#IFDEF POLYMER
         write(105,*) s_tw/(mx*mz)
         write(106,*) s_bw/(mx*mz)
+        write(107,*) Ckk/volume
         close(105)
         close(106)
-#ENDIF
+        close(107)
+        close(108)
 
     end subroutine writeoutputs
 
@@ -1535,6 +1542,7 @@ contains
                 do i = 1,nyp
                     Strain = u11(i,j,k)**2 + u22(i,j,k)**2 + u33(i,j,k)**2
                     Rot = -2.0*(u12(i,j,k)*u21(i,j,k) + u13(i,j,k)*u31(i,j,k) + u23(i,j,k)*u32(i,j,k))
+!                    Strain = u11(i,j,k)**2 + u22(i,j,k)**2 + u33(i,j,k)**2 + 0.5*((u12(i,j,k) + u21(i,j,k))**2 + (u13(i,j,k) + u31(i,j,k))**2 + (u23(i,j,k) + u32(i,j,k))**2)
                     Q(i,j,k) = 0.5*(Rot - Strain)
                 end do
             end do
@@ -1705,11 +1713,11 @@ contains
         ! Write 3d-data 
         open(6, file = filename)
 #IFDEF SCALAR
-        write(6,*) 'filetype = solution, variables = "swirl", "u", "v", "w", "wx", "wy", "wz", "scl"'
+        write(6,9711) 'filetype = solution, variables = "swirl", "u", "v", "w", "wx", "wy", "wz", "scl"'
 #ELSE
         write(6,9711) 'filetype = solution, variables = "swirl", "u", "v", "w", "wx", "wy", "wz"'
 #ENDIF
-        write(6,9712) 'zone f=point t="Flowfield", solutiontime=', it/iprnfrq,', i=',mx, ' j=', mz_copy, ' k=', nyp, new_line('a')
+        write(6,9712) 'zone f=point t="Field", solutiontime=', it/iprnfrq,',i=',mx, 'j=',1, 'k=', nyp, new_line('a')
         
         do k = 1,nyp
             y = ycoord(k)
@@ -1739,7 +1747,7 @@ contains
             open(5, file = "outputs/flowfield/grid.dat", status = "replace")
         
             write(5,*) 'filetype = grid, variables = "x", "y", "z"'
-            write(5,*) 'zone f=point, t="Grid", i=', mx, ' j=', mz_copy, 'k=', nyp
+            write(5,*) 'zone f=point t="Grid", i=', mx, ' j=', 1, 'k=', nyp
             do k = 1,nyp
                 y = ycoord(k)
                 do j = 1,mz_copy
@@ -2073,135 +2081,144 @@ contains
     end subroutine write_FTLE_output
 
     !---------------------------------------------------------------------!
+    
+    subroutine calc_stress(umean,u,v,w,u12 &
+#IFDEF POLYMER
+                        ,p12 &
+#ENDIF
+                        )
 
-    subroutine write_flowfield_hdf5(u,v,w,wx,wy,wz,swirl)
         use grid_size
-        use hdf5
+        use omp_lib
 
         implicit none
 
-        ! HDF5 variables
-        integer(HID_T) :: file_id, dset_id, dataspace_id, timespace_id, timeset_id,dxpl
-        integer :: hdferr
-        integer(HSIZE_T), dimension(3) :: dims
-        integer(HSIZE_T), dimension(1) :: dimt
+        real,dimension(nyp)       :: umean
+        real,dimension(nyp,mz,mx) :: u,v,w,u12,up,vp,wp
+#IFDEF POLYMER
+        real,dimension(nyp,mz,mx) :: p12
+        real :: s_tw,s_bw,tpss,bpss
+#ENDIF
+        real :: tau_tw,tau_bw,twss,bwss
 
-        ! Data variables
-        real, dimension(nyp,mz,mx) :: u,v,w,wx,wy,wz,swirl
-        real, dimension(nyp,mz,mx,3) :: xyz
+        ! Reynolds stresses (symmetric tensor)
+        real,dimension(nyp) :: R11, R12, R13, R22, R23, R33 
 
-        ! Grid variables
-        real :: xl,yl,zl
-        real :: delxm,delzm
-        real :: x(mx),y(nyp),z(mz)
-!        real :: x,z
-        
-        ! Time variables
-        real,dimension(1) :: times
-        integer :: irstrt,nsteps,iprnfrq
-        integer :: it
+        ! Common block variables
+        integer :: irstrt
+        integer :: it 
+        real    :: xl,yl,zl
+        real    :: re
 
-        ! Misc
         integer :: i,j,k
-        character (len=23) :: base_filename = 'outputs/flowfield/time-'
-        character (len=80) :: filename
-        common/iocontrl/ irstrt,nsteps,iprnfrq
-        common/itime/    it
-        common/domain/   xl,yl,zl
 
-        ! --------------------------------------------------------------------------------- !
-        ! --------------------------------------------------------------------------------- !
+        ! Common blocks
+        common/iocontrl/   irstrt
+        common/itime/      it
+        common/domain/     xl,yl,zl
+        common/flow/       re
+     
 
-        ! Initialize the HDF5 library
-        call h5open_f(hdferr)
-
-        ! Create a new file using default properties
-        call h5fcreate_f('outputs/flowfield/flowfield'//'_'//trim(adjustl(itoa(it/iprnfrq)))//'.h5', H5F_ACC_TRUNC_F, file_id, hdferr)
-
-        delxm = xl/mx
-        delzm = zl/mz
+        ! Begin Calculations
+        ! Calculate fluctuating velocities
+        !$omp parallel do
         do k = 1,mx
-            x(k) = float(k-1)*delxm
-            do j = 1,mz
-                z(j) = float(j-1)*delzm
+            do j = 1,mz 
                 do i = 1,nyp
-                    y(i) = ycoord(i)
+                    up(i,j,k) = u(i,j,k) - umean(i)
+                    vp(i,j,k) = v(i,j,k)
+                    wp(i,j,k) = w(i,j,k)
                 end do
             end do
         end do
+        !$omp end parallel do
 
-        ! x grid
-        dimt = (/ mx /)
-        call h5screate_simple_f(1, dimt, dataspace_id, hdferr)
-        call h5dcreate_f(file_id, 'x', H5T_NATIVE_DOUBLE, dataspace_id, dset_id, hdferr)
-        call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, x, dimt, hdferr)
-        call h5dclose_f(dset_id, hdferr)
-        call h5sclose_f(dataspace_id, hdferr)
-        
-        ! y grid 
-        dimt = (/ nyp /)
-        call h5screate_simple_f(1, dimt, dataspace_id, hdferr)
-        call h5dcreate_f(file_id, 'y', H5T_NATIVE_DOUBLE, dataspace_id, dset_id, hdferr)
-        call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, y, dimt, hdferr)
-        call h5dclose_f(dset_id, hdferr)
-        call h5sclose_f(dataspace_id, hdferr)
+        ! Average values to calculate stress terms
+        R11 = 0.0; R12 = 0.0; R13 = 0.0
+        R22 = 0.0; R23 = 0.0; R33 = 0.0
+        !$omp parallel do default(shared) reduction(+:R11,R12,R13,R22,R23,R33) private(i,j,k) collapse(3)
+        do k = 1,mx
+            do j = 1,mz 
+                do i = 1,nyp
+                    R11(i) = R11(i) + up(i,j,k)*up(i,j,k)
+                    R12(i) = R12(i) + up(i,j,k)*vp(i,j,k)
+                    R13(i) = R13(i) + up(i,j,k)*wp(i,j,k)
+                    R22(i) = R22(i) + vp(i,j,k)*vp(i,j,k)
+                    R23(i) = R23(i) + vp(i,j,k)*wp(i,j,k)
+                    R33(i) = R33(i) + wp(i,j,k)*wp(i,j,k)
+                end do
+            end do
+        end do
+        !$omp end parallel do
 
-        ! z grid
-        dimt = (/ mz /)
-        call h5screate_simple_f(1, dimt, dataspace_id, hdferr)
-        call h5dcreate_f(file_id, 'z', H5T_NATIVE_DOUBLE, dataspace_id, dset_id, hdferr)
-        call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, z, dimt, hdferr)
-        call h5dclose_f(dset_id, hdferr)
-        call h5sclose_f(dataspace_id, hdferr)
+        R11 = R11/(mx*mz)
+        R12 = R12/(mx*mz)
+        R13 = R13/(mx*mz)
+        R22 = R22/(mx*mz)
+        R23 = R23/(mx*mz)
+        R33 = R33/(mx*mz)
 
-        ! ------------------------------------------------------------------------------ !
+        tau_tw = 0.0
+        tau_bw = 0.0
+#IFDEF POLYMER
+        s_tw = 0.0
+        s_bw = 0.0
+        !$omp parallel do reduction(+:tau_tw,tau_bw,s_tw,s_bw) default(shared) private(j,k,twss,bwss,tpss,bpss)
+#ELSE
+        !$omp parallel do reduction(+:tau_tw,tau_bw) default(shared) private(j,k,twss,bwss)
+#ENDIF
+        do k = 1,mx
+            do j = 1,mz
+                twss = u12(1,j,k)
+                bwss = u12(nyp,j,k)
 
-        dims = (/ nyp,mz,mx /)  
-        call h5screate_simple_f(3, dims, dataspace_id,hdferr)
+                tau_tw = tau_tw + twss/re
+                tau_bw = tau_bw + bwss/re
+#IFDEF POLYMER
+                tpss = p12(1,j,k) 
+                bpss = p12(nyp,j,k) 
 
-        call write_3d_dataset(file_id,'u',u,dataspace_id,dims,it/iprnfrq)
-        call write_3d_dataset(file_id,'v',v,dataspace_id,dims,it/iprnfrq)
-        call write_3d_dataset(file_id,'w',w,dataspace_id,dims,it/iprnfrq)
-!        call write_3d_dataset(file_id,'wx',wx,dataspace_id,dims,it/iprnfrq)
-!        call write_3d_dataset(file_id,'wy',wy,dataspace_id,dims,it/iprnfrq)
-!        call write_3d_dataset(file_id,'wz',wz,dataspace_id,dims,it/iprnfrq)
-        call write_3d_dataset(file_id,'swirl',swirl,dataspace_id,dims,it/iprnfrq)
+                s_tw = s_tw + tpss
+                s_bw = s_bw + bpss
+#ENDIF
+            end do
+        end do
+        !$omp end parallel do                
 
-        ! Close dataspace
-        call h5sclose_f(dataspace_id, hdferr)
+        if (it .eq. irstrt) then
+            open(11,file='outputs/Rey_stress1',status='new')
+            open(101,file='outputs/twss1')
+            open(102,file='outputs/bwss1')
+        else
+            open(11,file='outputs/Rey_stress1',status='old',position='append')
+            open(101,file='outputs/twss1',position='append')
+            open(102,file='outputs/bwss1',position='append')
+        end if
 
-        ! Close file
-        call h5fclose_f(file_id, hdferr)
+!        write(11,*) R11,R12,R13,R22,R23,R33
+        do i = 1,nyp
+            write(11,*) R12(i)
+        end do
+        write(101,*) tau_tw/(mx*mz)
+        write(102,*) tau_bw/(mx*mz)
+        close(11)
+        close(101)
+        close(102)
 
-        ! Close the HDF5 library
-        call h5close_f(hdferr)
+#IFDEF POLYMER
+        if (it .eq. irstrt) then
+            open(103,file='outputs/tpss1')
+            open(104,file='outputs/bpss1')
+        else
+            open(103,file='outputs/tpss1',position='append')
+            open(104,file='outputs/bpss1',position='append')
+        end if
 
-    end subroutine
+        write(103,*) s_tw/(mx*mz)
+        write(104,*) s_bw/(mx*mz)
+        close(103)
+        close(104)
 
-    subroutine write_3d_dataset(file_id,nam,dat,dspace_id,dims,t)
-        use hdf5
-        implicit none
-        integer(HID_T) :: file_id, dspace_id
-        integer(HSIZE_T), dimension(3) :: dims
-        character(len=*) :: nam
-        real, dimension(:,:,:) :: dat
-        integer(HID_T) :: dset_id, plist_id
-        integer :: herror,t
-
-        ! Create dataset
-        call h5dcreate_f(file_id,nam,H5T_NATIVE_DOUBLE,dspace_id,dset_id,herror)
-
-        ! Write data to dataset
-        call h5dwrite_f(dset_id,H5T_NATIVE_DOUBLE,dat,dims,herror)
-
-        ! Close datatset
-        call h5dclose_f(dset_id,herror)
-    end subroutine
-
-    ! Convert int to string
-    character(len=32) function itoa(i)
-        integer :: i
-        write(itoa, '(I0)') i
-    end function
-
+#ENDIF
+    end subroutine calc_stress
 end module helpers
