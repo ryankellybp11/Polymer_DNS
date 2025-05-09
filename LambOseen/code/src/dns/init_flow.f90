@@ -403,6 +403,7 @@ subroutine vortex_only(initu,initv,initw)
     sigsq = vortSigma**2
 
     ! The vortex will only be in the y-z plane, so only loop through those variables
+    vyc = vortY; vzc = vortZ
     vortW = 0.0; vortV = 0.0
     do j = 1,nz
         z = zl*(j-1)/nz - zl/2.0
