@@ -1028,8 +1028,8 @@ contains
             open(11,file='outputs/enstrophy',position='append')
         end if
 
-        write(10,*) sumens/xl
-        write(11,*) sumke/xl
+        write(11,*) sumens/xl
+        write(10,*) sumke/xl
 
         close(10)
         close(11)

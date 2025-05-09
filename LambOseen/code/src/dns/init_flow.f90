@@ -377,7 +377,7 @@ subroutine vortex_only(initu,initv,initw)
     real,dimension(nyp,nz) :: vortV, vortW
     real    :: vyc,vzc,vortR2,vSign,rsq,sigsq
     real    :: vortGamma,vortSigma,vortY,vortZ,vortSpace
-    integer :: vNum,nperiods = 8
+    integer :: vNum,nperiods = 1
     
     ! Calculation variables
     real    :: pi, y, z
